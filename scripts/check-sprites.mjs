@@ -14,9 +14,22 @@
  *   node scripts/check-sprites.mjs            # 一覧
  *   node scripts/check-sprites.mjs --bad      # 問題のあるものだけ
  */
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+
+/**
+ * 手で用意した絵は検査しない。
+ *
+ * 翼をひろげた竜や炎のように、輪郭がもともと複雑な絵は
+ * 「ぼろぼろ度」や「内側の穴」で落ちてしまう。これらの検査は
+ * 生成AIの失敗を拾うためのものなので、人が見て決めた絵には当てない。
+ */
+const MANUAL = new Set(
+  existsSync(path.join(import.meta.dirname, 'manual-sprites.json'))
+    ? JSON.parse(readFileSync(path.join(import.meta.dirname, 'manual-sprites.json'), 'utf8'))
+    : [],
+);
 
 const root = path.resolve(import.meta.dirname, '..');
 const ROOT = path.join(root, 'public', 'assets', 'adventure');
@@ -167,6 +180,12 @@ for (const file of files) {
   const rel = path.relative(ROOT, file);
 
   const problems = [];
+  // 手用意の絵は、人が見て決めたものなので機械の判定にかけない
+  const manual = MANUAL.has(rel.replace(/\.png$/, ''));
+  if (manual) {
+    if (!ONLY_BAD) console.log(`— ${rel}  (手用意のため検査しない)`);
+    continue;
+  }
   if (greenRatio > 0.08) problems.push(`緑の抜け残り ${(greenRatio * 100).toFixed(0)}%`);
   if (fill > 0.9) problems.push(`背景が抜けていない (${(fill * 100).toFixed(0)}%)`);
   // 10%を切るものは、目で見ると「体を食われた残骸」になっている

@@ -24,6 +24,15 @@ import sharp from 'sharp';
 const root = path.resolve(import.meta.dirname, '..');
 const OUT_ROOT = path.join(root, 'public', 'assets', 'adventure');
 const MANIFEST = path.join(root, 'scripts', 'sprite-manifest.json');
+/**
+ * 手で用意した絵の一覧(import-sprite.mjs が書く)。
+ * ここに載っているものは --force でも生成しない。
+ * 載せておかないと、作り直しのたびに人が用意した絵が消える。
+ */
+const MANUAL_LIST = path.join(root, 'scripts', 'manual-sprites.json');
+const MANUAL = new Set(
+  existsSync(MANUAL_LIST) ? JSON.parse(readFileSync(MANUAL_LIST, 'utf8')) : [],
+);
 
 const args = process.argv.slice(2);
 const FORCE = args.includes('--force');
@@ -422,6 +431,13 @@ async function main() {
       readFileSync(LIST_FILE, 'utf8').split('\n').map(l => l.trim()).filter(Boolean),
     );
     jobs = jobs.filter(j => wanted.has(j.out));
+  }
+
+  // 手で用意した絵は生成しない(--force でも上書きしない)
+  const manualHits = jobs.filter(j => MANUAL.has(j.out)).map(j => j.out);
+  if (manualHits.length > 0) {
+    jobs = jobs.filter(j => !MANUAL.has(j.out));
+    console.log(`手用意のため生成しない: ${manualHits.join(', ')}`);
   }
 
   const stats = { total: jobs.length, done: 0, skipped: 0, failed: 0, failures: [] };

@@ -81,7 +81,7 @@ export const LEGENDS: LegendDef[] = [
       'ムゲンドラは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a big golden dragon standing on four legs, one solid body with thick golden scales, a long tail and two curved horns',
+      'a big four-legged dragon of black obsidian with glowing golden lava veins, wide leathery wings and flames along its back',
     shrine: { color: '#f5b942', style: 'monolith' },
   },
   {
@@ -137,7 +137,7 @@ export const LEGENDS: LegendDef[] = [
       'シンカイオウは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a big blue-and-silver dragon standing on four legs, one solid body covered in smooth scales, a long tail and a single crystal horn',
+      'a big four-legged dragon of pale blue ice crystal with translucent wings, standing on a frozen rune platform',
     shrine: { color: '#4aa8e0', style: 'ring' },
   },
   {
@@ -169,32 +169,36 @@ export const LEGENDS: LegendDef[] = [
     shrine: { color: '#e86fae', style: 'torii' },
   },
   {
-    id: 'legend-bai', no: 2005, name: 'キョダイオン', title: '倍を司る巨樹の獣',
+    id: 'legend-bai', no: 2005, name: 'キョダイオン', title: '倍を司る業火の巨人',
     kind: 'legend', type: 'bai', townId: 'kyoju',
     units: ['倍の見方'],
     baseHp: 170, baseAtk: 32, level: 46,
-    flavor: 'ひとつぶの種から、山ほどの大きさへ。「何倍か」という考えそのものが 獣になった姿。',
+    flavor: 'ひとつぶの火の粉から、山をのむ炎へ。「何倍か」という考えそのものが 姿を持った者。',
     legendText: [
       '―― 石碑に、古い文字が きざまれている。',
       '『小さきものが 大いなるものに なる。』',
       '『それは まほうではない。「何倍か」を 知ることだ。』',
-      '『もとにする量を 見あやまらぬ者よ、森の おくへ 進め。』',
+      '『ひとつぶの 火の粉が、山を のむ。だから 森は これを 封じた。』',
+      '『もとにする量を 見あやまらぬ者よ、封を といてみよ。』',
     ],
     awakenText: [
-      '巨大樹の根が、ゆっくりと もちあがった ――',
-      'ミシミシ……ドオオオン!!',
-      '森そのもののような 巨大な獣が、地から 立ちあがった！',
+      '巨大樹の根もとの 岩が、まっぷたつに 割れた ――',
+      'ゴォオオ……ドオオオン!!',
+      '燃える翼を ひろげた 巨人が、地の底から 立ちあがった！',
       'キョダイオン「もとにする量を、見あやまらぬか。」',
       'キョダイオン「……その一点だけを、問う。」',
     ],
     joinText: [
       'キョダイオン「よし。おまえは、くらべ方を まちがえなかった。」',
-      'キョダイオン「この森の力、持っていくがいい。」',
+      'キョダイオン「この炎、持っていくがいい。焼くためでは ない。」',
+      'キョダイオン「どれだけ 大きくなれるかを、示すためだ。」',
       'キョダイオンは、あなたに ついてくることに 決めたようだ！',
     ],
+    // 絵は手で用意したものを使っている(scripts/manual-sprites.json)。
+    // この motif は、作り直すことになったときの手がかりとして残してある。
     motif:
-      'a big green stag standing on four legs, one solid body of bark and moss, a long tail and large branching antlers',
-    shrine: { color: '#5cbf7a', style: 'monolith' },
+      'a towering fire titan of black obsidian rock with glowing lava cracks, huge flaming wings and two curved horns',
+    shrine: { color: '#e8622c', style: 'monolith' },
   },
   {
     id: 'legend-graph', no: 2006, name: 'ジクウオン', title: '時をよむ翼',
@@ -322,7 +326,7 @@ export const MYTHICALS: LegendDef[] = [
       '―― ナンバーランドの 物語は、ここで ひとつの 区切りを むかえた。',
     ],
     motif:
-      'a giant winged serpent-dragon with rainbow prismatic scales, seven glowing colored rings orbiting its long body',
+      'a big iridescent violet dragon with pearlescent scales shifting through rainbow colors and wide feathered-crystal wings',
     shrine: { color: '#a99cc4', style: 'torii' },
   },
 ];
