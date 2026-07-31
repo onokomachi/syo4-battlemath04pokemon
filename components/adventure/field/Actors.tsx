@@ -216,3 +216,143 @@ const useSignTexture = (kind: 'nurse' | 'shop' | 'dojo'): THREE.Texture =>
     signCache.set(kind, tex);
     return tex;
   }, [kind]);
+
+
+// ------------------------------------------------------------
+// 祠(伝説のモンスターが眠る場所)
+// ------------------------------------------------------------
+
+/**
+ * 石碑と、その上に浮かぶ封印のしるし。
+ * 条件を満たすと しるしが 大きく光って回り、「ここに 何かが いる」と分かる。
+ * 未達のときは くすんだまま(石碑の伝承だけ読める)。
+ */
+export const Shrine: React.FC<{
+  x: number; y: number; z: number;
+  color: string;
+  style: 'monolith' | 'torii' | 'ring' | 'pillar';
+  /** 条件を満たしているか */
+  ready: boolean;
+  /** すでに仲間にしたか */
+  taken: boolean;
+}> = ({ x, y, z, color, style, ready, taken }) => {
+  const seal = useRef<THREE.Group>(null);
+  const glow = useRef<THREE.Mesh>(null);
+
+  useFrame(state => {
+    const t = state.clock.elapsedTime;
+    if (seal.current) {
+      seal.current.rotation.y = t * (ready && !taken ? 0.9 : 0.15);
+      seal.current.position.y = y + 3.6 + Math.sin(t * 1.4) * (ready && !taken ? 0.3 : 0.08);
+    }
+    if (glow.current) {
+      const s = ready && !taken ? 1 + Math.sin(t * 2.2) * 0.18 : 1;
+      glow.current.scale.setScalar(s);
+    }
+  });
+
+  const lit = ready && !taken;
+  const stone = taken ? '#8d8d8d' : lit ? '#efe7d4' : '#9c968a';
+
+  return (
+    <group position={[x, y, z]}>
+      {/* 台座 */}
+      <mesh position={[0, 0.25, 0]}>
+        <cylinderGeometry args={[2.6, 3.0, 0.5, 12]} />
+        <meshLambertMaterial color="#cfc7b4" />
+      </mesh>
+      <mesh position={[0, 0.62, 0]}>
+        <cylinderGeometry args={[2.1, 2.4, 0.3, 12]} />
+        <meshLambertMaterial color="#bdb5a2" />
+      </mesh>
+
+      {/* 本体 */}
+      {style === 'monolith' && (
+        <mesh position={[0, 2.2, 0]}>
+          <boxGeometry args={[1.5, 3.4, 0.6]} />
+          <meshLambertMaterial color={stone} />
+        </mesh>
+      )}
+      {style === 'pillar' && (
+        <>
+          {[-1.2, 1.2].map((ox, i) => (
+            <mesh key={i} position={[ox, 2.1, 0]}>
+              <cylinderGeometry args={[0.36, 0.42, 3.2, 10]} />
+              <meshLambertMaterial color={stone} />
+            </mesh>
+          ))}
+          <mesh position={[0, 3.9, 0]}>
+            <boxGeometry args={[3.4, 0.4, 0.7]} />
+            <meshLambertMaterial color={stone} />
+          </mesh>
+        </>
+      )}
+      {style === 'torii' && (
+        <>
+          {[-1.5, 1.5].map((ox, i) => (
+            <mesh key={i} position={[ox, 2.0, 0]} rotation={[0, 0, ox > 0 ? -0.05 : 0.05]}>
+              <cylinderGeometry args={[0.3, 0.36, 3.2, 10]} />
+              <meshLambertMaterial color={taken ? '#8d8d8d' : '#c0392b'} />
+            </mesh>
+          ))}
+          <mesh position={[0, 3.75, 0]}>
+            <boxGeometry args={[4.4, 0.36, 0.6]} />
+            <meshLambertMaterial color={taken ? '#8d8d8d' : '#a93226'} />
+          </mesh>
+          <mesh position={[0, 3.25, 0]}>
+            <boxGeometry args={[3.4, 0.26, 0.5]} />
+            <meshLambertMaterial color={taken ? '#8d8d8d' : '#a93226'} />
+          </mesh>
+        </>
+      )}
+      {style === 'ring' && (
+        <mesh position={[0, 2.6, 0]} rotation={[0, 0, 0]}>
+          <torusGeometry args={[1.6, 0.28, 8, 20]} />
+          <meshLambertMaterial color={stone} />
+        </mesh>
+      )}
+
+      {/* 封印のしるし */}
+      <group ref={seal} position={[0, y + 3.6, 0]}>
+        <mesh ref={glow}>
+          <torusGeometry args={[0.9, 0.12, 6, 18]} />
+          <meshBasicMaterial
+            color={taken ? '#7a7a7a' : color}
+            transparent
+            opacity={lit ? 0.95 : 0.4}
+          />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.6, 0.09, 6, 16]} />
+          <meshBasicMaterial
+            color={taken ? '#7a7a7a' : color}
+            transparent
+            opacity={lit ? 0.85 : 0.3}
+          />
+        </mesh>
+        {lit && (
+          <mesh>
+            <sphereGeometry args={[0.34, 12, 10]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.85} />
+          </mesh>
+        )}
+      </group>
+
+      {/* 光の柱(条件を満たしたときだけ) */}
+      {lit && (
+        <mesh position={[0, 8, 0]}>
+          <cylinderGeometry args={[0.7, 1.1, 16, 12, 1, true]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.22}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+
+      <BlobShadow x={0} y={0} z={0} r={3.0} opacity={0.22} />
+    </group>
+  );
+};

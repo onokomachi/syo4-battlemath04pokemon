@@ -14,8 +14,10 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { MONSTER_DEX, MONSTERS_BY_UNIT, getMonster, statsAtLevel, expToNext } from '../data/adventure/monsters';
 import { TOWNS, BADGE_NAMES, getTown } from '../data/adventure/towns';
-import { GYM_REQUIREMENTS, type GymProgress } from '../data/adventure/gymRequirements';
+import { GYM_REQUIREMENTS, requirementFor, type GymProgress } from '../data/adventure/gymRequirements';
 import { ADVENTURE_TITLES, rankPoints, trainerRank, type AdventureTitleDef, type RankStatKey } from '../data/adventure/ranks';
+import { ALL_LEGENDS, legendsInTown, type LegendDef } from '../data/adventure/legends';
+import { TEAM_CHAPTERS, TEAM_HIDEOUT } from '../data/adventure/team';
 import { getAllMastery } from '../services/learningLogService';
 import type { OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
 
@@ -47,6 +49,14 @@ export interface AdventureSave {
   /** リーグの進行度(0=未挑戦, 1〜4=四天王, 5=チャンピオン撃破) */
   leagueProgress: number;
   champion: boolean;
+  /** 進化ずみの個体 uid */
+  evolved: string[];
+  /** 仲間にした伝説・幻の ID */
+  legends: string[];
+  /** クリアずみのテキトウ団の章 ID */
+  teamChapters: string[];
+  /** テキトウ団アジトを制覇したか */
+  teamCleared: boolean;
   updatedAt: number;
 }
 
@@ -66,6 +76,10 @@ const emptySave = (): AdventureSave => ({
   maxHp: 60,
   leagueProgress: 0,
   champion: false,
+  evolved: [],
+  legends: [],
+  teamChapters: [],
+  teamCleared: false,
   updatedAt: 0,
 });
 
@@ -106,6 +120,10 @@ interface AdventureState {
   awardBadge: (townId: string) => void;
   setLeagueProgress: (n: number) => void;
   setChampion: () => void;
+  markEvolved: (uid: string) => void;
+  addLegend: (legendId: string) => void;
+  clearTeamChapter: (chapterId: string) => void;
+  clearTeamHideout: () => void;
 
   // --- モンスター ---
   seeMonster: (defId: string) => void;
@@ -186,6 +204,19 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
     setLeagueProgress: n => update(s => ({ ...s, leagueProgress: Math.max(s.leagueProgress, n) })),
 
     setChampion: () => update(s => ({ ...s, champion: true, leagueProgress: 5 })),
+
+    markEvolved: uid =>
+      update(s => (s.evolved.includes(uid) ? s : { ...s, evolved: [...s.evolved, uid] })),
+
+    addLegend: legendId =>
+      update(s => (s.legends.includes(legendId) ? s : { ...s, legends: [...s.legends, legendId] })),
+
+    clearTeamChapter: chapterId =>
+      update(s =>
+        s.teamChapters.includes(chapterId) ? s : { ...s, teamChapters: [...s.teamChapters, chapterId] },
+      ),
+
+    clearTeamHideout: () => update(s => ({ ...s, teamCleared: true })),
 
     seeMonster: defId =>
       update(s => (s.seen.includes(defId) ? s : { ...s, seen: [...s.seen, defId] })),
@@ -331,7 +362,8 @@ export const canChallengeLeague = (save: AdventureSave): boolean =>
  * 学習の実績とゲームの進行を別々にしないための設計。
  */
 export const gymProgress = (save: AdventureSave, town: TownDef): GymProgress => {
-  const req = GYM_REQUIREMENTS[town.id];
+  // リーグの回廊など、14の町にない場所でも落ちないようにその場で計算する
+  const req = GYM_REQUIREMENTS[town.id] ?? requirementFor(town);
   const trainersBeaten = req.trainerIds.filter(id => save.defeatedNpcs.includes(id)).length;
 
   const unitDefIds = new Set((MONSTERS_BY_UNIT[town.unit] ?? []).map(m => m.id));
@@ -425,3 +457,135 @@ export const adventureRank = (save: AdventureSave) => {
   const st = adventureStats(save);
   return trainerRank(rankPoints(st));
 };
+
+
+// ============================================================
+// 進化(熟達したときだけ起きる)
+// ============================================================
+
+/**
+ * その個体が進化できるか。条件は「そのサブトピックで5問連続正解(熟達)」で、
+ * 判定は learningLogService の mastered をそのまま見る。
+ * 根拠: マスタリー・ラーニングのメタ分析(エビデンスレベル1a)。
+ * ゲームでいちばん嬉しい瞬間を、学習の到達点と同じタイミングにするための設計。
+ */
+export const canEvolve = (save: AdventureSave, owned: OwnedMonster): boolean => {
+  if (save.evolved.includes(owned.uid)) return false;
+  const def = getMonster(owned.defId);
+  if (!def?.evolution) return false;
+  return Boolean(getAllMastery()[def.subtopic]?.mastered);
+};
+
+/** いま進化できる手持ちを返す(バトル終了後にまとめて演出するため) */
+export const evolvableInParty = (save: AdventureSave) =>
+  save.party
+    .map(uid => save.owned.find(o => o.uid === uid))
+    .filter((o): o is OwnedMonster => Boolean(o))
+    .filter(o => canEvolve(save, o))
+    .map(o => ({ owned: o, def: getMonster(o.defId)! }));
+
+/** 表示に使うスプライトID(進化ずみなら進化後) */
+export const spriteIdFor = (save: AdventureSave, owned: OwnedMonster): string => {
+  const def = getMonster(owned.defId);
+  if (!def) return owned.defId;
+  return save.evolved.includes(owned.uid) && def.evolution ? def.evolution.id : def.id;
+};
+
+/** 表示に使う名前(進化ずみなら進化後) */
+export const displayNameFor = (save: AdventureSave, owned: OwnedMonster): string => {
+  if (owned.nickname) return owned.nickname;
+  const def = getMonster(owned.defId);
+  if (!def) return '???';
+  return save.evolved.includes(owned.uid) && def.evolution ? def.evolution.name : def.name;
+};
+
+// ============================================================
+// 伝説の祠
+// ============================================================
+
+export interface ShrineState {
+  legend: LegendDef;
+  /** 条件を満たして挑戦できるか */
+  ready: boolean;
+  /** すでに仲間にしたか */
+  taken: boolean;
+  /** あと何が足りないか(表示用) */
+  missing: string[];
+}
+
+/**
+ * 祠の状態。「その単元を制覇した」ことを条件にしている。
+ * バッジを取っただけでは足りず、図鑑を8割埋め、問題で熟達している必要がある。
+ * = その単元を本当に使いこなせた人にだけ姿を見せる。
+ */
+export const shrineState = (save: AdventureSave, legend: LegendDef): ShrineState => {
+  const taken = save.legends.includes(legend.id);
+  const missing: string[] = [];
+
+  if (legend.kind === 'mythical') {
+    // 幻は地方ぜんたいの達成が条件
+    if (legend.id === 'mythical-zero') {
+      const caught = dexProgress(save).caught;
+      if (caught < 100) missing.push(`モンスターを 100しゅるい つかまえる (${caught} / 100)`);
+    } else {
+      if (!save.champion) missing.push('チャンピオンに かつ');
+      const badges = save.badges.length;
+      if (badges < TOWNS.length) missing.push(`14この バッジを 集める (${badges} / 14)`);
+      const legendCount = save.legends.filter(id => id.startsWith('legend-')).length;
+      if (legendCount < 7) missing.push(`7体の 伝説を 仲間にする (${legendCount} / 7)`);
+    }
+    return { legend, taken, ready: missing.length === 0, missing };
+  }
+
+  // 伝説はそのタイプの全単元を「制覇」していること
+  const mastery = getAllMastery();
+  for (const unit of legend.units) {
+    const town = TOWNS.find(t => t.unit === unit);
+    if (town && !save.badges.includes(town.id)) {
+      missing.push(`${town.name}の バッジを 取る`);
+    }
+    const pool = MONSTERS_BY_UNIT[unit] ?? [];
+    const caughtIds = new Set(save.owned.map(o => o.defId));
+    const caught = pool.filter(m => caughtIds.has(m.id)).length;
+    const need = Math.ceil(pool.length * 0.8);
+    if (caught < need) {
+      missing.push(`${unit}の モンスターを あと${need - caught}体 つかまえる`);
+    }
+    const mastered = pool.filter(m => mastery[m.subtopic]?.mastered).length;
+    const needMastered = Math.max(2, Math.ceil(pool.length * 0.5));
+    if (mastered < needMastered) {
+      missing.push(`${unit}で あと${needMastered - mastered}項目 熟達する(5問れんぞく正解)`);
+    }
+  }
+
+  return { legend, taken, ready: missing.length === 0, missing };
+};
+
+/** その町にある祠の状態一覧 */
+export const shrinesInTown = (save: AdventureSave, townId: string): ShrineState[] =>
+  legendsInTown(townId).map(l => shrineState(save, l));
+
+// ============================================================
+// テキトウ団
+// ============================================================
+
+/** その町で発生すべき章(バッジ数の条件を満たし、未クリアのもの) */
+export const pendingTeamChapter = (save: AdventureSave, townId: string) =>
+  TEAM_CHAPTERS.find(
+    c =>
+      c.townId === townId &&
+      save.badges.length >= c.requiredBadges &&
+      !save.teamChapters.includes(c.id),
+  ) ?? null;
+
+/** アジトに入れるか(5章すべてクリア + 14バッジ) */
+export const canEnterHideout = (save: AdventureSave): boolean =>
+  !save.teamCleared &&
+  save.badges.length >= TEAM_HIDEOUT.requiredBadges &&
+  TEAM_CHAPTERS.every(c => save.teamChapters.includes(c.id));
+
+/** 伝説をまだ仲間にしていない数(図鑑表示用) */
+export const legendProgress = (save: AdventureSave) => ({
+  taken: save.legends.length,
+  total: ALL_LEGENDS.length,
+});

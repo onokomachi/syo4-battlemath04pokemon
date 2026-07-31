@@ -1,9 +1,15 @@
 /**
  * check-sprites.mjs — 生成したスプライトの品質を機械的に検査する。
  *
- * 目視だけだと 200枚以上を見きれないので、次の2点を自動で拾う。
+ * 目視だけだと 200枚以上を見きれないので、次の3点を自動で拾う。
  *   ① 背景の抜け残り: 不透明なのに緑がかった画素が多い
  *   ② 抜きすぎ / 抜けなさすぎ: 不透明画素の割合が極端
+ *   ③ 「食われ」: キャラの内側に穴が空いている(外周とつながっていない透明画素)
+ *      — 旧い背景除去(四隅の色を基準にする方式)で、白い体のキャラが
+ *        背景と同一視されて内側から溶けた場合に出る。見た目にいちばん響く。
+ *   ④ 「複数キャラ」: 大きな不透明のかたまりが2つ以上ある
+ *      — 生成が1体に収まらず、小さい仲間や分身を並べてしまった場合。
+ *        画面では「1体のモンスター」として扱うので必ず作り直す。
  *
  *   node scripts/check-sprites.mjs            # 一覧
  *   node scripts/check-sprites.mjs --bad      # 問題のあるものだけ
@@ -26,6 +32,94 @@ const walk = dir => {
   return out;
 };
 
+/**
+ * 内側の穴の割合。外周からの塗りつぶしで届かない透明画素を数える。
+ * 正常なスプライトでも、腕と胴のすきま等で少しは出るので、閾値は緩めに取る。
+ */
+const holeRatio = (data, w, h) => {
+  const transparent = i => data[i * 4 + 3] < 40;
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const p = y * w + x;
+    if (seen[p] || !transparent(p)) return;
+    seen[p] = 1;
+    stack.push(p);
+  };
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  while (stack.length) {
+    const p = stack.pop();
+    const x = p % w, y = (p / w) | 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+  let holes = 0, transparentTotal = 0;
+  for (let p = 0; p < w * h; p++) {
+    if (!transparent(p)) continue;
+    transparentTotal++;
+    if (!seen[p]) holes++;
+  }
+  return holes / (w * h);
+};
+
+/**
+ * 大きな不透明のかたまりの数。2つ以上あれば「複数キャラが描かれた」とみなす。
+ * 小さなかけら(全体の3%未満)は装飾やゴミなので数えない。
+ */
+/**
+ * シルエットの「ぼろぼろ度」= 周囲長 / √面積。
+ *
+ * 背景除去がキャラを食うと、輪郭が外側とつながったまま細かく刻まれる。
+ * こうなると「内側の穴」でも「塗りつぶし率」でも捕まらないが、
+ * 周囲長だけが跳ね上がる。実測では、まともな絵は 3〜5、
+ * 食われた絵は 11〜19 にはっきり分かれた。
+ */
+const raggedness = (data, w, h) => {
+  const op = p => data[p * 4 + 3] > 40;
+  let area = 0, per = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (!op(p)) continue;
+      area++;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
+          !op(p - 1) || !op(p + 1) || !op(p - w) || !op(p + w)) per++;
+    }
+  }
+  return area ? per / Math.sqrt(area) : 0;
+};
+
+const blobCount = (data, w, h) => {
+  const opaque = p => data[p * 4 + 3] > 40;
+  const seen = new Uint8Array(w * h);
+  const sizes = [];
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || !opaque(start)) continue;
+    let size = 0;
+    const stack = [start];
+    seen[start] = 1;
+    while (stack.length) {
+      const p = stack.pop();
+      size++;
+      const x = p % w, y = (p / w) | 0;
+      const push = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        const q = ny * w + nx;
+        if (seen[q] || !opaque(q)) return;
+        seen[q] = 1;
+        stack.push(q);
+      };
+      push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+    }
+    sizes.push(size);
+  }
+  sizes.sort((a, b) => b - a);
+  const biggest = sizes[0] ?? 0;
+  // いちばん大きいかたまりの30%以上のものを「もう1体」と数える
+  return sizes.filter(v => v > Math.max(w * h * 0.02, biggest * 0.3)).length;
+};
+
 const files = walk(ROOT).filter(f => !f.includes(`${path.sep}terrain${path.sep}`));
 const bad = [];
 
@@ -43,16 +137,23 @@ for (const file of files) {
   const total = info.width * info.height;
   const fill = opaque / total;
   const greenRatio = opaque ? greenish / opaque : 0;
+  const holes = holeRatio(data, info.width, info.height);
+  const blobs = blobCount(data, info.width, info.height);
+  const ragged = raggedness(data, info.width, info.height);
   const rel = path.relative(ROOT, file);
 
   const problems = [];
-  if (greenRatio > 0.12) problems.push(`緑の抜け残り ${(greenRatio * 100).toFixed(0)}%`);
+  if (greenRatio > 0.08) problems.push(`緑の抜け残り ${(greenRatio * 100).toFixed(0)}%`);
   if (fill > 0.9) problems.push(`背景が抜けていない (${(fill * 100).toFixed(0)}%)`);
-  if (fill < 0.06) problems.push(`ほぼ空 (${(fill * 100).toFixed(0)}%)`);
+  // 10%を切るものは、目で見ると「体を食われた残骸」になっている
+  if (fill < 0.10) problems.push(`体が食われている (${(fill * 100).toFixed(0)}%)`);
+  if (holes > 0.02) problems.push(`内側が食われている ${(holes * 100).toFixed(1)}%`);
+  if (blobs >= 2) problems.push(`複数キャラが描かれている (${blobs}体)`);
+  if (ragged > 9) problems.push(`輪郭が食われている (ぼろぼろ度 ${ragged.toFixed(1)})`);
 
   if (problems.length) bad.push({ rel, problems });
   if (!ONLY_BAD) {
-    console.log(`${problems.length ? '✗' : '✓'} ${rel}  fill=${(fill * 100).toFixed(0)}% green=${(greenRatio * 100).toFixed(0)}%`);
+    console.log(`${problems.length ? '✗' : '✓'} ${rel}  fill=${(fill * 100).toFixed(0)}% green=${(greenRatio * 100).toFixed(0)}% holes=${(holes * 100).toFixed(1)}% blobs=${blobs} ragged=${ragged.toFixed(1)}`);
   }
 }
 

@@ -5,13 +5,17 @@
  * 指がとどく位置に大きなボタンを置き、文字も大きめにしている。
  */
 import React, { useMemo, useState } from 'react';
-import { MONSTER_DEX, getMonsterSprite, statsAtLevel, expToNext } from '../../data/adventure/monsters';
+import {
+  MONSTER_DEX, LEGEND_DEX, getMonster, getMonsterSprite, statsAtLevel, expToNext,
+} from '../../data/adventure/monsters';
 import { ELEMENTS, getStrongAgainst, getWeakAgainst } from '../../data/adventure/elements';
 import { TOWNS, BADGE_NAMES } from '../../data/adventure/towns';
+import { LEAGUE_TOWN } from '../../data/adventure/league';
 import { ABILITIES, ITEMS, type ItemId } from '../../data/adventure/adventureTypes';
 import {
   useAdventureStore, dexProgress, getPartyMonsters,
   adventureStats, earnedAdventureTitles, nextAdventureTitles, adventureRank, gymProgress,
+  spriteIdFor, displayNameFor,
 } from '../../store/adventureStore';
 import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { getPlayerSprite } from '../../data/adventure/people';
@@ -47,10 +51,20 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const caughtIds = useMemo(() => new Set(save.owned.map(o => o.defId)), [save.owned]);
   const seenIds = useMemo(() => new Set(save.seen), [save.seen]);
+  /** すでに進化させた図鑑ID(セーブは個体uidで持っているので、defIdに直す) */
+  const evolvedIds = useMemo(
+    () => new Set(
+      save.owned.filter(o => save.evolved.includes(o.uid)).map(o => o.defId),
+    ),
+    [save.owned, save.evolved],
+  );
   const progress = dexProgress(save);
 
-  const list = MONSTER_DEX.filter(m => unit === 'all' || m.unit === unit);
-  const detail = selected ? MONSTER_DEX.find(m => m.id === selected) : null;
+  // 「でんせつ」タブだけは別枠。ふだんの図鑑(151体)と混ざらないようにしている。
+  const list = unit === 'legend'
+    ? LEGEND_DEX
+    : MONSTER_DEX.filter(m => unit === 'all' || m.unit === unit);
+  const detail = selected ? getMonster(selected) ?? null : null;
 
   return (
     <Panel title={`ずかん  ${progress.caught} / ${progress.total}`} onClose={onClose} accent="#e11d48">
@@ -60,6 +74,14 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           className={`shrink-0 px-4 py-2 rounded-2xl font-black text-sm ${unit === 'all' ? 'bg-white text-slate-900' : 'bg-white/25 text-white'}`}
         >
           ぜんぶ
+        </button>
+        <button
+          onClick={() => setUnit('legend')}
+          className={`shrink-0 px-4 py-2 rounded-2xl font-black text-sm ${
+            unit === 'legend' ? 'bg-amber-300 text-slate-900' : 'bg-amber-400/40 text-white'
+          }`}
+        >
+          ✦ でんせつ
         </button>
         {TOWNS.map(t => (
           <button
@@ -71,6 +93,13 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </button>
         ))}
       </div>
+
+      {unit === 'legend' && (
+        <p className="text-white/90 font-bold mb-3 text-sm sm:text-base">
+          単元ぜんぶを ひとまとめにした、1体しか いない モンスター。
+          町の 祠を しらべると、伝承が 読める。
+        </p>
+      )}
 
       <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 gap-2 sm:gap-3">
         {list.map(m => {
@@ -157,6 +186,41 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 {ELEMENTS[getWeakAgainst(detail.type)].name} に よわい
               </p>
             </div>
+
+            {/* 進化。「レベルではなく、その項目を解けるようになると進化する」ことを
+                その場で読めるようにしておく(何をすれば進むのかを迷わせないため)。 */}
+            {detail.evolution && (
+              <div className="mt-2 rounded-2xl bg-amber-50 border-2 border-amber-300 p-3">
+                <p className="text-amber-700 text-xs font-black mb-2">しんか</p>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={getMonsterSprite(detail.id)}
+                    alt=""
+                    className="w-16 h-16 object-contain shrink-0"
+                    style={{ filter: caughtIds.has(detail.id) ? 'none' : 'brightness(0) opacity(0.35)' }}
+                  />
+                  <span className="text-2xl">➡</span>
+                  <img
+                    src={getMonsterSprite(detail.evolution.id)}
+                    alt=""
+                    className="w-20 h-20 object-contain shrink-0"
+                    style={{ filter: evolvedIds.has(detail.id) ? 'none' : 'brightness(0) opacity(0.35)' }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-lg font-black text-slate-800">
+                      {evolvedIds.has(detail.id) ? detail.evolution.name : '？？？'}
+                    </p>
+                    <p className="text-xs font-bold text-slate-500">
+                      「{detail.subtopic}」を 5問れんぞくで 正解すると しんかする
+                    </p>
+                  </div>
+                </div>
+                {evolvedIds.has(detail.id) && (
+                  <p className="mt-2 text-xs font-bold text-slate-600">{detail.evolution.flavor}</p>
+                )}
+              </div>
+            )}
             <button
               onClick={() => setSelected(null)}
               className="mt-4 w-full py-3 rounded-2xl bg-slate-800 text-white font-black text-xl"
@@ -217,13 +281,18 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             >
               <div className="flex gap-2 items-center">
                 <img
-                  src={getMonsterSprite(p.def.id)}
+                  src={getMonsterSprite(spriteIdFor(save, p.owned))}
                   alt=""
                   className="w-20 h-20 object-contain shrink-0"
                   onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
                 />
                 <div className="min-w-0">
-                  <p className="font-black text-slate-800 text-lg truncate">{p.def.name}</p>
+                  <p className="font-black text-slate-800 text-lg truncate">
+                    {displayNameFor(save, p.owned)}
+                    {save.evolved.includes(p.owned.uid) && (
+                      <span className="ml-1 text-xs text-amber-500">✦</span>
+                    )}
+                  </p>
                   <p className="text-xs font-bold text-slate-500">Lv.{p.owned.level} ／ こうげき {st.atk}</p>
                   <span
                     className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-white text-[10px] font-black"
@@ -253,7 +322,8 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <h3 className="text-white text-xl font-black mb-2">つかまえた モンスター({box.length})</h3>
       <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-2">
         {box.map(o => {
-          const def = MONSTER_DEX.find(m => m.id === o.defId);
+          // 伝説も箱に入るので MONSTER_DEX ではなく全体から引く
+          const def = getMonster(o.defId);
           if (!def) return null;
           const inParty = save.party.includes(o.uid);
           const el = ELEMENTS[def.type];
@@ -265,12 +335,14 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               style={{ borderColor: inParty ? '#0284c7' : el.color }}
             >
               <img
-                src={getMonsterSprite(def.id)}
+                src={getMonsterSprite(spriteIdFor(save, o))}
                 alt=""
                 className="w-full aspect-square object-contain"
                 onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
               />
-              <p className="text-[11px] font-black text-slate-800 truncate">{def.name}</p>
+              <p className="text-[11px] font-black text-slate-800 truncate">
+                {displayNameFor(save, o)}
+              </p>
               <p className="text-[10px] font-bold text-slate-500">Lv.{o.level}</p>
             </button>
           );
@@ -292,6 +364,7 @@ export const MapScreen: React.FC<{
 }> = ({ onClose, onTravel, onLeague, lockedUnits }) => {
   const save = useAdventureStore(s => s.save);
   const allBadges = TOWNS.every(t => save.badges.includes(t.id));
+  const inLeague = save.townId === LEAGUE_TOWN.id;
 
   return (
     <Panel title="ナンバーランド ちほう" onClose={onClose} accent="#16a34a">
@@ -364,9 +437,13 @@ export const MapScreen: React.FC<{
         >
           👑 ナンバーリーグ
           <span className="block text-sm font-bold mt-1">
-            {allBadges
-              ? '14この バッジが そろった！ チャンピオンへの 道が ひらかれた'
-              : `バッジ ${save.badges.length} / 14 ―― ぜんぶ 集めると ちょうせんできる`}
+            {!allBadges
+              ? `バッジ ${save.badges.length} / 14 ―― ぜんぶ 集めると ちょうせんできる`
+              : inLeague
+                ? 'いま 回廊の 中にいる。町へ もどるには 上から 町を えらぼう'
+                : save.champion
+                  ? 'チャンピオンの間へ。何度でも いどめる'
+                  : `さいごの回廊へ ―― 四天王 ${save.leagueProgress} / 4人`}
           </span>
         </button>
       </div>

@@ -14,6 +14,7 @@
  *   node scripts/gen-sprites.mjs             # 生成(既存ファイルはスキップ)
  *   node scripts/gen-sprites.mjs --force     # 作り直す
  *   node scripts/gen-sprites.mjs --only monsters/mon-001
+ *   node scripts/gen-sprites.mjs --force --list scripts/redo.txt
  */
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
@@ -27,6 +28,8 @@ const MANIFEST = path.join(root, 'scripts', 'sprite-manifest.json');
 const args = process.argv.slice(2);
 const FORCE = args.includes('--force');
 const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
+// --list <file>: 1行1件で out 名(monsters/mon-001 など)を並べたファイルから対象を読む
+const LIST_FILE = args.includes('--list') ? args[args.indexOf('--list') + 1] : null;
 // Pollinations は無料枠のため同時接続を上げすぎると 429/503 を返す。
 const CONCURRENCY = Number(process.env.SPRITE_CONCURRENCY ?? 3);
 
@@ -94,17 +97,26 @@ function removeBackground(data, w, h) {
   };
   const bg = { r: median(0), g: median(1), b: median(2) };
 
-  // 背景が緑でなければ、モデルが指示を無視している。
-  // そのまま抜くと白い服や白い体のキャラが背景ごと溶けるので、生成し直す。
-  if (!(bg.g > bg.r + 10 && bg.g > bg.b + 10)) {
-    throw new Error(`background is not green (${bg.r},${bg.g},${bg.b})`);
+  // 背景が「はっきり緑」でなければ、モデルが指示を外している。
+  //
+  // ここを緩めてはいけない。淡い緑や白っぽい背景を許すと、次の塗りつぶしで
+  // 白い体・白い服のキャラが背景ごと溶ける(参照リポジトリ catwars と同じ不具合)。
+  // 緑かどうかは明るさではなく「緑が赤と青より十分に強いか」で見る。
+  const greenness = bg.g - Math.max(bg.r, bg.b);
+  if (greenness < 30) {
+    throw new Error(`background is not chroma green (${bg.r},${bg.g},${bg.b})`);
   }
 
-  // 実際の背景色まわりを広めに、指定したクロマキー色まわりも念のため抜く
+  // 抜く条件は2つの積。
+  //   ① その画素自体が緑寄りであること
+  //   ② 背景色(または指定したクロマキー色)に十分近いこと
+  // ①を入れているのが要点で、これがないと「背景色から半径100前後」という
+  // 広い球に白や淡い肌色が入ってしまい、キャラの内側まで消える。
   const TOL_BG = 62 * 62 * 3;
   const TOL_CHROMA = 70 * 70 * 3;
   const isBg = i => {
     const r = data[i], g = data[i + 1], b = data[i + 2];
+    if (g - Math.max(r, b) < 10) return false;
     return dist2(r, g, b, bg) < TOL_BG || dist2(r, g, b, CHROMA) < TOL_CHROMA;
   };
 
@@ -146,6 +158,86 @@ function removeBackground(data, w, h) {
   return data;
 }
 
+/**
+ * シルエットの「ぼろぼろ度」= 周囲長 / √面積。
+ *
+ * 背景除去がキャラを食うと、輪郭が外側とつながったまま細かく刻まれる。
+ * こうなると「内側の穴」でも「塗りつぶし率」でも捕まらないが、
+ * 周囲長だけが跳ね上がる。実測では、まともな絵は 3〜5、
+ * 食われた絵は 11〜19 にはっきり分かれた。
+ */
+function raggedness(data, w, h) {
+  const op = p => data[p * 4 + 3] > 40;
+  let area = 0, per = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (!op(p)) continue;
+      area++;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
+          !op(p - 1) || !op(p + 1) || !op(p - w) || !op(p + w)) per++;
+    }
+  }
+  return area ? per / Math.sqrt(area) : 0;
+}
+
+/**
+ * 大きな不透明のかたまりの数。2つ以上なら「1体に収まっていない」ので作り直す。
+ * (生成が小さな仲間や分身を並べてしまうことがある)
+ */
+function blobCount(data, w, h) {
+  const opaque = p => data[p * 4 + 3] > 40;
+  const seen = new Uint8Array(w * h);
+  const sizes = [];
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || !opaque(start)) continue;
+    let size = 0;
+    const stack = [start];
+    seen[start] = 1;
+    while (stack.length) {
+      const p = stack.pop();
+      size++;
+      const x = p % w, y = (p / w) | 0;
+      const push = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        const q = ny * w + nx;
+        if (seen[q] || !opaque(q)) return;
+        seen[q] = 1;
+        stack.push(q);
+      };
+      push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+    }
+    sizes.push(size);
+  }
+  sizes.sort((a, b) => b - a);
+  const biggest = sizes[0] ?? 0;
+  return sizes.filter(v => v > Math.max(w * h * 0.02, biggest * 0.3)).length;
+}
+
+/** 内側の穴(外周とつながっていない透明画素)の割合。食われの検出。 */
+function holeRatio(data, w, h) {
+  const transparent = p => data[p * 4 + 3] < 40;
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const p = y * w + x;
+    if (seen[p] || !transparent(p)) return;
+    seen[p] = 1;
+    stack.push(p);
+  };
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  while (stack.length) {
+    const p = stack.pop();
+    const x = p % w, y = (p / w) | 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+  let holes = 0;
+  for (let p = 0; p < w * h; p++) if (transparent(p) && !seen[p]) holes++;
+  return holes / (w * h);
+}
+
 /** 透明でない画素の外接矩形 */
 function alphaBounds(data, w, h) {
   let minX = w, minY = h, maxX = -1, maxY = -1;
@@ -178,7 +270,16 @@ async function toSprite(buf) {
   for (let i = 3; i < data.length; i += 4) if (data[i] > 24) opaque++;
   const ratio = opaque / (info.width * info.height);
   if (ratio > 0.92) throw new Error('background was not removed');
-  if (ratio < 0.04) throw new Error('almost everything was removed');
+  // 10%を切るものは、目で見るとほぼ「体を食われた残骸」になっている。
+  // 4%では緩すぎて、耳としっぽだけの絵が通ってしまっていた。
+  if (ratio < 0.10) throw new Error(`too much was removed (fill ${(ratio * 100).toFixed(0)}%)`);
+  // 1体に収まっていない / 内側が食われている生成は保存せずに引き直す
+  const blobs = blobCount(data, info.width, info.height);
+  if (blobs >= 2) throw new Error(`multiple characters (${blobs})`);
+  const holes = holeRatio(data, info.width, info.height);
+  if (holes > 0.02) throw new Error(`subject has holes (${(holes * 100).toFixed(1)}%)`);
+  const ragged = raggedness(data, info.width, info.height);
+  if (ragged > 9) throw new Error(`silhouette was eaten (ragged ${ragged.toFixed(1)})`);
 
   const raw = sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } });
   const cropped = await raw.extract(bounds).png().toBuffer();
@@ -252,6 +353,12 @@ async function main() {
   }
   let jobs = JSON.parse(readFileSync(MANIFEST, 'utf8'));
   if (ONLY) jobs = jobs.filter(j => j.out.startsWith(ONLY));
+  if (LIST_FILE) {
+    const wanted = new Set(
+      readFileSync(LIST_FILE, 'utf8').split('\n').map(l => l.trim()).filter(Boolean),
+    );
+    jobs = jobs.filter(j => wanted.has(j.out));
+  }
 
   const stats = { total: jobs.length, done: 0, skipped: 0, failed: 0, failures: [] };
   console.log(`スプライト生成: ${jobs.length}件 (同時${CONCURRENCY}件)`);

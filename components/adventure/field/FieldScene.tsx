@@ -12,9 +12,11 @@ import type { FieldNpcDef, TownDef } from '../../../data/adventure/adventureType
 import { BIOME_STYLES } from '../../../data/adventure/biomes';
 import { ELEMENTS } from '../../../data/adventure/elements';
 import { getPlayerSprite, getNpcSprite } from '../../../data/adventure/people';
+import type { LeagueCorridorSpec } from '../../../data/adventure/league';
 import { Clouds, GrassPatches, Ground, Sky, Water } from './Scenery';
 import { FieldProps } from './Props';
-import { Building, SpriteActor } from './Actors';
+import { Building, Shrine, SpriteActor } from './Actors';
+import { LeagueCorridor } from './League';
 import {
   buildGrassPatches, buildProps, heightAt, inGrass, seedOf,
   type PropInstance,
@@ -48,21 +50,52 @@ interface SceneProps {
   onEncounter: () => void;
   onNearNpcChange: (npc: FieldNpcDef | null) => void;
   startAt: { x: number; z: number };
+  /** リーグの回廊のときだけ渡す。渡すと屋内の一本道になる。 */
+  corridor?: LeagueCorridorSpec;
 }
 
 const World: React.FC<SceneProps> = ({
   town, appearance, control, npcs, defeatedNpcs,
-  onEncounter, onNearNpcChange, startAt,
+  onEncounter, onNearNpcChange, startAt, corridor,
 }) => {
   const style = BIOME_STYLES[town.biome];
   const seed = useMemo(() => seedOf(town.id), [town.id]);
   const half = town.size / 2;
+  const indoor = Boolean(corridor);
 
   const props = useMemo<PropInstance[]>(
-    () => buildProps(town.id, town.size, style.props),
-    [town.id, town.size, style.props],
+    () => {
+      if (corridor) return [];
+      const all = buildProps(town.id, town.size, style.props);
+      // 木や岩は町IDから機械的に置いているので、NPCの真上や、
+      // 道(x≒0)からNPCまでの通り道をふさいでしまうことがある。
+      // ふさがれると話しかけに行けないので、NPCのまわりと
+      // 「道からNPCまでの一直線」にある当たり判定つきの飾りだけを取りのぞく。
+      return all.filter(p => {
+        if (p.radius <= 0) return true;
+        for (const n of npcs) {
+          const dx = p.x - n.x, dz = p.z - n.z;
+          if (dx * dx + dz * dz < 4.0 * 4.0) return false;
+          const inLane =
+            Math.abs(p.z - n.z) < 2.6 &&
+            p.x >= Math.min(0, n.x) - 1 && p.x <= Math.max(0, n.x) + 1;
+          if (inLane) return false;
+        }
+        return true;
+      });
+    },
+    [town.id, town.size, style.props, corridor, npcs],
   );
-  const patches = useMemo(() => buildGrassPatches(town.id, town.size), [town.id, town.size]);
+  const patches = useMemo(
+    () => (corridor ? [] : buildGrassPatches(town.id, town.size)),
+    [town.id, town.size, corridor],
+  );
+
+  /** 足元の高さ。屋内は平ら。 */
+  const groundY = useCallback(
+    (x: number, z: number) => (indoor ? 0 : heightAt(x, z, seed, town.size)),
+    [indoor, seed, town.size],
+  );
 
   // プレイヤーの状態(毎フレーム更新するので ref で持つ)
   const player = useRef({
@@ -87,16 +120,29 @@ const World: React.FC<SceneProps> = ({
 
   const buildings = useMemo(() => {
     const out: Array<{ x: number; z: number; hw: number; hd: number; kind: 'nurse' | 'shop' | 'dojo' }> = [];
+    if (corridor) return out;
     // Building.tsx の寸法(小屋 6×5 / 道場 9×7)に少し余裕を足したもの
     if (nurse) out.push({ x: nurse.x, z: nurse.z - 3.2, hw: 3.4, hd: 2.9, kind: 'nurse' });
     if (shop) out.push({ x: shop.x, z: shop.z - 3.2, hw: 3.4, hd: 2.9, kind: 'shop' });
     if (master) out.push({ x: master.x, z: master.z - 4.6, hw: 4.9, hd: 3.9, kind: 'dojo' });
     return out;
-  }, [nurse, shop, master]);
+  }, [nurse, shop, master, corridor]);
 
   /** その場所へ行けるか(飾り・建物・フィールドのふち) */
   const canStand = useCallback(
     (x: number, z: number) => {
+      if (corridor) {
+        // 回廊は横にせまく、閉じている扉より奥へは進めない
+        if (Math.abs(x) > corridor.halfWidth - 1.1) return false;
+        if (Math.abs(z) > corridor.length / 2 - 2.2) return false;
+        if (z < corridor.zLimit) return false;
+        // 相手のからだをすりぬけない。話しかけられる距離では止まる。
+        for (const n of npcs) {
+          const dx = x - n.x, dz = z - n.z;
+          if (dx * dx + dz * dz < 2.6 * 2.6) return false;
+        }
+        return true;
+      }
       if (Math.abs(x) > half - 1.2 || Math.abs(z) > half - 1.2) return false;
       for (const p of props) {
         if (p.radius <= 0) continue;
@@ -109,7 +155,7 @@ const World: React.FC<SceneProps> = ({
       }
       return true;
     },
-    [props, half, buildings],
+    [props, half, buildings, corridor, npcs],
   );
 
   useFrame((state, dtRaw) => {
@@ -165,8 +211,12 @@ const World: React.FC<SceneProps> = ({
         (window as any).__adv = { x: p.x, z: p.z, steps: p.steps, grass: onGrass, patches };
       }
     }
+    // 自動テストから任意の場所へ飛ばすための口。開発ビルドにしか生えない。
+    if ((import.meta as any).env?.DEV) {
+      (window as any).__advTeleport = (x: number, z: number) => { p.x = x; p.z = z; };
+    }
 
-    p.y = heightAt(p.x, p.z, seed, town.size);
+    p.y = groundY(p.x, p.z);
     c.pos.x = p.x;
     c.pos.z = p.z;
 
@@ -186,6 +236,11 @@ const World: React.FC<SceneProps> = ({
     // 高さと距離はポケモンのDS/3DS作品に近い、ゆるい見下ろし角にしてある。
     const camTarget = new THREE.Vector3(p.x, p.y + 1.5, p.z);
     const desired = new THREE.Vector3(p.x, p.y + 7.6, p.z + 10.2);
+    if (corridor) {
+      // 回廊では、カメラが入口のかべを つきぬけないように 手前で止める
+      desired.z = Math.min(desired.z, corridor.length / 2 - 1.5);
+      desired.x = 0;
+    }
     camera.position.lerp(desired, 1 - Math.pow(0.0015, dt));
     camera.lookAt(camTarget);
 
@@ -217,8 +272,8 @@ const World: React.FC<SceneProps> = ({
   return (
     <>
       <Sky style={style} />
-      <Clouds seed={seed} />
-      <fog attach="fog" args={[style.fog, 18, 1 / style.fogDensity]} />
+      {!indoor && <Clouds seed={seed} />}
+      <fog attach="fog" args={[style.fog, indoor ? 26 : 18, 1 / style.fogDensity]} />
       <hemisphereLight
         args={[style.skyBottom, style.ground, style.ambientIntensity]}
       />
@@ -235,13 +290,20 @@ const World: React.FC<SceneProps> = ({
           townId={town.id}
           size={town.size}
           style={style}
+          flat={indoor}
           textureUrl={`${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/terrain/${town.biome}-ground.png`}
         />
       </group>
 
-      {style.water && <Water size={town.size} style={style} />}
-      <GrassPatches patches={patches} style={style} seed={seed} size={town.size} />
-      <FieldProps items={props} />
+      {corridor && <LeagueCorridor spec={corridor} style={style} />}
+
+      {!indoor && style.water && <Water size={town.size} style={style} />}
+      {!indoor && (
+        <>
+          <GrassPatches patches={patches} style={style} seed={seed} size={town.size} />
+          <FieldProps items={props} />
+        </>
+      )}
 
       {/* 建物(当たり判定と同じ位置定義を使う) */}
       {buildings.map(b => (
@@ -249,17 +311,32 @@ const World: React.FC<SceneProps> = ({
           key={b.kind}
           kind={b.kind}
           x={b.x}
-          y={heightAt(b.x, b.z, seed, town.size)}
+          y={groundY(b.x, b.z)}
           z={b.z}
           accent={accent}
         />
       ))}
 
+      {/* 祠(伝説のモンスターが眠る場所) */}
+      {npcs.filter(n => n.kind === 'shrine').map(n => (
+        <Shrine
+          key={n.id}
+          x={n.x}
+          y={groundY(n.x, n.z)}
+          z={n.z}
+          color={n.shrineStyle?.color ?? '#f5b942'}
+          style={n.shrineStyle?.style ?? 'monolith'}
+          ready={n.afterLines?.[0] === 'ready'}
+          taken={n.afterLines?.[0] === 'taken'}
+        />
+      ))}
+
       {/* NPC */}
-      {npcs.map((n, i) => {
+      {npcs.filter(n => n.kind !== 'shrine').map((n, i) => {
         const beaten = defeatedNpcs.includes(n.id);
         const marker =
-          n.kind === 'trainer' || n.kind === 'master'
+          n.kind === 'trainer' || n.kind === 'master' || n.kind === 'team'
+            || n.kind === 'elite' || n.kind === 'champion'
             ? beaten ? 'none' : 'battle'
             : 'talk';
         return (
@@ -267,7 +344,7 @@ const World: React.FC<SceneProps> = ({
             key={n.id}
             url={getNpcSprite(n.sprite)}
             x={n.x}
-            y={heightAt(n.x, n.z, seed, town.size)}
+            y={groundY(n.x, n.z)}
             z={n.z}
             height={n.kind === 'master' ? 2.5 : 2.15}
             phase={i * 1.3}

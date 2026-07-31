@@ -9,6 +9,8 @@
 import { MATH_CATEGORIES, difficultyMap } from '../../constants';
 import { UNIT_TO_ELEMENT, type ElementId } from './elements';
 import { MONSTER_ROSTER, type RosterRow } from './monsterRoster';
+import { EVOLUTION_BY_SUBTOPIC } from './evolutions';
+import { ALL_LEGENDS } from './legends';
 import type { AbilityId, ArtTier, MonsterDef } from './adventureTypes';
 
 const ABILITY_ORDER: AbilityId[] = ['hint', 'power', 'guard', 'lucky', 'heal', 'first'];
@@ -48,6 +50,7 @@ const buildDex = (): MonsterDef[] => {
         const row = ROSTER_BY_SUBTOPIC[subtopic];
         const difficulty = difficultyMap[subtopic] ?? 2;
         const tier = tierOf(difficulty);
+        const evo = EVOLUTION_BY_SUBTOPIC[subtopic];
         list.push({
           no,
           id: `mon-${pad3(no)}`,
@@ -62,6 +65,9 @@ const buildDex = (): MonsterDef[] => {
           ability: ABILITY_ORDER[(no - 1) % ABILITY_ORDER.length],
           flavor: row ? row[3] : `${category.name}の「${subtopic}」からうまれたモンスター。`,
           motif: row ? row[2] : 'a round friendly mascot holding a small number tile',
+          evolution: evo
+            ? { id: `evo-${pad3(no)}`, name: evo.name, flavor: evo.flavor, reason: evo.reason }
+            : undefined,
         });
       }
     }
@@ -121,7 +127,30 @@ const buildBosses = (): MonsterDef[] =>
 
 export const BOSS_DEX: MonsterDef[] = buildBosses();
 
-export const ALL_MONSTERS: MonsterDef[] = [...MONSTER_DEX, ...BOSS_DEX];
+// ============================================================
+// 伝説・幻(legends.ts の定義を MonsterDef に変換して図鑑に載せる)
+// ============================================================
+
+export const LEGEND_DEX: MonsterDef[] = ALL_LEGENDS.map(l => ({
+  no: l.no,
+  id: l.id,
+  name: l.name,
+  unit: l.units[0] ?? '',
+  subtopic: '',
+  type: l.type,
+  difficulty: 5,
+  tier: 'dragon',
+  baseHp: l.baseHp,
+  baseAtk: l.baseAtk,
+  // 伝説はどれも「ものしり」。バトルが長くなるので、ヒントを1回もらえる方が
+  // 小4にとってはフェアになる。
+  ability: 'hint',
+  flavor: l.flavor,
+  motif: l.motif,
+  rarity: l.kind,
+}));
+
+export const ALL_MONSTERS: MonsterDef[] = [...MONSTER_DEX, ...BOSS_DEX, ...LEGEND_DEX];
 
 const BY_ID: Record<string, MonsterDef> = Object.fromEntries(
   ALL_MONSTERS.map(m => [m.id, m]),
@@ -156,3 +185,8 @@ export const statsAtLevel = (def: MonsterDef, level: number) => ({
 
 /** つぎのレベルまでに必要な経験値 */
 export const expToNext = (level: number): number => 12 + level * 8;
+
+/** 進化する図鑑番号の一覧(図鑑で「進化する」印を出すのに使う) */
+export const EVOLVING_IDS: Set<string> = new Set(
+  MONSTER_DEX.filter(m => m.evolution).map(m => m.id),
+);

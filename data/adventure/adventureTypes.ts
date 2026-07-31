@@ -62,6 +62,16 @@ export interface MonsterDef {
   flavor: string;
   /** スプライト生成プロンプトに差し込む英語のモチーフ */
   motif: string;
+  /** 進化後の姿(熟達したときだけ現れる)。進化しないモンスターは undefined。 */
+  evolution?: {
+    id: string;
+    name: string;
+    flavor: string;
+    /** 選定理由(なぜこの項目に進化を置いたか) */
+    reason: string;
+  };
+  /** 伝説・幻のときだけ立つ */
+  rarity?: 'legend' | 'mythical';
 }
 
 /** プレイヤーが所有している1体分の状態 */
@@ -95,7 +105,8 @@ export type Biome =
   | 'sweets'    // お菓子の街
   | 'clock'     // 時計塔
   | 'desert'    // 砂漠
-  | 'forest';   // 巨大樹の森
+  | 'forest'    // 巨大樹の森
+  | 'league';   // ナンバーリーグの回廊(屋内)
 
 export interface BiomeStyle {
   /** 地面のベース色 */
@@ -124,7 +135,10 @@ export interface BiomeStyle {
 /** フィールド上に立つNPC(トレーナー・村人・マスター) */
 export interface FieldNpcDef {
   id: string;
-  kind: 'villager' | 'trainer' | 'master' | 'rival' | 'nurse' | 'shop' | 'elite' | 'champion';
+  kind: 'villager' | 'trainer' | 'master' | 'rival' | 'nurse' | 'shop' | 'elite' | 'champion'
+    // 祠(伝説のモンスター)と、テキトウ団のイベント。どちらも
+    // 「近づいて しらべる」という同じ操作で扱えるよう、NPCとして表す。
+    | 'shrine' | 'team';
   name: string;
   /** スプライトのファイル名(assets/adventure/npc/<sprite>.png) */
   sprite: string;
@@ -143,6 +157,12 @@ export interface FieldNpcDef {
   reward?: { mp: number; balls?: number };
   /** このNPCを倒すと解放されるもの */
   grantsBadge?: boolean;
+  /** kind:'shrine' のとき、対応する伝説のID */
+  legendId?: string;
+  /** kind:'team' のとき、対応する章のID('hideout' はアジト) */
+  teamChapterId?: string;
+  /** 祠の見た目 */
+  shrineStyle?: { color: string; style: 'monolith' | 'torii' | 'ring' | 'pillar' };
 }
 
 export interface TownDef {
@@ -174,7 +194,10 @@ export interface TownDef {
 // バトル
 // ============================================================
 
-export type BattleKind = 'wild' | 'trainer' | 'master' | 'rival' | 'elite' | 'champion';
+export type BattleKind =
+  | 'wild' | 'trainer' | 'master' | 'rival' | 'elite' | 'champion'
+  | 'legend'   // 伝説・幻(勝つと必ず仲間になる)
+  | 'team';    // テキトウ団
 
 export interface BattleOpponentMonster {
   defId: string;
@@ -198,6 +221,10 @@ export interface BattleSetup {
   reward?: { mp: number; balls?: number };
   townId?: string;
   grantsBadge?: boolean;
+  /** kind:'legend' のとき、勝ったら必ず仲間になる伝説のID */
+  legendId?: string;
+  /** kind:'team' のとき、クリア扱いにする章ID */
+  teamChapterId?: string;
 }
 
 export interface BattleResultSummary {

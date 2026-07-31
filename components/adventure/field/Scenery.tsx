@@ -104,7 +104,9 @@ export const Ground: React.FC<{
   size: number;
   style: BiomeStyle;
   textureUrl: string;
-}> = ({ townId, size, style, textureUrl }) => {
+  /** 屋内(リーグの回廊)は起伏をつけず、平らにする */
+  flat?: boolean;
+}> = ({ townId, size, style, textureUrl, flat = false }) => {
   const tex = useSafeTexture(textureUrl, style.ground, 'noise');
   const seed = useMemo(() => seedOf(townId), [townId]);
 
@@ -120,7 +122,7 @@ export const Ground: React.FC<{
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      pos.setY(i, heightAt(x, z, seed, size));
+      pos.setY(i, flat ? 0 : heightAt(x, z, seed, size));
       // 色のムラ。べた塗りに見えないようにするだけの弱い変化。
       const n = (Math.sin(x * 0.21 + seed) * Math.cos(z * 0.17 - seed) + 1) / 2;
       tmp.copy(base).lerp(accent, n * 0.85);
@@ -131,7 +133,7 @@ export const Ground: React.FC<{
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
     return geo;
-  }, [size, seed, style.ground, style.groundAccent]);
+  }, [size, seed, style.ground, style.groundAccent, flat]);
 
   const mapped = useMemo(() => {
     const t = tex.clone();
@@ -170,18 +172,21 @@ export const Ground: React.FC<{
       <mesh geometry={geometry} receiveShadow renderOrder={1}>
         <meshLambertMaterial map={mapped} vertexColors />
       </mesh>
-      {/* 外側の地面(遠景) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]}>
-        <planeGeometry args={[size * 6, size * 6]} />
-        <meshLambertMaterial map={skirtTex} color={style.groundAccent} />
-      </mesh>
-      {/* 遠くの丘。地平線に起伏を出して奥行きを感じさせる */}
-      {hills.map((h, i) => (
-        <mesh key={i} position={[h.x, -0.4, h.z]}>
-          <sphereGeometry args={[h.s, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshLambertMaterial color={style.grass} flatShading />
-        </mesh>
-      ))}
+      {/* 外側の地面(遠景)と丘。屋内では見えないので出さない。 */}
+      {!flat && (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]}>
+            <planeGeometry args={[size * 6, size * 6]} />
+            <meshLambertMaterial map={skirtTex} color={style.groundAccent} />
+          </mesh>
+          {hills.map((h, i) => (
+            <mesh key={i} position={[h.x, -0.4, h.z]}>
+              <sphereGeometry args={[h.s, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshLambertMaterial color={style.grass} flatShading />
+            </mesh>
+          ))}
+        </>
+      )}
     </group>
   );
 };

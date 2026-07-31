@@ -14,8 +14,16 @@ import { TOWNS, SPAWN, BADGE_NAMES, getTown } from '../../data/adventure/towns';
 import { MONSTERS_BY_UNIT, getMonster, getMonsterSprite } from '../../data/adventure/monsters';
 import { ELEMENTS } from '../../data/adventure/elements';
 import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure/people';
-import { useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles } from '../../store/adventureStore';
+import {
+  useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles,
+  shrinesInTown, pendingTeamChapter, canEnterHideout, evolvableInParty,
+} from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
+import { getLegend } from '../../data/adventure/legends';
+import { TEAM_MEMBERS, TEAM_HIDEOUT, TEAM_CHAPTERS } from '../../data/adventure/team';
+import {
+  LEAGUE_TOWN, LEAGUE_SPAWN, buildLeagueNpcs, leagueCorridor,
+} from '../../data/adventure/league';
 import FieldScene, { type FieldControl } from './field/FieldScene';
 import { ActionButton, VirtualPad } from './ui/VirtualPad';
 import { DialogueBox } from './ui/DialogueBox';
@@ -57,10 +65,12 @@ const AdventureMode: React.FC<Props> = ({
   const [battle, setBattle] = useState<BattleSetup | null>(null);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
-  const [leagueStage, setLeagueStage] = useState<number | null>(null);
   /** 直前に持っていた称号ID。増えたぶんだけ「もらった」と知らせる。 */
   const knownTitles = useRef<Set<string> | null>(null);
   const [titleToast, setTitleToast] = useState<{ icon: string; name: string } | null>(null);
+  /** 進化の演出(バトル後にかぶせて出す) */
+  const [evolveEffect, setEvolveEffect] =
+    useState<{ from: string; to: string; name: string } | null>(null);
 
   const control = useRef<FieldControl>({
     moveX: 0, moveY: 0, target: null,
@@ -74,13 +84,20 @@ const AdventureMode: React.FC<Props> = ({
   }, [uid]);
 
   const town: TownDef = useMemo(
-    () => getTown(save.townId) ?? TOWNS[0],
+    () => (save.townId === LEAGUE_TOWN.id ? LEAGUE_TOWN : getTown(save.townId) ?? TOWNS[0]),
     [save.townId],
+  );
+  const inLeague = town.id === LEAGUE_TOWN.id;
+
+  /** リーグの回廊のかたち(扉の開き具合)。町にいるときは undefined。 */
+  const corridor = useMemo(
+    () => (inLeague ? leagueCorridor(save.leagueProgress, save.champion) : undefined),
+    [inLeague, save.leagueProgress, save.champion],
   );
 
   // ロックされている町にいたら、行ける町へ移す(先生が途中でロックした場合の保険)
   useEffect(() => {
-    if (!save.started) return;
+    if (!save.started || inLeague) return;
     if (lockedUnits.has(town.unit)) {
       const open = TOWNS.find(t => !lockedUnits.has(t.unit));
       if (open) {
@@ -187,6 +204,144 @@ const AdventureMode: React.FC<Props> = ({
       return;
     }
 
+    // --- 祠(伝説のモンスター) ---
+    if (npc.kind === 'shrine' && npc.legendId) {
+      const legend = getLegend(npc.legendId);
+      if (!legend) return;
+      const st = shrinesInTown(save, town.id).find(x => x.legend.id === npc.legendId);
+      if (!st) return;
+
+      if (st.taken) {
+        setDialogue({
+          speaker: `${legend.name}の祠`, accent: legend.shrine.color,
+          lines: ['祠は しずかに ねむっている。', `${legend.name}は、いま あなたの となりに いる。`],
+          onDone: () => setDialogue(null),
+        });
+        return;
+      }
+      if (!st.ready) {
+        // 条件未達 — 伝承だけ読める
+        setDialogue({
+          speaker: `${legend.name}の祠`, accent: legend.shrine.color,
+          lines: [
+            ...legend.legendText,
+            '……しるしは、まだ くすんだままだ。',
+            '(ひつような ことは ――)',
+            ...st.missing,
+          ],
+          onDone: () => setDialogue(null),
+        });
+        return;
+      }
+      // 出現
+      setDialogue({
+        speaker: `${legend.name}の祠`, accent: legend.shrine.color,
+        lines: [...legend.legendText, ...legend.awakenText],
+        onDone: () => {
+          setDialogue(null);
+          setBattle({
+            kind: 'legend',
+            trainerName: legend.name,
+            opponents: [{ defId: legend.id, level: legend.level }],
+            subtopics: undefined,
+            questionsPerOpponent: legend.kind === 'mythical' ? 6 : 5,
+            catchable: false,
+            reward: { mp: legend.kind === 'mythical' ? 2500 : 1200, balls: 5 },
+            townId: town.id,
+            legendId: legend.id,
+          });
+        },
+      });
+      return;
+    }
+
+    // --- テキトウ団 ---
+    if (npc.kind === 'team' && npc.teamChapterId) {
+      if (npc.teamChapterId === 'hideout') {
+        startHideout();
+        return;
+      }
+      const chapter = TEAM_CHAPTERS.find(c => c.id === npc.teamChapterId);
+      if (!chapter) return;
+      const member = TEAM_MEMBERS[chapter.opponent];
+      setDialogue({
+        speaker: member.name, portrait: getNpcSprite(member.sprite), accent: '#f97316',
+        lines: chapter.lines,
+        onDone: () => {
+          setDialogue(null);
+          setBattle({
+            kind: 'team',
+            trainerName: member.name,
+            trainerSprite: member.sprite,
+            trainerAfterLines: chapter.afterLines,
+            opponents: pickTeamParty(member.units, member.level, member.partySize),
+            questionsPerOpponent: 3,
+            catchable: false,
+            reward: chapter.reward,
+            townId: town.id,
+            teamChapterId: chapter.id,
+          });
+        },
+      });
+      return;
+    }
+
+    // --- リーグの回廊: 四天王とチャンピオン ---
+    if (npc.kind === 'elite') {
+      const idx = Number(npc.id.replace('league-elite-', ''));
+      const e = ELITE_FOUR[idx];
+      if (!e) return;
+      const pool = e.units.flatMap(u => MONSTERS_BY_UNIT[u] ?? [])
+        .slice().sort((a, b) => b.difficulty - a.difficulty);
+      const level = 30 + idx * 3;
+      setDialogue({
+        speaker: `${e.title} ${e.name}`, portrait, accent: '#7c3aed',
+        lines: e.lines,
+        onDone: () => {
+          setDialogue(null);
+          setBattle({
+            kind: 'elite',
+            trainerName: e.name,
+            trainerSprite: e.sprite,
+            trainerAfterLines: e.afterLines,
+            opponents: pool.slice(0, 3).map(m => ({ defId: m.id, level })),
+            questionsPerOpponent: 3,
+            catchable: false,
+            reward: { mp: 400 + idx * 100 },
+            townId: LEAGUE_TOWN.id,
+          });
+        },
+      });
+      return;
+    }
+    if (npc.kind === 'champion') {
+      // チャンピオンは7タイプすべてから…では長すぎるので、地方を代表する3体
+      const picks = ['大きい数のしくみ', '分数', '倍の見方']
+        .map(u => (MONSTERS_BY_UNIT[u] ?? []).slice().sort((a, b) => b.difficulty - a.difficulty)[0])
+        .filter(Boolean);
+      setDialogue({
+        speaker: CHAMPION.name, portrait, accent: '#f59e0b',
+        lines: save.champion
+          ? ['また 会えたね。……もう一度、やるかい？']
+          : CHAMPION.lines,
+        onDone: () => {
+          setDialogue(null);
+          setBattle({
+            kind: 'champion',
+            trainerName: CHAMPION.name,
+            trainerSprite: CHAMPION.sprite,
+            trainerAfterLines: CHAMPION.afterLines,
+            opponents: picks.map(m => ({ defId: m.id, level: 45 })),
+            questionsPerOpponent: 4,
+            catchable: false,
+            reward: { mp: save.champion ? 600 : 2000 },
+            townId: LEAGUE_TOWN.id,
+          });
+        },
+      });
+      return;
+    }
+
     // 単元マスター(ジムリーダー)は、その町でひととおり遊んでからでないと挑めない
     if (npc.kind === 'master' && !save.defeatedNpcs.includes(npc.id)) {
       const prog = gymProgress(save, town);
@@ -237,6 +392,76 @@ const AdventureMode: React.FC<Props> = ({
     });
   }, [inputEnabled, town, save.defeatedNpcs, store]);
 
+  /** テキトウ団の手持ち。担当単元のモンスターから決定的に選ぶ。 */
+  const pickTeamParty = useCallback(
+    (units: string[], level: number, size: number) => {
+      const pool = units.flatMap(u => MONSTERS_BY_UNIT[u] ?? [])
+        .slice()
+        .sort((a, b) => b.difficulty - a.difficulty);
+      if (pool.length === 0) return [];
+      return Array.from({ length: size }, (_, i) => ({
+        defId: pool[(i * 2) % pool.length].id,
+        level,
+      }));
+    },
+    [],
+  );
+
+  /** アジト戦: 幹部3人 → ボス の連戦 */
+  const hideoutStage = useRef(0);
+  const startHideoutBattle = useCallback((stage: number) => {
+    if (stage < TEAM_HIDEOUT.guards.length) {
+      const key = TEAM_HIDEOUT.guards[stage];
+      const member = TEAM_MEMBERS[key];
+      setDialogue({
+        speaker: member.name, portrait: getNpcSprite(member.sprite), accent: '#f97316',
+        lines: TEAM_HIDEOUT.guardLines[key] ?? [],
+        onDone: () => {
+          setDialogue(null);
+          setBattle({
+            kind: 'team',
+            trainerName: member.name,
+            trainerSprite: member.sprite,
+            opponents: pickTeamParty(member.units, member.level + 6, member.partySize),
+            questionsPerOpponent: 3,
+            catchable: false,
+            reward: { mp: 500, balls: 2 },
+            teamChapterId: `hideout-${stage}`,
+          });
+        },
+      });
+    } else {
+      const boss = TEAM_MEMBERS.marume;
+      setDialogue({
+        speaker: boss.name, portrait: getNpcSprite(boss.sprite), accent: '#f97316',
+        lines: TEAM_HIDEOUT.bossLines,
+        onDone: () => {
+          setDialogue(null);
+          setBattle({
+            kind: 'team',
+            trainerName: boss.name,
+            trainerSprite: boss.sprite,
+            trainerAfterLines: TEAM_HIDEOUT.afterLines,
+            opponents: pickTeamParty(boss.units, boss.level, boss.partySize),
+            questionsPerOpponent: 4,
+            catchable: false,
+            reward: TEAM_HIDEOUT.reward,
+            teamChapterId: 'hideout-boss',
+          });
+        },
+      });
+    }
+  }, [pickTeamParty]);
+
+  const startHideout = useCallback(() => {
+    hideoutStage.current = 0;
+    setDialogue({
+      accent: '#f97316',
+      lines: TEAM_HIDEOUT.enterLines,
+      onDone: () => { setDialogue(null); startHideoutBattle(0); },
+    });
+  }, [startHideoutBattle]);
+
   // ---- バトル終了 ----
   const handleBattleFinish = (result: BattleResultSummary) => {
     const setup = battle;
@@ -246,6 +471,47 @@ const AdventureMode: React.FC<Props> = ({
     if (result.mpGained > 0) onAddMathPoints(result.mpGained);
 
     const after: Dialogue[] = [];
+
+    // --- 伝説・幻: 勝てば必ず仲間になる ---
+    if (setup.kind === 'legend' && setup.legendId) {
+      const legend = getLegend(setup.legendId);
+      if (result.won && legend) {
+        store.addLegend(legend.id);
+        store.catchMonster(legend.id, legend.level);
+        after.push({
+          speaker: legend.name, accent: legend.shrine.color,
+          lines: legend.joinText,
+          onDone: () => setDialogue(null),
+        });
+      } else if (legend) {
+        after.push({
+          accent: legend.shrine.color,
+          lines: [
+            `${legend.name}は、しずかに 祠へ もどっていった……`,
+            'また いつでも、ちょうせんできる。',
+          ],
+          onDone: () => setDialogue(null),
+        });
+      }
+    }
+
+    // --- テキトウ団 ---
+    if (setup.kind === 'team' && setup.teamChapterId && result.won) {
+      if (setup.teamChapterId.startsWith('hideout')) {
+        if (setup.teamChapterId === 'hideout-boss') {
+          store.clearTeamHideout();
+        } else {
+          // 幹部を1人倒したら、つぎの相手へ
+          hideoutStage.current += 1;
+          const next = hideoutStage.current;
+          setBattle(null);
+          window.setTimeout(() => startHideoutBattle(next), 400);
+          return;
+        }
+      } else {
+        store.clearTeamChapter(setup.teamChapterId);
+      }
+    }
 
     if (result.won && setup.kind !== 'wild' && setup.trainerName) {
       const npc = town.npcs.find(n => n.name === setup.trainerName);
@@ -267,46 +533,66 @@ const AdventureMode: React.FC<Props> = ({
       });
     }
 
-    // リーグ戦の進行
-    if (leagueStage !== null) {
+    // --- リーグの回廊 ---
+    if (setup.kind === 'elite') {
       if (result.won) {
-        if (leagueStage < ELITE_FOUR.length) {
-          store.setLeagueProgress(leagueStage + 1);
-          const next = leagueStage + 1;
-          setLeagueStage(next);
-          startLeagueBattle(next);
-          return;
-        }
-        // チャンピオン撃破
+        // 扉が開く。フィールドはそのままなので、歩いて奥へ進む。
+        const idx = ELITE_FOUR.findIndex(e => e.name === setup.trainerName);
+        store.setLeagueProgress(idx + 1);
+        after.push({
+          accent: '#7c3aed',
+          lines: [
+            'おくの 扉が、ゆっくりと ひらいた。',
+            idx + 1 >= ELITE_FOUR.length
+              ? 'この先が ―― チャンピオンの間だ。'
+              : `四天王を ${idx + 1}人 ぬいた。まだ 先がある。`,
+          ],
+          onDone: () => setDialogue(null),
+        });
+      } else {
+        after.push({
+          accent: '#f43f5e',
+          lines: [
+            'まけて しまった……',
+            'でも 扉は しまっていない。かいふくして、もう一度 いどもう！',
+          ],
+          onDone: () => setDialogue(null),
+        });
+      }
+    }
+
+    if (setup.kind === 'champion') {
+      if (result.won) {
+        const first = !save.champion;
         store.setChampion();
-        setLeagueStage(null);
-        setDialogue({
+        after.push({
           speaker: CHAMPION.name, portrait: getNpcSprite(CHAMPION.sprite), accent: '#f59e0b',
           lines: CHAMPION.afterLines,
-          onDone: () => {
-            setDialogue({
-              accent: '#f59e0b',
-              lines: [
-                '―― ナンバーランド地方に、あたらしい チャンピオンが うまれた。',
-                `${save.playerName} の 名前は、この地方の いちばん高い ところに きざまれた。`,
-                'でも、ぼうけんは まだ おわらない。',
-                'つかまえていない モンスターも、まだ たくさん いるのだから。',
-                'おめでとう！',
-              ],
-              onDone: () => { setDialogue(null); void store.syncToCloud(uid ?? null); },
-            });
-          },
+          onDone: () => setDialogue(null),
         });
-        return;
+        if (first) {
+          after.push({
+            accent: '#f59e0b',
+            lines: [
+              '―― ナンバーランド地方に、あたらしい チャンピオンが うまれた。',
+              `${save.playerName} の 名前は、この地方の いちばん高い ところに きざまれた。`,
+              'でも、ぼうけんは まだ おわらない。',
+              'つかまえていない モンスターも、まだ たくさん いるのだから。',
+              'おめでとう！',
+            ],
+            onDone: () => setDialogue(null),
+          });
+        }
+      } else {
+        after.push({
+          accent: '#f43f5e',
+          lines: [
+            'チャンピオンには とどかなかった……',
+            'てもちを 育てて、もう一度 この間へ おいで。',
+          ],
+          onDone: () => setDialogue(null),
+        });
       }
-      // 負けたらリーグは最初から
-      setLeagueStage(null);
-      setDialogue({
-        accent: '#f43f5e',
-        lines: ['リーグは また はじめから ちょうせんできるよ。', 'てもちを 育ててから もう一度 来よう！'],
-        onDone: () => setDialogue(null),
-      });
-      return;
     }
 
     if (result.caughtDefId) {
@@ -321,6 +607,24 @@ const AdventureMode: React.FC<Props> = ({
       });
     }
 
+    // --- 進化: そのサブトピックで熟達(5問連続正解)した手持ちがいれば進化する ---
+    for (const { owned, def } of evolvableInParty(save)) {
+      if (!def.evolution) continue;
+      store.markEvolved(owned.uid);
+      after.push({
+        accent: '#facc15',
+        lines: [
+          'おや……? ようすが……!',
+          `${def.name}は ${def.evolution.name}に しんかした！`,
+          def.evolution.flavor,
+          `(「${def.subtopic}」を 5問れんぞくで 正解できるように なったからだ)`,
+        ],
+        onDone: () => setDialogue(null),
+      });
+      setEvolveEffect({ from: def.id, to: def.evolution.id, name: def.evolution.name });
+      window.setTimeout(() => setEvolveEffect(null), 3200);
+    }
+
     if (after.length > 0) {
       // 続けて出す(1つ目が閉じたら2つ目)
       const chain = (i: number) => {
@@ -333,71 +637,13 @@ const AdventureMode: React.FC<Props> = ({
     }
   };
 
-  // ---- リーグ ----
-  const startLeagueBattle = (stage: number) => {
-    // stage 0〜3 = 四天王、4 = チャンピオン
-    if (stage < ELITE_FOUR.length) {
-      const e = ELITE_FOUR[stage];
-      const pool = e.units.flatMap(u => MONSTERS_BY_UNIT[u] ?? []);
-      const sorted = pool.slice().sort((a, b) => b.difficulty - a.difficulty);
-      const level = 30 + stage * 3;
-      setDialogue({
-        speaker: `${e.title} ${e.name}`,
-        portrait: getNpcSprite(e.sprite),
-        accent: '#7c3aed',
-        lines: e.lines,
-        onDone: () => {
-          setDialogue(null);
-          setBattle({
-            kind: 'elite',
-            trainerName: e.name,
-            trainerSprite: e.sprite,
-            trainerAfterLines: e.afterLines,
-            opponents: sorted.slice(0, 3).map(m => ({ defId: m.id, level })),
-            questionsPerOpponent: 3,
-            catchable: false,
-            reward: { mp: 400 + stage * 100 },
-          });
-        },
-      });
-    } else {
-      // チャンピオンは7タイプすべてから1体ずつ…は長すぎるので、代表3体
-      const picks = ['大きい数のしくみ', '分数', '倍の見方']
-        .flatMap(u => (MONSTERS_BY_UNIT[u] ?? []).slice().sort((a, b) => b.difficulty - a.difficulty)[0])
-        .filter(Boolean);
-      setDialogue({
-        speaker: CHAMPION.name,
-        portrait: getNpcSprite(CHAMPION.sprite),
-        accent: '#f59e0b',
-        lines: CHAMPION.lines,
-        onDone: () => {
-          setDialogue(null);
-          setBattle({
-            kind: 'champion',
-            trainerName: CHAMPION.name,
-            trainerSprite: CHAMPION.sprite,
-            opponents: picks.map(m => ({ defId: m.id, level: 45 })),
-            questionsPerOpponent: 4,
-            catchable: false,
-            reward: { mp: 2000 },
-          });
-        },
-      });
-    }
-  };
-
+  // ---- リーグの回廊へ入る ----
+  // バトルを連続で流していた以前の方式をやめ、専用フィールドへ「歩いて入る」形にした。
+  // 自分の足で扉をくぐるほうが、ここが特別な場所だと伝わるため。
   const enterLeague = () => {
     if (!canChallengeLeague(save)) return;
-    setLeagueStage(0);
-    setDialogue({
-      accent: '#7c3aed',
-      lines: [
-        'ナンバーリーグ ―― 地方で いちばん つよい人たちが 待つ 場所。',
-        '四天王を 4人 ぬいたら、その先に チャンピオンが いる。',
-        'とちゅうで まけたら、また はじめから。……いくよ！',
-      ],
-      onDone: () => { setDialogue(null); startLeagueBattle(0); },
-    });
+    store.setTown(LEAGUE_TOWN.id);
+    void store.syncToCloud(uid ?? null);
   };
 
   const handleBuy = (item: ItemId, cost: number) => {
@@ -418,7 +664,67 @@ const AdventureMode: React.FC<Props> = ({
     );
   }
 
-  const startAt = SPAWN(town);
+  // 町の常設NPCに、その時点だけ現れるもの(祠・テキトウ団)を足す
+  const fieldNpcs = useMemo<FieldNpcDef[]>(() => {
+    // リーグの回廊には、四天王とチャンピオンしかいない
+    if (inLeague) return buildLeagueNpcs(save.leagueProgress);
+
+    const extra: FieldNpcDef[] = [];
+    const half = town.size / 2;
+
+    // 祠 — 町の東側の少し奥に置く
+    shrinesInTown(save, town.id).forEach((st, i) => {
+      extra.push({
+        id: `shrine-${st.legend.id}`,
+        kind: 'shrine',
+        name: `${st.legend.name}の祠`,
+        sprite: '',
+        x: half * 0.55,
+        z: -half * 0.25 + i * 10,
+        lines: st.legend.legendText,
+        // FieldScene に状態を渡すための小さな約束(見た目の切りかえに使う)
+        afterLines: [st.taken ? 'taken' : st.ready ? 'ready' : 'locked'],
+        legendId: st.legend.id,
+        shrineStyle: st.legend.shrine,
+      });
+    });
+
+    // テキトウ団 — 発生条件を満たした章があれば、町の入口近くに立たせる
+    const chapter = pendingTeamChapter(save, town.id);
+    if (chapter) {
+      const member = TEAM_MEMBERS[chapter.opponent];
+      extra.push({
+        id: `team-${chapter.id}`,
+        kind: 'team',
+        name: member.name,
+        sprite: member.sprite,
+        x: -half * 0.42,
+        z: half * 0.30,
+        lines: chapter.lines,
+        afterLines: chapter.afterLines,
+        teamChapterId: chapter.id,
+        reward: chapter.reward,
+      });
+    }
+
+    // アジトの入口(ハコニワ砂漠)
+    if (town.id === TEAM_HIDEOUT.townId && canEnterHideout(save)) {
+      extra.push({
+        id: 'team-hideout',
+        kind: 'team',
+        name: 'アジトの 入口',
+        sprite: 'team-grunt',
+        x: -half * 0.3,
+        z: -half * 0.42,
+        lines: TEAM_HIDEOUT.enterLines,
+        teamChapterId: 'hideout',
+      });
+    }
+
+    return [...town.npcs, ...extra];
+  }, [town, save, inLeague]);
+
+  const startAt = inLeague ? LEAGUE_SPAWN : SPAWN(town);
   const rival = RIVALS[save.appearance];
   const gym = gymProgress(save, town);
   const hasBadge = save.badges.includes(town.id);
@@ -431,11 +737,12 @@ const AdventureMode: React.FC<Props> = ({
         town={town}
         appearance={save.appearance}
         control={control}
-        npcs={town.npcs}
+        npcs={fieldNpcs}
         defeatedNpcs={save.defeatedNpcs}
         onEncounter={handleEncounter}
         onNearNpcChange={setNearNpc}
         startAt={startAt}
+        corridor={corridor}
       />
 
       {/* 上部のHUD */}
@@ -457,7 +764,43 @@ const AdventureMode: React.FC<Props> = ({
 
           {/* この町の「つぎに やること」。小4が迷わないよう常に出しておく。 */}
           <div className="mt-2 pt-2 border-t-2 border-slate-200">
-            {hasBadge ? (
+            {inLeague ? (
+              <>
+                <p className="text-[11px] font-black text-slate-500 mb-1">さいごの 回廊</p>
+                <div className="flex items-center gap-1">
+                  {ELITE_FOUR.map((e, i) => (
+                    <span
+                      key={e.id}
+                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-black ${
+                        save.leagueProgress > i
+                          ? 'bg-emerald-400 text-white'
+                          : save.leagueProgress === i
+                            ? 'bg-rose-500 text-white animate-pulse'
+                            : 'bg-slate-200 text-slate-400'
+                      }`}
+                    >
+                      {e.name}
+                    </span>
+                  ))}
+                  <span
+                    className={`px-1.5 py-0.5 rounded-lg text-[10px] font-black ${
+                      save.champion
+                        ? 'bg-amber-400 text-white'
+                        : save.leagueProgress >= ELITE_FOUR.length
+                          ? 'bg-rose-500 text-white animate-pulse'
+                          : 'bg-slate-200 text-slate-400'
+                    }`}
+                  >
+                    👑
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] font-bold text-slate-500">
+                  {save.champion
+                    ? 'チャンピオン！ 何度でも いどめるよ。'
+                    : 'かった相手の 扉が ひらく。おくへ すすもう。'}
+                </p>
+              </>
+            ) : hasBadge ? (
               <p className="text-xs font-black text-emerald-600">
                 🏅 {BADGE_NAMES[town.id]} かくとくずみ！
               </p>
@@ -538,6 +881,30 @@ const AdventureMode: React.FC<Props> = ({
           <p className="px-5 py-2.5 rounded-full bg-black/60 text-white font-black text-sm sm:text-base shadow-lg">
             こい色の 草むらを 歩くと、モンスターが 出てくるよ！
           </p>
+        </div>
+      )}
+
+      {/* 進化の演出。光につつまれて、すがたが 入れかわる。 */}
+      {evolveEffect && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 pointer-events-none">
+          <div className="relative flex flex-col items-center">
+            <div className="absolute inset-0 -m-24 rounded-full bg-amber-200/40 blur-3xl animate-ping" />
+            <div className="relative w-56 h-56 sm:w-72 sm:h-72">
+              <img
+                src={getMonsterSprite(evolveEffect.from)}
+                alt=""
+                className="absolute inset-0 w-full h-full object-contain evolve-out"
+              />
+              <img
+                src={getMonsterSprite(evolveEffect.to)}
+                alt=""
+                className="absolute inset-0 w-full h-full object-contain evolve-in"
+              />
+            </div>
+            <p className="relative mt-4 text-3xl sm:text-4xl font-black text-amber-200 drop-shadow-lg">
+              ✨ {evolveEffect.name} に しんか！ ✨
+            </p>
+          </div>
         </div>
       )}
 

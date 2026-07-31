@@ -27,3 +27,7 @@ dist-ssr
 # 参照専用フォルダ（ビルド対象外・Gitの追跡対象外）
 # Claude がローカルで読み取り・分析するための資料置き場
 reference/
+.sheets/
+
+# スプライト作り直しの一時リスト(check-sprites.mjs が毎回書き出す)
+scripts/redo.txt

@@ -99,6 +99,19 @@ export const BIOME_STYLES: Record<Biome, BiomeStyle> = {
     sun: '#ffdca4', sunIntensity: 1.5, ambient: '#f0d5a6', ambientIntensity: 0.85,
     props: ['cactus', 'pillar', 'rock'], water: false,
   },
+  // ナンバーリーグの回廊。屋内なので空はほとんど見えず、
+  // 松明の色の光と濃い霧で「奥へ進むほど緊張する」空気にする。
+  //
+  // 色をここまで明るくしてあるのは、地面が
+  // 「素材の色 × 頂点カラー × テクスチャ」の3重がけで暗くなるため。
+  // 実際に画面に出る床は、この値よりずっと沈んだ紫になる。
+  league: {
+    ground: '#8d7fc0', groundAccent: '#a294d4', grass: '#7a6bb0',
+    skyTop: '#1a1430', skyBottom: '#2f2650',
+    fog: '#3a2f5c', fogDensity: 0.022,
+    sun: '#ffe6bd', sunIntensity: 1.3, ambient: '#b3a4e8', ambientIntensity: 1.2,
+    props: ['pillar', 'lamp'], water: false,
+  },
   forest: {
     ground: '#5fa05e', groundAccent: '#79b673', grass: '#347a3e',
     skyTop: '#2f8f5e', skyBottom: '#cdeecf',
