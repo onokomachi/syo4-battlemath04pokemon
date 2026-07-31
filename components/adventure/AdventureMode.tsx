@@ -14,13 +14,14 @@ import { TOWNS, SPAWN, BADGE_NAMES, getTown } from '../../data/adventure/towns';
 import { MONSTERS_BY_UNIT, getMonster, getMonsterSprite } from '../../data/adventure/monsters';
 import { ELEMENTS } from '../../data/adventure/elements';
 import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure/people';
-import { useAdventureStore, canChallengeLeague } from '../../store/adventureStore';
+import { useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles } from '../../store/adventureStore';
+import { missingLines } from '../../data/adventure/gymRequirements';
 import FieldScene, { type FieldControl } from './field/FieldScene';
 import { ActionButton, VirtualPad } from './ui/VirtualPad';
 import { DialogueBox } from './ui/DialogueBox';
 import BattleScreen from './BattleScreen';
 import TitleScreen from './TitleScreen';
-import { DexScreen, MapScreen, PartyScreen, ShopScreen } from './MenuScreens';
+import { DexScreen, MapScreen, PartyScreen, ShopScreen, TrainerCardScreen } from './MenuScreens';
 
 interface Props {
   onExit: () => void;
@@ -36,7 +37,7 @@ interface Props {
   uid?: string | null;
 }
 
-type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop';
+type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card';
 
 interface Dialogue {
   speaker?: string;
@@ -57,6 +58,9 @@ const AdventureMode: React.FC<Props> = ({
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
   const [leagueStage, setLeagueStage] = useState<number | null>(null);
+  /** 直前に持っていた称号ID。増えたぶんだけ「もらった」と知らせる。 */
+  const knownTitles = useRef<Set<string> | null>(null);
+  const [titleToast, setTitleToast] = useState<{ icon: string; name: string } | null>(null);
 
   const control = useRef<FieldControl>({
     moveX: 0, moveY: 0, target: null,
@@ -107,6 +111,24 @@ const AdventureMode: React.FC<Props> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [town.id, save.started]);
+
+  // 称号の新規獲得を見つけて知らせる(バトル終了などで実績が動いたとき)
+  useEffect(() => {
+    const now = earnedAdventureTitles(save);
+    const ids = new Set(now.map(t => t.id));
+    if (knownTitles.current === null) {
+      // 初回はいまの状態を覚えるだけ(過去ぶんを一度に出さない)
+      knownTitles.current = ids;
+      return;
+    }
+    const fresh = now.filter(t => !knownTitles.current!.has(t.id));
+    knownTitles.current = ids;
+    if (fresh.length > 0) {
+      const t = fresh[fresh.length - 1];
+      setTitleToast({ icon: t.icon, name: t.name });
+      window.setTimeout(() => setTitleToast(null), 4200);
+    }
+  }, [save.badges.length, save.owned.length, save.defeatedNpcs.length, save.leagueProgress, save.champion, save]);
 
   // 会話中・バトル中・メニュー中は移動できないようにする
   const inputEnabled = !dialogue && !battle && overlay === 'none';
@@ -163,6 +185,24 @@ const AdventureMode: React.FC<Props> = ({
         onDone: () => setDialogue(null),
       });
       return;
+    }
+
+    // 単元マスター(ジムリーダー)は、その町でひととおり遊んでからでないと挑めない
+    if (npc.kind === 'master' && !save.defeatedNpcs.includes(npc.id)) {
+      const prog = gymProgress(save, town);
+      if (!prog.ready) {
+        setDialogue({
+          speaker: npc.name, portrait, accent,
+          lines: [
+            `わしに いどむには、まだ 早いようじゃな。`,
+            'この町で もう少し 修行してから おいで。',
+            'ひつような ことは ―― ',
+            ...missingLines(prog),
+          ],
+          onDone: () => setDialogue(null),
+        });
+        return;
+      }
     }
 
     // トレーナー・単元マスター
@@ -380,6 +420,8 @@ const AdventureMode: React.FC<Props> = ({
 
   const startAt = SPAWN(town);
   const rival = RIVALS[save.appearance];
+  const gym = gymProgress(save, town);
+  const hasBadge = save.badges.includes(town.id);
 
   return (
     <div className="fixed inset-0 z-30 bg-black overflow-hidden select-none">
@@ -398,7 +440,7 @@ const AdventureMode: React.FC<Props> = ({
 
       {/* 上部のHUD */}
       <div className="absolute top-0 inset-x-0 p-2 sm:p-3 flex items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto rounded-2xl bg-white/90 shadow-lg px-3 py-2 sm:px-4 sm:py-2.5">
+        <div className="pointer-events-auto rounded-2xl bg-white/90 shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 max-w-[16rem] sm:max-w-xs">
           <p className="text-lg sm:text-xl font-black text-slate-800 leading-none">{town.name}</p>
           <p className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5">{town.unit}</p>
           <div className="mt-1.5 flex items-center gap-2">
@@ -412,6 +454,48 @@ const AdventureMode: React.FC<Props> = ({
               style={{ width: `${(save.hp / Math.max(1, save.maxHp)) * 100}%` }}
             />
           </div>
+
+          {/* この町の「つぎに やること」。小4が迷わないよう常に出しておく。 */}
+          <div className="mt-2 pt-2 border-t-2 border-slate-200">
+            {hasBadge ? (
+              <p className="text-xs font-black text-emerald-600">
+                🏅 {BADGE_NAMES[town.id]} かくとくずみ！
+              </p>
+            ) : gym.ready ? (
+              <p className="text-xs font-black text-rose-600 animate-pulse">
+                ⚔ どうじょうに いどめる！(北へ)
+              </p>
+            ) : (
+              <>
+                <p className="text-[11px] font-black text-slate-500 mb-1">どうじょうに いどむには</p>
+                <div className="space-y-0.5">
+                  {([
+                    ['トレーナー', gym.trainersBeaten, gym.trainersNeeded, '人'],
+                    ['つかまえる', gym.caught, gym.caughtNeeded, '体'],
+                    ['せいかい', gym.correct, gym.correctNeeded, '問'],
+                  ] as const).map(([label, cur, need, unit]) => {
+                    const done = cur >= need;
+                    return (
+                      <div key={label} className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-black w-16 shrink-0 ${done ? 'text-emerald-600' : 'text-slate-500'}`}>
+                          {done ? '✓' : '・'}{label}
+                        </span>
+                        <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                          <div
+                            className={`h-full ${done ? 'bg-emerald-400' : 'bg-sky-400'}`}
+                            style={{ width: `${Math.min(100, (cur / need) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 w-12 text-right shrink-0">
+                          {Math.min(cur, need)}/{need}{unit}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="pointer-events-auto flex flex-wrap justify-end gap-1.5 sm:gap-2 max-w-[62%]">
@@ -419,6 +503,7 @@ const AdventureMode: React.FC<Props> = ({
             ['🗺 マップ', () => setOverlay('map')],
             ['📕 ずかん', () => setOverlay('dex')],
             ['🐾 てもち', () => setOverlay('party')],
+            ['🪪 カード', () => setOverlay('card')],
             ['🏠 もどる', onExit],
           ] as const).map(([label, fn]) => (
             <button
@@ -456,6 +541,16 @@ const AdventureMode: React.FC<Props> = ({
         </div>
       )}
 
+      {/* 称号を手に入れたときの知らせ */}
+      {titleToast && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+          <div className="rounded-3xl bg-gradient-to-r from-amber-400 to-yellow-300 px-7 py-3 shadow-2xl border-4 border-white animate-bounce">
+            <p className="text-xs font-black text-amber-900">しょうごうを 手に入れた！</p>
+            <p className="text-xl font-black text-amber-950">{titleToast.icon} {titleToast.name}</p>
+          </div>
+        </div>
+      )}
+
       {/* 会話 */}
       {dialogue && (
         <DialogueBox
@@ -469,6 +564,7 @@ const AdventureMode: React.FC<Props> = ({
 
       {/* メニュー */}
       {overlay === 'dex' && <DexScreen onClose={() => setOverlay('none')} />}
+      {overlay === 'card' && <TrainerCardScreen onClose={() => setOverlay('none')} />}
       {overlay === 'party' && <PartyScreen onClose={() => setOverlay('none')} />}
       {overlay === 'shop' && (
         <ShopScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onBuy={handleBuy} />

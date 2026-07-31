@@ -12,9 +12,12 @@
 import { create } from 'zustand';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { MONSTER_DEX, getMonster, statsAtLevel, expToNext } from '../data/adventure/monsters';
-import { TOWNS, BADGE_NAMES } from '../data/adventure/towns';
-import type { OwnedMonster } from '../data/adventure/adventureTypes';
+import { MONSTER_DEX, MONSTERS_BY_UNIT, getMonster, statsAtLevel, expToNext } from '../data/adventure/monsters';
+import { TOWNS, BADGE_NAMES, getTown } from '../data/adventure/towns';
+import { GYM_REQUIREMENTS, type GymProgress } from '../data/adventure/gymRequirements';
+import { ADVENTURE_TITLES, rankPoints, trainerRank, type AdventureTitleDef, type RankStatKey } from '../data/adventure/ranks';
+import { getAllMastery } from '../services/learningLogService';
+import type { OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
 
 const KEY = 'bm_adventure_v1';
 
@@ -314,3 +317,111 @@ export const badgeList = (save: AdventureSave) =>
 /** リーグに挑戦できるか(14バッジすべて) */
 export const canChallengeLeague = (save: AdventureSave): boolean =>
   TOWNS.every(t => save.badges.includes(t.id));
+
+
+// ============================================================
+// ジム(単元マスター)への挑戦条件
+// ============================================================
+
+/**
+ * その町のマスターに挑めるか。
+ *
+ * 「正解数」は学習記録(learningLogService)の単元別集計をそのまま見るので、
+ * 練習モードでその単元をやりこんだ子は、バトルをしなくても条件を満たせる。
+ * 学習の実績とゲームの進行を別々にしないための設計。
+ */
+export const gymProgress = (save: AdventureSave, town: TownDef): GymProgress => {
+  const req = GYM_REQUIREMENTS[town.id];
+  const trainersBeaten = req.trainerIds.filter(id => save.defeatedNpcs.includes(id)).length;
+
+  const unitDefIds = new Set((MONSTERS_BY_UNIT[town.unit] ?? []).map(m => m.id));
+  const caught = new Set(
+    save.owned.filter(o => unitDefIds.has(o.defId)).map(o => o.defId),
+  ).size;
+
+  const mastery = getAllMastery();
+  const correct = (MONSTERS_BY_UNIT[town.unit] ?? []).reduce(
+    (sum, m) => sum + (mastery[m.subtopic]?.corrects ?? 0),
+    0,
+  );
+
+  return {
+    trainersBeaten,
+    trainersNeeded: req.trainerIds.length,
+    caught,
+    caughtNeeded: req.catchCount,
+    correct,
+    correctNeeded: req.correctCount,
+    ready:
+      trainersBeaten >= req.trainerIds.length &&
+      caught >= req.catchCount &&
+      correct >= req.correctCount,
+  };
+};
+
+export const gymProgressById = (save: AdventureSave, townId: string): GymProgress | null => {
+  const town = getTown(townId);
+  return town ? gymProgress(save, town) : null;
+};
+
+
+// ============================================================
+// ステータス(トレーナーカード)と称号
+// ============================================================
+
+export interface AdventureStats extends Record<RankStatKey, number> {
+  /** 図鑑の総数(151) */
+  dexTotal: number;
+}
+
+/**
+ * 冒険の実績をまとめて数える。
+ * すべてセーブと学習記録から毎回計算するだけなので、条件を後から変えても
+ * 過去のプレイに さかのぼって反映される(別に集計を持たないための設計)。
+ */
+export const adventureStats = (save: AdventureSave): AdventureStats => {
+  const mastery = getAllMastery();
+  const correct = MONSTER_DEX.reduce(
+    (sum, m) => sum + (mastery[m.subtopic]?.corrects ?? 0),
+    0,
+  );
+  const caught = new Set(save.owned.map(o => o.defId));
+  const visited = new Set(
+    save.seenEvents.filter(e => e.startsWith('intro:')).map(e => e.slice(6)),
+  );
+  // 現在いる町は必ず訪問ずみとして数える
+  visited.add(save.townId);
+
+  return {
+    badges: save.badges.length,
+    caught: MONSTER_DEX.filter(m => caught.has(m.id)).length,
+    seen: MONSTER_DEX.filter(m => save.seen.includes(m.id)).length,
+    trainersBeaten: save.defeatedNpcs.length,
+    correct,
+    maxLevel: save.owned.reduce((mx, o) => Math.max(mx, o.level), 0),
+    towns: visited.size,
+    league: save.champion ? 5 : save.leagueProgress,
+    dexTotal: MONSTER_DEX.length,
+  };
+};
+
+/** いま獲得している称号 */
+export const earnedAdventureTitles = (save: AdventureSave): AdventureTitleDef[] => {
+  const st = adventureStats(save);
+  return ADVENTURE_TITLES.filter(t => st[t.stat] >= t.value);
+};
+
+/** つぎに手が届きそうな称号(達成率の高い順に3つ) */
+export const nextAdventureTitles = (save: AdventureSave, count = 3) => {
+  const st = adventureStats(save);
+  return ADVENTURE_TITLES
+    .filter(t => st[t.stat] < t.value)
+    .map(t => ({ def: t, current: st[t.stat], ratio: st[t.stat] / t.value }))
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, count);
+};
+
+export const adventureRank = (save: AdventureSave) => {
+  const st = adventureStats(save);
+  return trainerRank(rankPoints(st));
+};

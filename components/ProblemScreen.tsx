@@ -10,13 +10,14 @@ import ProblemResultDisplay from './ProblemResultDisplay';
 import { BackIcon, PencilIcon, HomeIcon, TrophyIcon, ClockIcon } from './Icons';
 import { generateSubtopicKeypadLayout } from '../utils/keypadLayoutGenerator';
 import { checkAnswer as evaluateAnswer } from '../utils/answerChecker';
-import FractionText, { PartialFractionDisplay } from './FractionText';
+import FractionText from './FractionText';
 import { recordAttempt } from '../services/weaknessAnalysisService';
 import { addIncorrectToSrs } from '../services/spacedRepetitionService';
 import { recordProblemLog } from '../services/learningLogService';
 import { evaluatePracticeReward, type PracticeRewardDecision } from '../services/practiceRewardService';
 
 import ProblemQuestionView from './ProblemQuestionView';
+import ProblemAnswerPad, { INTERACTIVE_TYPES, hidesAnswerPad } from './ProblemAnswerPad';
 
 interface ProblemScreenProps {
   category: string;
@@ -365,8 +366,7 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
   const handleKeypadClick = useCallback((key: string) => {
     if (showAnswer) return;
     
-    const interactiveTypes = ['fill_in_proof', 'graphing', 'graphing_with_table', 'vertical_calculation', 'guided_equation', 'intersection_guided_equation', 'simultaneous_equation'];
-    if (interactiveTypes.includes(currentProblem?.type || '')) {
+    if (INTERACTIVE_TYPES.includes(currentProblem?.type || '')) {
        problemViewRef.current?.handleKeyClick(key);
        return;
     }
@@ -423,11 +423,6 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
   }, [problems]);
 
   // 分数キーパッド使用時は、入力を積み上げ表記でライブ表示する
-  const isFractionKeypad = useMemo(
-    () => subtopicKeypadLayout.some(row => row.includes('と')),
-    [subtopicKeypadLayout],
-  );
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center text-red-400 font-mono">
@@ -529,34 +524,19 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
                     </div>
                 </div>
 
-                {!['proof', 'guided'].includes(currentProblem?.type || '') && !problemData?.options && (
+                {!hidesAnswerPad(currentProblem, problemData) && (
                   <div className='flex flex-col items-center gap-2'>
-                    {!['fill_in_proof', 'graphing', 'graphing_with_table', 'vertical_calculation', 'guided_equation', 'intersection_guided_equation', 'simultaneous_equation'].includes(currentProblem?.type || '') && (
-                        <div className='w-full max-w-lg'>
-                           <div className={`min-h-[3rem] sm:min-h-[3.5rem] p-2 sm:p-3 bg-slate-950/60 rounded-xl border-2 border-red-500/30 flex items-center shadow-inner`}>
-                              <span className='text-xs sm:text-sm font-bold text-red-400 mr-2 sm:mr-3 whitespace-nowrap'>解答:</span>
-                              {isFractionKeypad ? (
-                                <span className='text-lg sm:text-xl lg:text-2xl font-mono text-red-200 flex-grow font-bold tracking-wide'>
-                                  <PartialFractionDisplay raw={userAnswer} placeholder="キーパッドで入力..." />
-                                </span>
-                              ) : (currentProblem?.type === 'text' || !currentProblem?.type) ? (
-                                <input
-                                  type="text"
-                                  value={userAnswer}
-                                  onChange={(e) => !showAnswer && setUserAnswer(e.target.value)}
-                                  disabled={showAnswer}
-                                  placeholder="ここに入力..."
-                                  className="flex-grow bg-transparent text-lg sm:text-xl lg:text-2xl font-mono text-red-200 font-bold tracking-wide outline-none placeholder:text-red-800 placeholder:text-sm"
-                                />
-                              ) : (
-                                <span className='text-lg sm:text-xl lg:text-2xl font-mono text-red-200 flex-grow font-bold tracking-wide' style={{ wordBreak: 'break-all' }}>{userAnswer || <span className="text-red-800 text-sm">キーパッドで入力...</span>}</span>
-                              )}
-                           </div>
-                        </div>
-                    )}
-                    <div className="w-full max-w-lg">
-                      <Keypad onKeyClick={handleKeypadClick} layout={subtopicKeypadLayout} disabled={showAnswer} />
-                    </div>
+                    <ProblemAnswerPad
+                      currentProblem={currentProblem}
+                      problemData={problemData}
+                      userAnswer={userAnswer}
+                      setUserAnswer={setUserAnswer}
+                      showAnswer={showAnswer}
+                      keypadLayout={subtopicKeypadLayout}
+                      problemViewRef={problemViewRef}
+                      theme="practice"
+                      onSubmit={checkAnswer}
+                    />
                   </div>
                 )}
 

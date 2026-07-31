@@ -9,7 +9,12 @@ import { MONSTER_DEX, getMonsterSprite, statsAtLevel, expToNext } from '../../da
 import { ELEMENTS, getStrongAgainst, getWeakAgainst } from '../../data/adventure/elements';
 import { TOWNS, BADGE_NAMES } from '../../data/adventure/towns';
 import { ABILITIES, ITEMS, type ItemId } from '../../data/adventure/adventureTypes';
-import { useAdventureStore, dexProgress, getPartyMonsters } from '../../store/adventureStore';
+import {
+  useAdventureStore, dexProgress, getPartyMonsters,
+  adventureStats, earnedAdventureTitles, nextAdventureTitles, adventureRank, gymProgress,
+} from '../../store/adventureStore';
+import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
+import { getPlayerSprite } from '../../data/adventure/people';
 
 const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
   title, onClose, children, accent = '#0ea5e9',
@@ -411,6 +416,137 @@ export const ShopScreen: React.FC<{
       <p className="mt-4 text-white/80 font-bold text-sm">
         MPは バトルに かったり、れんしゅうモードで もんだいを といたり すると たまるよ。
       </p>
+    </Panel>
+  );
+};
+
+
+// ============================================================
+// トレーナーカード(ステータス)
+// ============================================================
+
+const RARITY_STYLE: Record<string, string> = {
+  common: 'bg-slate-100 text-slate-700 border-slate-300',
+  rare: 'bg-sky-100 text-sky-800 border-sky-400',
+  epic: 'bg-violet-100 text-violet-800 border-violet-400',
+  legendary: 'bg-amber-100 text-amber-800 border-amber-400',
+};
+
+export const TrainerCardScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const save = useAdventureStore(s => s.save);
+  const st = adventureStats(save);
+  const rank = adventureRank(save);
+  const earned = earnedAdventureTitles(save);
+  const earnedIds = new Set(earned.map(t => t.id));
+  const next = nextAdventureTitles(save, 3);
+
+  const rows: Array<[string, string, number, number | null]> = [
+    ['🏅', 'バッジ', st.badges, 14],
+    ['📕', 'ずかん(つかまえた)', st.caught, st.dexTotal],
+    ['👀', 'ずかん(出会った)', st.seen, st.dexTotal],
+    ['⚔', 'かったトレーナー', st.trainersBeaten, null],
+    ['✏️', 'せいかいした問題', st.correct, null],
+    ['🗺', 'おとずれた町', st.towns, 14],
+    ['⭐', '手持ちの最高レベル', st.maxLevel, null],
+  ];
+
+  return (
+    <Panel title="トレーナーカード" onClose={onClose} accent="#0f766e">
+      {/* ランク */}
+      <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-lg border-4 border-teal-300 mb-4">
+        <div className="flex items-center gap-4">
+          <img
+            src={getPlayerSprite(save.appearance, 'front')}
+            alt=""
+            className="w-20 h-20 sm:w-28 sm:h-28 object-contain shrink-0"
+            onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-2xl sm:text-3xl font-black text-slate-800 truncate">
+              {save.playerName || 'なまえなし'}
+            </p>
+            <p className="text-sm font-black text-teal-700 mt-0.5">
+              トレーナーランク {rank.level} ／ {rank.name}
+            </p>
+            {earned.length > 0 && (
+              <p className="text-xs font-bold text-slate-500 mt-1">
+                いまの称号: {earned[earned.length - 1].icon} {earned[earned.length - 1].name}
+              </p>
+            )}
+            <div className="mt-2 h-3 rounded-full bg-slate-200 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all"
+                style={{ width: `${Math.min(100, rank.progress * 100)}%` }}
+              />
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 mt-0.5 text-right">
+              {rank.nextPoints === null
+                ? `${rank.points} ポイント(さいこうランク)`
+                : `${rank.points} / ${rank.nextPoints} ポイント`}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ステータス */}
+      <div className="grid sm:grid-cols-2 gap-2 mb-4">
+        {rows.map(([icon, label, cur, max]) => (
+          <div key={label} className="rounded-2xl bg-white p-3 shadow flex items-center gap-3">
+            <span className="text-2xl shrink-0">{icon}</span>
+            <span className="flex-1 text-sm font-bold text-slate-600 truncate">{label}</span>
+            <span className="text-lg font-black text-slate-800 shrink-0">
+              {cur}{max !== null && <span className="text-sm text-slate-400"> / {max}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* つぎの称号 */}
+      {next.length > 0 && (
+        <>
+          <h3 className="text-white text-lg font-black mb-2">もうすこしで もらえる 称号</h3>
+          <div className="grid sm:grid-cols-3 gap-2 mb-4">
+            {next.map(({ def, current }) => (
+              <div key={def.id} className="rounded-2xl bg-white/95 p-3 shadow">
+                <p className="font-black text-slate-800 text-sm">{def.icon} {def.name}</p>
+                <p className="text-[11px] font-bold text-slate-500 mt-0.5">{def.description}</p>
+                <div className="mt-1.5 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full bg-amber-400"
+                    style={{ width: `${Math.min(100, (current / def.value) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 text-right mt-0.5">
+                  {current} / {def.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 称号一覧 */}
+      <h3 className="text-white text-lg font-black mb-2">
+        称号 {earned.length} / {ADVENTURE_TITLES.length}
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        {ADVENTURE_TITLES.map(t => {
+          const got = earnedIds.has(t.id);
+          return (
+            <div
+              key={t.id}
+              className={`rounded-2xl p-3 border-4 ${got ? RARITY_STYLE[t.rarity] : 'bg-slate-800/60 text-white/40 border-slate-700'}`}
+            >
+              <p className="font-black text-sm truncate">
+                {got ? `${t.icon} ${t.name}` : '？？？'}
+              </p>
+              <p className="text-[11px] font-bold opacity-80 mt-0.5 leading-snug">
+                {t.description}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </Panel>
   );
 };

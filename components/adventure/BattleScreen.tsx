@@ -28,7 +28,8 @@ import { addIncorrectToSrs } from '../../services/spacedRepetitionService';
 import { recordProblemLog } from '../../services/learningLogService';
 import { recordAttempt } from '../../services/weaknessAnalysisService';
 import ProblemQuestionView from '../ProblemQuestionView';
-import Keypad from '../Keypad';
+import ProblemAnswerPad from '../ProblemAnswerPad';
+import ProblemResultDisplay from '../ProblemResultDisplay';
 import FractionText from '../FractionText';
 import { DialogueBox } from './ui/DialogueBox';
 
@@ -171,6 +172,17 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   const problem = problems[qIndex] ?? null;
   const problemData = (problem?.data ?? {}) as any;
+
+  // マスターモード: ヒントを出さず、最後にまとめて答え合わせする自己選択モード。
+  // 判定条件・データの渡し方は ProblemScreen とまったく同じ。
+  const [masterModeOn, setMasterModeOn] = useState(false);
+  const supportsMasterMode = ['division-hissan', 'decimal-addsub', 'decimal-muldiv', 'multiplication-hissan'].includes(
+    (problemData as { guidedKind?: string } | undefined)?.guidedKind || '',
+  );
+  const guidedDisplayProblem = useMemo(() => {
+    if (!problem || problem.type !== 'guided' || !supportsMasterMode) return problem;
+    return { ...problem, data: { ...problem.data, masterMode: masterModeOn } };
+  }, [problem, supportsMasterMode, masterModeOn]);
   // キーパッドは、この相手が出しうる問題ぜんぶから共通のキーを作る
   // (問題ごとにキーの位置が動くと小4が混乱するため)
   const keypadLayout = useMemo(() => {
@@ -441,14 +453,6 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const accent = oppDef ? ELEMENTS[oppDef.type].color : '#38bdf8';
   const oppSprite = oppDef ? getMonsterSprite(oppDef.id) : '';
 
-  // 問題ビューが自前で入力欄を持つ型では、共通のキーパッド・解答らんは出さない
-  const SELF_INPUT_TYPES = [
-    'fill_in_proof', 'graphing', 'graphing_with_table', 'vertical_calculation',
-    'guided_equation', 'intersection_guided_equation', 'simultaneous_equation',
-  ];
-  const needsKeypad =
-    problem?.type !== 'guided' && problem?.type !== 'proof' && !problemData?.options;
-  const showsAnswerBox = !SELF_INPUT_TYPES.includes(problem?.type ?? '');
 
   // ============================================================
   // 見た目
@@ -637,48 +641,41 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
               setUserAnswer={setUserAnswer}
               showAnswer={showAnswer}
               problemViewRef={problemViewRef}
-              guidedDisplayProblem={problem}
+              guidedDisplayProblem={guidedDisplayProblem}
               handleGuidedComplete={handleGuidedComplete}
-              guidedKey={`${oppIndex}-${qIndex}-${isRetry}`}
+              guidedKey={`${oppIndex}-${qIndex}-${isRetry}-${masterModeOn}`}
             />
           </div>
         </div>
 
-        {/* 解答らんとキーパッド(問題ビューが自前で入力を持つ型では出さない) */}
-        {needsKeypad && (
-          <div className="shrink-0 lg:w-[380px] xl:w-[420px] mt-2 lg:mt-0 flex flex-col gap-2 overflow-y-auto">
-            {showsAnswerBox && (
-              <div className="min-h-[3.25rem] px-3 py-2 rounded-2xl bg-slate-950/70 border-2 border-sky-400/40 flex items-center shrink-0">
-                <span className="text-xs font-bold text-sky-300 mr-3 shrink-0">こたえ</span>
-                {problem?.type === 'text' || !problem?.type ? (
-                  <input
-                    value={userAnswer}
-                    onChange={e => !showAnswer && setUserAnswer(e.target.value)}
-                    disabled={showAnswer}
-                    placeholder="ここに にゅうりょく"
-                    className="flex-1 min-w-0 bg-transparent text-xl sm:text-2xl font-mono font-bold text-white outline-none placeholder:text-slate-600 placeholder:text-sm"
-                  />
-                ) : (
-                  <span className="flex-1 min-w-0 text-xl sm:text-2xl font-mono font-bold text-white break-all">
-                    {userAnswer || <span className="text-slate-600 text-sm">キーパッドで にゅうりょく</span>}
-                  </span>
-                )}
-              </div>
-            )}
-            <Keypad
-              onKeyClick={k => {
-                if (showAnswer) return;
-                if (k === 'Backspace') setUserAnswer(userAnswer.slice(0, -1));
-                else if (k === 'Clear') setUserAnswer('');
-                else if (k === 'Enter') submit();
-                else if (problemViewRef.current) problemViewRef.current.handleKeyClick(k);
-                else setUserAnswer(userAnswer + k);
-              }}
-              layout={keypadLayout}
-              disabled={showAnswer}
-            />
-          </div>
-        )}
+        {/* 解答らんとキーパッド。練習モードとまったく同じ入力経路を使う。 */}
+        <div className="shrink-0 lg:w-[380px] xl:w-[420px] mt-2 lg:mt-0 flex flex-col gap-2 overflow-y-auto">
+          <ProblemAnswerPad
+            currentProblem={problem}
+            problemData={problemData}
+            userAnswer={userAnswer}
+            setUserAnswer={setUserAnswer}
+            showAnswer={showAnswer}
+            keypadLayout={keypadLayout}
+            problemViewRef={problemViewRef}
+            theme="battle"
+            onSubmit={submit}
+          />
+          {/* 筆算などの「マスターモード」。練習モードと同じ切りかえを出す。 */}
+          {supportsMasterMode && (
+            <button
+              onClick={() => setMasterModeOn(v => !v)}
+              className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl border-2 font-black text-sm transition ${
+                masterModeOn
+                  ? 'bg-amber-400 border-amber-200 text-amber-950'
+                  : 'bg-slate-800 border-slate-600 text-slate-300'
+              }`}
+              title="ONにするとヒントなしで、最後にまとめて答え合わせします"
+            >
+              👑 マスターモード {masterModeOn ? 'ON' : 'OFF'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 下: 決定ボタン */}
@@ -704,33 +701,57 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     </div>
   );
 
+  /**
+   * 正誤の表示。まちがえたときは、練習モードとまったく同じ解説パネル
+   * (ProblemResultDisplay)をそのまま出す。ここを自前の簡易表示にすると
+   * 「バトルだと解説が出ない」という学習上いちばん困る差が生まれる。
+   */
   const ResultOverlay = (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-4" onClick={proceed}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto">
       <div
-        className={`w-full max-w-2xl rounded-3xl border-8 bg-white p-6 sm:p-8 text-center shadow-2xl ${wasCorrect ? 'border-emerald-400' : 'border-rose-400'}`}
+        className={`w-full max-w-3xl rounded-3xl border-8 bg-white p-4 sm:p-6 shadow-2xl ${wasCorrect ? 'border-emerald-400' : 'border-rose-400'}`}
       >
-        <p className={`text-4xl sm:text-5xl font-black mb-2 ${wasCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>
+        <p className={`text-3xl sm:text-4xl font-black text-center ${wasCorrect ? 'text-emerald-500' : 'text-rose-500'}`}>
           {wasCorrect ? 'せいかい！' : 'ざんねん…'}
         </p>
-        <p className="text-lg sm:text-xl font-bold text-slate-700">
+        <p className="mt-1 text-base sm:text-lg font-bold text-slate-700 text-center">
           {wasCorrect
             ? `${oppDef?.name} に こうげきが ヒット！`
             : isRetry
-              ? `こたえは 「${problem?.answer}」 だったよ。`
-              : 'ヒントを 見て、もういちど やってみよう！'}
+              ? 'つぎの もんだいへ いこう。'
+              : 'かいせつを 見て、もういちど やってみよう！'}
         </p>
         {wasCorrect && typeMult !== 1 && (
-          <p className={`mt-2 text-base font-black ${typeMult > 1 ? 'text-emerald-600' : 'text-slate-500'}`}>
+          <p className={`mt-1 text-center text-base font-black ${typeMult > 1 ? 'text-emerald-600' : 'text-slate-500'}`}>
             {getTypeMatchupLabel(typeMult)}
           </p>
         )}
+
+        {/* 練習モードと同じ、正解・自分の解答・解説の一覧 */}
+        <div className="mt-4 max-h-[45vh] overflow-y-auto rounded-2xl bg-slate-900 p-2">
+          <ProblemResultDisplay
+            showAnswer={showAnswer}
+            problemData={problem}
+            result={wasCorrect ? 'correct' : 'incorrect'}
+            userAnswer={userAnswer}
+            timeTaken={null}
+            score={null}
+            hint={hint ?? undefined}
+            hideAnswerGrid={problem?.type === 'guided'}
+            getResultRingColor={() => (wasCorrect ? 'border-emerald-400' : 'border-red-500')}
+          />
+        </div>
+
         {!wasCorrect && isRetry && (
-          <p className="mt-3 text-sm font-bold text-slate-500">
-            この もんだいは「ふくしゅうモード」に入れておいたよ。
+          <p className="mt-3 text-sm font-bold text-slate-500 text-center">
+            この もんだいは「ふくしゅうモード」に 入れておいたよ。
           </p>
         )}
-        <button className="mt-6 px-10 py-3 rounded-2xl bg-slate-800 text-white font-black text-xl shadow">
-          つぎへ ▶
+        <button
+          onClick={proceed}
+          className="mt-5 w-full py-4 rounded-2xl bg-slate-800 text-white font-black text-xl sm:text-2xl shadow active:scale-95"
+        >
+          {wasCorrect || isRetry ? 'つぎへ ▶' : 'もういちど やってみる ▶'}
         </button>
       </div>
     </div>

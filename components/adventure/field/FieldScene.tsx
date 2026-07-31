@@ -36,7 +36,8 @@ export interface FieldControl {
 }
 
 const PLAYER_SPEED = 7.2;
-const NPC_TALK_RANGE = 2.8;
+// 話しかけられる距離。ぴったり重ならないと反応しないと小4にはつらいので広めにとる。
+const NPC_TALK_RANGE = 4.0;
 
 interface SceneProps {
   town: TownDef;
@@ -77,12 +78,23 @@ const World: React.FC<SceneProps> = ({
   const [facing, setFacing] = React.useState<'front' | 'back' | 'side'>('front');
   const [flip, setFlip] = React.useState(false);
 
-  // 建物と道場の位置(NPCの位置に合わせて建てる)
+  // 建物の位置。NPCは入口の手前に立ち、建物はその奥に建つ。
+  // 当たり判定はこの「建物の位置」で取る。NPCの位置で取ってしまうと、
+  // NPC本人に近づけなくなって話しかけられない。
   const nurse = npcs.find(n => n.kind === 'nurse');
   const shop = npcs.find(n => n.kind === 'shop');
   const master = npcs.find(n => n.kind === 'master');
 
-  /** その場所へ行けるか(飾りとフィールドのふち) */
+  const buildings = useMemo(() => {
+    const out: Array<{ x: number; z: number; hw: number; hd: number; kind: 'nurse' | 'shop' | 'dojo' }> = [];
+    // Building.tsx の寸法(小屋 6×5 / 道場 9×7)に少し余裕を足したもの
+    if (nurse) out.push({ x: nurse.x, z: nurse.z - 3.2, hw: 3.4, hd: 2.9, kind: 'nurse' });
+    if (shop) out.push({ x: shop.x, z: shop.z - 3.2, hw: 3.4, hd: 2.9, kind: 'shop' });
+    if (master) out.push({ x: master.x, z: master.z - 4.6, hw: 4.9, hd: 3.9, kind: 'dojo' });
+    return out;
+  }, [nurse, shop, master]);
+
+  /** その場所へ行けるか(飾り・建物・フィールドのふち) */
   const canStand = useCallback(
     (x: number, z: number) => {
       if (Math.abs(x) > half - 1.2 || Math.abs(z) > half - 1.2) return false;
@@ -92,15 +104,12 @@ const World: React.FC<SceneProps> = ({
         const r = p.radius * p.scale;
         if (dx * dx + dz * dz < r * r) return false;
       }
-      // 建物の中には入れない
-      for (const b of [nurse, shop, master]) {
-        if (!b) continue;
-        const w = b.kind === 'master' ? 5.2 : 3.6;
-        if (Math.abs(x - b.x) < w && Math.abs(z - b.z) < w * 0.8) return false;
+      for (const b of buildings) {
+        if (Math.abs(x - b.x) < b.hw && Math.abs(z - b.z) < b.hd) return false;
       }
       return true;
     },
-    [props, half, nurse, shop, master],
+    [props, half, buildings],
   );
 
   useFrame((state, dtRaw) => {
@@ -234,16 +243,17 @@ const World: React.FC<SceneProps> = ({
       <GrassPatches patches={patches} style={style} seed={seed} size={town.size} />
       <FieldProps items={props} />
 
-      {/* 建物 */}
-      {nurse && (
-        <Building kind="nurse" x={nurse.x} y={heightAt(nurse.x, nurse.z - 3.2, seed, town.size)} z={nurse.z - 3.2} accent={accent} />
-      )}
-      {shop && (
-        <Building kind="shop" x={shop.x} y={heightAt(shop.x, shop.z - 3.2, seed, town.size)} z={shop.z - 3.2} accent={accent} />
-      )}
-      {master && (
-        <Building kind="dojo" x={master.x} y={heightAt(master.x, master.z - 4.6, seed, town.size)} z={master.z - 4.6} accent={accent} />
-      )}
+      {/* 建物(当たり判定と同じ位置定義を使う) */}
+      {buildings.map(b => (
+        <Building
+          key={b.kind}
+          kind={b.kind}
+          x={b.x}
+          y={heightAt(b.x, b.z, seed, town.size)}
+          z={b.z}
+          accent={accent}
+        />
+      ))}
 
       {/* NPC */}
       {npcs.map((n, i) => {
