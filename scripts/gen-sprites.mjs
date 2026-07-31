@@ -185,6 +185,29 @@ function raggedness(data, w, h) {
 }
 
 /**
+ * シルエットのふちの明るさ。
+ *
+ * ちゃんと切り抜けた絵は、まわりが「黒っぽい輪郭線」なのでふちが暗い。
+ * 背景に丸い板を描かれると、その板は緑ではないので抜けずに残り、
+ * ふちが板の色(たいてい明るい)になる。実測で、まともな絵のふちは
+ * 平均40〜135、板が残った絵は186以上とはっきり分かれた。
+ */
+function edgeBrightness(data, w, h) {
+  const op = p => data[p * 4 + 3] > 40;
+  let sum = 0, n = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      if (!op(p)) continue;
+      if (op(p - 1) && op(p + 1) && op(p - w) && op(p + w)) continue;
+      sum += (data[p * 4] + data[p * 4 + 1] + data[p * 4 + 2]) / 3;
+      n++;
+    }
+  }
+  return n ? sum / n : 0;
+}
+
+/**
  * 大きな不透明のかたまりの数。2つ以上なら「1体に収まっていない」ので作り直す。
  * (生成が小さな仲間や分身を並べてしまうことがある)
  */
@@ -283,6 +306,8 @@ async function toSprite(buf) {
   if (holes > 0.02) throw new Error(`subject has holes (${(holes * 100).toFixed(1)}%)`);
   const ragged = raggedness(data, info.width, info.height);
   if (ragged > 9) throw new Error(`silhouette was eaten (ragged ${ragged.toFixed(1)})`);
+  const edge = edgeBrightness(data, info.width, info.height);
+  if (edge > 150) throw new Error(`a backdrop plate was left behind (edge ${edge.toFixed(0)})`);
 
   const raw = sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } });
   const cropped = await raw.extract(bounds).png().toBuffer();

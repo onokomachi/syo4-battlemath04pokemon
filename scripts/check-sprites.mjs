@@ -90,6 +90,29 @@ const raggedness = (data, w, h) => {
   return area ? per / Math.sqrt(area) : 0;
 };
 
+/**
+ * シルエットのふちの明るさ。
+ *
+ * ちゃんと切り抜けた絵は、まわりが「黒っぽい輪郭線」なのでふちが暗い。
+ * 背景に丸い板を描かれると、その板は緑ではないので抜けずに残り、
+ * ふちが板の色(たいてい明るい)になる。実測で、まともな絵のふちは
+ * 平均40〜135、板が残った絵は186以上とはっきり分かれた。
+ */
+const edgeBrightness = (data, w, h) => {
+  const op = p => data[p * 4 + 3] > 40;
+  let sum = 0, n = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      if (!op(p)) continue;
+      if (op(p - 1) && op(p + 1) && op(p - w) && op(p + w)) continue;
+      sum += (data[p * 4] + data[p * 4 + 1] + data[p * 4 + 2]) / 3;
+      n++;
+    }
+  }
+  return n ? sum / n : 0;
+};
+
 const blobCount = (data, w, h) => {
   const opaque = p => data[p * 4 + 3] > 40;
   const seen = new Uint8Array(w * h);
@@ -140,6 +163,7 @@ for (const file of files) {
   const holes = holeRatio(data, info.width, info.height);
   const blobs = blobCount(data, info.width, info.height);
   const ragged = raggedness(data, info.width, info.height);
+  const edge = edgeBrightness(data, info.width, info.height);
   const rel = path.relative(ROOT, file);
 
   const problems = [];
@@ -150,10 +174,11 @@ for (const file of files) {
   if (holes > 0.02) problems.push(`内側が食われている ${(holes * 100).toFixed(1)}%`);
   if (blobs >= 2) problems.push(`複数キャラが描かれている (${blobs}体)`);
   if (ragged > 9) problems.push(`輪郭が食われている (ぼろぼろ度 ${ragged.toFixed(1)})`);
+  if (edge > 150) problems.push(`背景の板が残っている (ふちの明るさ ${edge.toFixed(0)})`);
 
   if (problems.length) bad.push({ rel, problems });
   if (!ONLY_BAD) {
-    console.log(`${problems.length ? '✗' : '✓'} ${rel}  fill=${(fill * 100).toFixed(0)}% green=${(greenRatio * 100).toFixed(0)}% holes=${(holes * 100).toFixed(1)}% blobs=${blobs} ragged=${ragged.toFixed(1)}`);
+    console.log(`${problems.length ? '✗' : '✓'} ${rel}  fill=${(fill * 100).toFixed(0)}% green=${(greenRatio * 100).toFixed(0)}% holes=${(holes * 100).toFixed(1)}% blobs=${blobs} ragged=${ragged.toFixed(1)} edge=${edge.toFixed(0)}`);
   }
 }
 

@@ -28,30 +28,29 @@ export interface SpriteJob {
 }
 
 /**
- * 全生成で共有する画風。catwars で「絵画的リアリズム→フラットなマスコット」に
- * 転換して成功した指定をベースに、本作向けに調整している。
- * ここを崩すと画風がばらけるので、系統ごとの差分は MOTIF 側だけで付ける。
+ * プロンプトの組み立て方について。
+ *
+ * Pollinations(flux)は長いプロンプトの後半を落とす。1500字ほど書いていた
+ * ときは、末尾に置いた motif と色指定がまるごと無視され、どのモンスターも
+ * 同じ「丸っこい白い動物」になっていた。
+ *
+ * そこで並び順を
+ *   ① 背景(抜けないと使えない) → ② 何を描くか(motif) → ③ 画風 → ④ 除外
+ * に固定し、全体を700字前後に切りつめてある。②を前に出すのが要点。
  */
-const BASE_STYLE = [
-  // 背景の指定は必ず先頭に置く。プロンプトが長いと後半が落ちることがあり、
-  // 背景がクロマグリーンでないと背景除去でキャラが溶けるため。
-  'SOLID FLAT CHROMA GREEN #19c37d BACKGROUND, one single flat green color, no gradient, no scenery, no floor, no shadow',
-  'die-cut sticker illustration',
-  'flat 2D vector character design, Sanrio-style kawaii, EXTREMELY SIMPLE shapes, chibi proportions',
-  // 目の指定。緩めると、モチーフに「レンズ」等が入った個体で額に第3の目が生える。
-  'EXACTLY TWO EYES, one left and one right on the face, same size and shape, level and symmetrical',
-  'huge round glossy eyes with one white highlight dot, warm friendly happy expression',
-  'bold clean outline, flat solid colors, no gradient shading, no fur texture, no painterly rendering',
-  'ONE single character, full body, standing, centered, complete inside the frame',
-].join(', ');
+const BG = 'SOLID FLAT CHROMA GREEN #19c37d BACKGROUND, one flat green color, nothing else behind the character';
 
-/**
- * モンスターは「人ではない生きもの」であることを強く指定する。
- * ここを弱めると、motif の "mascot" という語だけで人型の子どもが出てしまう。
- */
-const CREATURE_STYLE =
-  'an original ANIMAL CREATURE like a Pokemon-style pocket monster, round plush animal body, ' +
-  'stubby paws instead of human hands — NOT a human, no human face, no human skin, no human hair';
+const EYES = 'EXACTLY TWO EYES, one left one right, same size, level and symmetrical';
+
+/** 全生成で共有する下地。ここだけは崩さない(画風がばらけるため) */
+const ART_STYLE =
+  'flat 2D vector die-cut sticker illustration, bold clean outline, flat solid colors';
+
+/** ふつうのモンスター(151体+ボス14体+進化44体)の画風 */
+const MON_STYLE = `${ART_STYLE}, Sanrio-style kawaii, chibi proportions, huge round glossy eyes`;
+
+/** 人物の画風。モンスターほど丸くはしない。 */
+const HUMAN_STYLE = `${ART_STYLE}, cute storybook game art, chibi proportions, big friendly eyes`;
 
 /** 主人公・NPCは人物。こちらは逆に「動物ではない」と明示する */
 const PEOPLE_STYLE =
@@ -62,52 +61,32 @@ const PEOPLE_STYLE =
  * 伝説・幻は「かわいく」しない。圧倒的で荘厳な存在にする。
  * ただし小4対象なので、グロテスク・写実的すぎる描写は除外する。
  */
-const LEGEND_STYLE = [
-  'SOLID FLAT CHROMA GREEN #19c37d BACKGROUND, one single flat green color, no gradient, no scenery',
-  'die-cut sticker illustration',
-  // 画風は他のモンスターと同じ「フラットな2Dベクター」に揃える。
-  // ここを崩すと、モデルが暗い映画風のコンセプトアートを描き、
-  // ①アプリの絵と並ばない ②緑背景が体に回りこんで背景除去で溶ける、の両方が起きる。
-  'flat 2D vector character design, bold clean outline, flat solid colors, cel shading with at most two tones',
-  'BRIGHT and FULLY COLORED, evenly lit, every part clearly visible',
-  'a LEGENDARY BEAST — an original mythical animal creature, majestic and powerful',
-  'large imposing body with a long neck and tail, sweeping wings or a crest, curved horns, ' +
-    'ornate glowing markings, flowing mane — NOT a human, no human body, no muscles, no bare skin',
-  'EXACTLY TWO EYES, one left and one right, same size, level and symmetrical, sharp calm noble gaze',
-  'ONE single creature, full body, side-three-quarter view, centered, complete inside the frame',
-  'NOT cute, NOT chibi, NOT a baby, no big round kawaii eyes — this is a mythical guardian',
-].join(', ');
+const LEGEND_STYLE =
+  'a HUGE LEGENDARY MYTHICAL BEAST, imposing and majestic, regal and powerful, ' +
+  'bold cel-shaded anime illustration, bright saturated colors, clean outline, evenly lit, ' +
+  'NOT cute, NOT chibi, NOT a plush toy, NOT a round mascot, no kawaii face';
 
-const NEGATIVE_COMMON =
-  'no text, no watermark, no logo, no photorealism, no gradient background, no white background, ' +
-  'no multiple characters, no extra creatures, no cropped limbs, no scenery, no ground shadow, ' +
-  // 背景に円や板を描かれると、それは緑ではないので背景除去で残り、
-  // キャラのうしろに丸い板がついたままになる。名指しで止める。
-  'no circle behind the character, no badge, no halo disc, no backdrop shape, no vignette, no frame, ' +
-  'no third eye, no extra eyes, no forehead eye, no eyes on the body, no compound eyes, ' +
-  'no asymmetric eyes, no lopsided eyes, no winking, no closed eye';
+const NEG_BASE =
+  'no text, no watermark, no scenery, no floor, no ground shadow, no circle or plate behind it, ' +
+  'no multiple characters, no cropped limbs, ' +
+  'no third eye, no extra eyes, no forehead eye, no compound eyes, no asymmetric eyes, no closed eye';
 
-const NEGATIVE = `no human, no child, no person, no human face, no human skin, ${NEGATIVE_COMMON}`;
-const NEGATIVE_PEOPLE = `no animal ears, no tail, no snout, no monster, ${NEGATIVE_COMMON}`;
-// 伝説は「暗い実写風のコンセプトアート」に流れやすいので、そこを名指しで止める。
-// 人型も止める(止めないと筋肉質の人間の怪物が出て、小4向けとして不適になる)。
+const NEGATIVE = `no human, no person, no human face, ${NEG_BASE}`;
+const NEGATIVE_PEOPLE = `no animal ears, no tail, no snout, no monster, ${NEG_BASE}`;
 const NEGATIVE_LEGEND =
-  'no chibi, no baby, no plush toy, no gore, no blood, no horror, ' +
-  'no human, no humanoid, no man, no muscles, no bare skin, no armor-clad warrior, ' +
-  'no dark silhouette, no black shape, no backlighting, no rim light, no monochrome, ' +
-  'no dark background, no misty atmosphere, no smoke, no painterly brush strokes, ' +
-  `${NEGATIVE_COMMON}`;
+  `no chibi, no baby animal, no plush toy, no round mascot, no kawaii, ` +
+  `no human, no humanoid, no muscles, no bare skin, no gore, ` +
+  `no dark silhouette, no backlighting, no monochrome, ${NEG_BASE}`;
 
 /** 見た目グレードごとの追加指定。難易度が上がるほど「かっこいい」方向へ寄せる。 */
 const TIER_STYLE: Record<ArtTier, string> = {
-  baby: 'baby-like tiny mascot, extra round and squishy, pastel colors, no weapons, no armor, utterly harmless and adorable',
-  brave: 'slightly adventurous mascot, small scarf or tiny cape and a simple round accessory, cheerful and plucky, still very round and cute',
-  knight: 'cool heroic mascot, simple stylized armor plates and a small cape, confident brave smile, still chibi and round, never scary',
-  dragon:
-    'cool cute chibi dragon-like creature, small rounded wings and a stubby tail, simple smooth plating, sparkling determined eyes, heroic and impressive but still round and friendly, absolutely not scary or grotesque',
+  baby: 'a tiny round baby mascot, pastel, no armor, utterly harmless',
+  brave: 'wearing a small scarf or tiny cape, cheerful and plucky, still round',
+  knight: 'wearing simple stylized armor plates and a small cape, brave, still round',
+  dragon: 'a chibi dragon with small rounded wings and a stubby tail, heroic but friendly, never scary',
 };
 
-const tint = (hex: string) => `dominant color palette around ${hex}`;
+const tint = (hex: string) => `colored mainly ${hex}`;
 
 let seedCounter = 1000;
 const nextSeed = () => (seedCounter += 7);
@@ -116,7 +95,10 @@ export const buildJobs = (): SpriteJob[] => {
   const jobs: SpriteJob[] = [];
 
   // ---- モンスター(151体 + ボス14体) ----
-  for (const m of ALL_MONSTERS) {
+  // ALL_MONSTERS には伝説・幻も入っているが、あれは画風が別なので必ず外す。
+  // 外し忘れると、末尾の重複除去(先勝ち)でチビ可愛い版のほうが採用され、
+  // 伝説がただの丸い動物になる。
+  for (const m of ALL_MONSTERS.filter(x => !x.rarity)) {
     const el = ELEMENTS[m.type];
     jobs.push({
       out: `monsters/${m.id}`,
@@ -124,13 +106,15 @@ export const buildJobs = (): SpriteJob[] => {
       size: 512,
       seed: nextSeed(),
       prompt: [
-        CREATURE_STYLE,
-        BASE_STYLE,
-        TIER_STYLE[m.tier],
+        BG,
         // motif 側の "mascot" は人型を誘発するので creature に寄せる
-        `creature concept: ${m.motif.replace(/\bmascot\b/g, 'animal creature')}`,
+        m.motif.replace(/\bmascot\b/g, 'animal creature'),
         tint(el.color),
-        'front view',
+        'an original Pokemon-style pocket monster, an animal creature, not a human',
+        TIER_STYLE[m.tier],
+        MON_STYLE,
+        EYES,
+        'ONE character, full body, front view, centered',
         `NEGATIVE: ${NEGATIVE}`,
       ].join('. '),
     });
@@ -148,14 +132,15 @@ export const buildJobs = (): SpriteJob[] => {
       size: 512,
       seed: nextSeed(),
       prompt: [
-        CREATURE_STYLE,
-        BASE_STYLE,
-        // 進化後は一段かっこよく。ただし怖くはしない。
-        'EVOLVED FORM: larger, stronger and cooler than its baby form, confident heroic stance, ' +
-          'simple stylized armor or flowing accents, still rounded and friendly, never scary',
-        `creature concept: ${e.motif}`,
+        BG,
+        e.motif,
         tint(el.color),
-        'front view',
+        // 進化後は一段かっこよく。ただし怖くはしない。
+        'an EVOLVED Pokemon-style pocket monster, bigger and cooler than its baby form, ' +
+          'confident heroic stance, still rounded and friendly, never scary',
+        MON_STYLE,
+        EYES,
+        'ONE character, full body, front view, centered',
         `NEGATIVE: ${NEGATIVE}`,
       ].join('. '),
     });
@@ -170,9 +155,12 @@ export const buildJobs = (): SpriteJob[] => {
       size: 768,
       seed: nextSeed(),
       prompt: [
-        LEGEND_STYLE,
-        `legendary creature concept: ${l.motif}`,
+        BG,
+        l.motif,
         tint(el.color),
+        LEGEND_STYLE,
+        EYES,
+        'ONE creature, full body, three-quarter view, centered',
         `NEGATIVE: ${NEGATIVE_LEGEND}`,
       ].join('. '),
     });
@@ -186,10 +174,12 @@ export const buildJobs = (): SpriteJob[] => {
       size: 512,
       seed: nextSeed(),
       prompt: [
-        BASE_STYLE,
-        PEOPLE_STYLE,
+        BG,
         t.motif,
-        'viewed from the front, facing the viewer',
+        PEOPLE_STYLE,
+        HUMAN_STYLE,
+        EYES,
+        'ONE character, full body, viewed from the front, facing the viewer, centered',
         `NEGATIVE: ${NEGATIVE_PEOPLE}`,
       ].join('. '),
     });
@@ -204,10 +194,12 @@ export const buildJobs = (): SpriteJob[] => {
         size: 512,
         seed: nextSeed(),
         prompt: [
-          BASE_STYLE,
-          PEOPLE_STYLE,
+          BG,
           'a cheerful 10-year-old elementary school child adventurer, chibi proportions with a big round head',
           p.motif,
+          PEOPLE_STYLE,
+          HUMAN_STYLE,
+          EYES,
           dir === 'front'
             ? 'viewed from the front, facing the viewer, waving'
             : dir === 'back'
@@ -227,10 +219,12 @@ export const buildJobs = (): SpriteJob[] => {
       size: 512,
       seed: nextSeed(),
       prompt: [
-        BASE_STYLE,
-        PEOPLE_STYLE,
+        BG,
         n.motif,
-        'viewed from the front, facing the viewer',
+        PEOPLE_STYLE,
+        HUMAN_STYLE,
+        EYES,
+        'ONE character, full body, viewed from the front, facing the viewer, centered',
         `NEGATIVE: ${NEGATIVE_PEOPLE}`,
       ].join('. '),
     });
