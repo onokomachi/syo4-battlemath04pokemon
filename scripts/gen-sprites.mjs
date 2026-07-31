@@ -1,0 +1,463 @@
+/**
+ * gen-sprites.mjs — Pollinations.ai(無料・APIキー不要)でスプライトを生成する。
+ *
+ * 参照リポジトリ battlemath04catwars で確立したパイプラインと同じ考え方:
+ *   ① Pollinations で 1枚ずつ画像を生成
+ *   ② 自前の背景除去(クロマキー色からの塗りつぶし)で透過PNG化
+ *   ③ 余白をトリムして 256×256 に正規化
+ *
+ * catwars では背景を白にしていたため白いキャラが溶ける問題が起きた。本作では
+ * キャラの配色に使わないクロマグリーン(#19c37d)を背景に指定し、色距離で
+ * 抜くようにしてある。テクスチャ(cutout:false)は背景除去せずタイルとして使う。
+ *
+ *   node scripts/build-sprite-manifest.mjs   # 先にジョブ一覧を作る
+ *   node scripts/gen-sprites.mjs             # 生成(既存ファイルはスキップ)
+ *   node scripts/gen-sprites.mjs --force     # 作り直す
+ *   node scripts/gen-sprites.mjs --only monsters/mon-001
+ *   node scripts/gen-sprites.mjs --force --list scripts/redo.txt
+ */
+import { readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
+
+const root = path.resolve(import.meta.dirname, '..');
+const OUT_ROOT = path.join(root, 'public', 'assets', 'adventure');
+const MANIFEST = path.join(root, 'scripts', 'sprite-manifest.json');
+/**
+ * 手で用意した絵の一覧(import-sprite.mjs が書く)。
+ * ここに載っているものは --force でも生成しない。
+ * 載せておかないと、作り直しのたびに人が用意した絵が消える。
+ */
+const MANUAL_LIST = path.join(root, 'scripts', 'manual-sprites.json');
+const MANUAL = new Set(
+  existsSync(MANUAL_LIST) ? JSON.parse(readFileSync(MANUAL_LIST, 'utf8')) : [],
+);
+
+const args = process.argv.slice(2);
+const FORCE = args.includes('--force');
+const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
+// --list <file>: 1行1件で out 名(monsters/mon-001 など)を並べたファイルから対象を読む
+const LIST_FILE = args.includes('--list') ? args[args.indexOf('--list') + 1] : null;
+// Pollinations は無料枠のため同時接続を上げすぎると 429/503 を返す。
+const CONCURRENCY = Number(process.env.SPRITE_CONCURRENCY ?? 3);
+/**
+ * 種のずらし幅。
+ *
+ * Pollinations は (プロンプト, seed) ではなく seed でキャッシュしているらしく、
+ * プロンプトを直して --force で作り直しても、まったく同じ画像が返ってきていた。
+ * 失敗した数枚を何度回しても、検査の数値が1桁まで同じままで、
+ * 直したはずのプロンプトが効いていないように見えていたのはこのため。
+ *
+ * そこで --force のときは既定で時刻から種をずらし、毎回ちがう絵を引く。
+ * 再現したいときは SPRITE_SEED_SALT を明示すればよい。
+ */
+const SEED_SALT = Number(
+  process.env.SPRITE_SEED_SALT ?? (args.includes('--force') ? Date.now() % 100000 : 0),
+);
+
+/**
+ * 生成プロンプトで指定しているクロマキー色。
+ *
+ * 緑1色ではだめで、緑色のキャラは緑背景だと体まで抜けてしまう
+ * (コケと樹皮でできた緑の鹿が、何度作り直しても輪郭を食われつづけた)。
+ * job.chroma で1枚ごとに選べるようにしてある。
+ */
+const CHROMA_COLORS = {
+  green: { r: 0x19, g: 0xc3, b: 0x7d },
+  magenta: { r: 0xe6, g: 0x00, b: 0xb4 },
+};
+
+/** その色が、指定したクロマ色の側に十分寄っているか */
+const chromaScore = (kind, r, g, b) =>
+  kind === 'magenta'
+    ? Math.min(r, b) - g          // マゼンタは赤と青が強く、緑が弱い
+    : g - Math.max(r, b);         // 緑は緑だけが強い
+/** 出力サイズ */
+const SPRITE_SIZE = 256;
+const TEXTURE_SIZE = 512;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ------------------------------------------------------------
+// 生成
+// ------------------------------------------------------------
+
+async function fetchImage(job, attempt) {
+  const url =
+    `https://image.pollinations.ai/prompt/${encodeURIComponent(job.prompt)}` +
+    `?width=${job.size}&height=${job.size}&seed=${job.seed + attempt * 101 + SEED_SALT}` +
+    `&model=flux&nologo=true&private=true&enhance=false`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(180_000) });
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`);
+    // 429/503 はこちらが速すぎるだけなので、長めに待って何度でもやり直す
+    err.rateLimited = res.status === 429 || res.status === 503 || res.status === 502;
+    throw err;
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length < 2000) throw new Error(`too small (${buf.length}B)`);
+  return buf;
+}
+
+// ------------------------------------------------------------
+// 背景除去
+// ------------------------------------------------------------
+
+const dist2 = (r, g, b, c) => {
+  const dr = r - c.r, dg = g - c.g, db = b - c.b;
+  return dr * dr + dg * dg + db * db;
+};
+
+/**
+ * ふちから塗りつぶして背景を抜く。
+ *
+ * 「四隅の実際の色」を背景とみなす方式は、白い服や白い体のキャラで
+ * キャラ本体まで溶けてしまう(参照リポジトリ catwars で実際に起きた不具合)。
+ * そこで本作は必ずクロマグリーンを背景に生成させ、その色からの距離だけで抜く。
+ * 隅がクロマグリーンでなければ「モデルが指示を無視した」と判断して生成し直す。
+ */
+function removeBackground(data, w, h, kind = 'green') {
+  const CHROMA = CHROMA_COLORS[kind] ?? CHROMA_COLORS.green;
+  const at = (x, y) => (y * w + x) * 4;
+
+  // ふちの画素の中央値を「実際に描かれた背景色」とする。
+  // (四隅だけだと、隅にゴミが乗ったときに大きく外す)
+  const edge = [];
+  for (let x = 0; x < w; x += 2) {
+    edge.push(at(x, 0), at(x, h - 1));
+  }
+  for (let y = 0; y < h; y += 2) {
+    edge.push(at(0, y), at(w - 1, y));
+  }
+  const median = ch => {
+    const v = edge.map(i => data[i + ch]).sort((a, b) => a - b);
+    return v[Math.floor(v.length / 2)];
+  };
+  const bg = { r: median(0), g: median(1), b: median(2) };
+
+  // 背景が緑でなければ、モデルが指示を外している。
+  // 白・灰色・肌色の背景は、この先の塗りつぶしでキャラごと溶けるので受けつけない。
+  //
+  // 閾値を「はっきり緑(30)」ではなく「緑寄り(12)」にしてあるのは、
+  // 白い体が溶けるのを防いでいるのが、この関門ではなく下の isBg にある
+  // 画素ごとの緑判定だから。30 にすると、モデルがよく描く淡いセージ色の背景
+  // (175,205,184 など)を8回とも弾いてしまい、抜けば普通に使える絵まで
+  // 作り直しに回りつづけていた。
+  const score = chromaScore(kind, bg.r, bg.g, bg.b);
+  if (score < 12) {
+    throw new Error(`background is not ${kind} (${bg.r},${bg.g},${bg.b})`);
+  }
+
+  // 抜く条件は2つの積。
+  //   ① その画素自体が緑寄りであること
+  //   ② 背景色(または指定したクロマキー色)に十分近いこと
+  // ①を入れているのが要点で、これがないと「背景色から半径100前後」という
+  // 広い球に白や淡い肌色が入ってしまい、キャラの内側まで消える。
+  const TOL_BG = 62 * 62 * 3;
+  const TOL_CHROMA = 70 * 70 * 3;
+  const isBg = i => {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    if (chromaScore(kind, r, g, b) < 10) return false;
+    return dist2(r, g, b, bg) < TOL_BG || dist2(r, g, b, CHROMA) < TOL_CHROMA;
+  };
+
+  const visited = new Uint8Array(w * h);
+  const stack = [];
+  for (let x = 0; x < w; x++) { stack.push(x, 0); stack.push(x, h - 1); }
+  for (let y = 0; y < h; y++) { stack.push(0, y); stack.push(w - 1, y); }
+
+  while (stack.length) {
+    const y = stack.pop();
+    const x = stack.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+    const p = y * w + x;
+    if (visited[p]) continue;
+    const i = p * 4;
+    if (!isBg(i)) continue;
+    visited[p] = 1;
+    data[i + 3] = 0;
+    stack.push(x + 1, y); stack.push(x - 1, y);
+    stack.push(x, y + 1); stack.push(x, y - 1);
+  }
+
+  // ふちに残る緑かぶり(スピル)を落とす。透明画素にとなり合う画素だけ処理する。
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = at(x, y);
+      if (data[i + 3] === 0) continue;
+      const touchesAlpha =
+        data[at(x + 1, y) + 3] === 0 || data[at(x - 1, y) + 3] === 0 ||
+        data[at(x, y + 1) + 3] === 0 || data[at(x, y - 1) + 3] === 0;
+      if (!touchesAlpha) continue;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (kind === 'magenta') {
+        // マゼンタかぶり: 赤と青だけが浮いている画素を、緑に合わせて落とす
+        if (r > g && b > g) {
+          data[i] = Math.max(g, Math.round(r * 0.7));
+          data[i + 2] = Math.max(g, Math.round(b * 0.7));
+        }
+      } else if (g > r && g > b) {
+        const cap = Math.round((r + b) / 2);
+        data[i + 1] = Math.max(cap, Math.round(g * 0.6));
+      }
+    }
+  }
+  return data;
+}
+
+/**
+ * シルエットの「ぼろぼろ度」= 周囲長 / √面積。
+ *
+ * 背景除去がキャラを食うと、輪郭が外側とつながったまま細かく刻まれる。
+ * こうなると「内側の穴」でも「塗りつぶし率」でも捕まらないが、
+ * 周囲長だけが跳ね上がる。実測では、まともな絵は 3〜5、
+ * 食われた絵は 11〜19 にはっきり分かれた。
+ */
+function raggedness(data, w, h) {
+  const op = p => data[p * 4 + 3] > 40;
+  let area = 0, per = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (!op(p)) continue;
+      area++;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
+          !op(p - 1) || !op(p + 1) || !op(p - w) || !op(p + w)) per++;
+    }
+  }
+  return area ? per / Math.sqrt(area) : 0;
+}
+
+/**
+ * シルエットのふちの明るさ。
+ *
+ * ちゃんと切り抜けた絵は、まわりが「黒っぽい輪郭線」なのでふちが暗い。
+ * 背景に丸い板を描かれると、その板は緑ではないので抜けずに残り、
+ * ふちが板の色(たいてい明るい)になる。実測で、まともな絵のふちは
+ * 平均40〜135、板が残った絵は186以上とはっきり分かれた。
+ */
+function edgeBrightness(data, w, h) {
+  const op = p => data[p * 4 + 3] > 40;
+  let sum = 0, n = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      if (!op(p)) continue;
+      if (op(p - 1) && op(p + 1) && op(p - w) && op(p + w)) continue;
+      sum += (data[p * 4] + data[p * 4 + 1] + data[p * 4 + 2]) / 3;
+      n++;
+    }
+  }
+  return n ? sum / n : 0;
+}
+
+/**
+ * 大きな不透明のかたまりの数。2つ以上なら「1体に収まっていない」ので作り直す。
+ * (生成が小さな仲間や分身を並べてしまうことがある)
+ */
+function blobCount(data, w, h) {
+  const opaque = p => data[p * 4 + 3] > 40;
+  const seen = new Uint8Array(w * h);
+  const sizes = [];
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || !opaque(start)) continue;
+    let size = 0;
+    const stack = [start];
+    seen[start] = 1;
+    while (stack.length) {
+      const p = stack.pop();
+      size++;
+      const x = p % w, y = (p / w) | 0;
+      const push = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        const q = ny * w + nx;
+        if (seen[q] || !opaque(q)) return;
+        seen[q] = 1;
+        stack.push(q);
+      };
+      push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+    }
+    sizes.push(size);
+  }
+  sizes.sort((a, b) => b - a);
+  const biggest = sizes[0] ?? 0;
+  return sizes.filter(v => v > Math.max(w * h * 0.02, biggest * 0.3)).length;
+}
+
+/** 内側の穴(外周とつながっていない透明画素)の割合。食われの検出。 */
+function holeRatio(data, w, h) {
+  const transparent = p => data[p * 4 + 3] < 40;
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const p = y * w + x;
+    if (seen[p] || !transparent(p)) return;
+    seen[p] = 1;
+    stack.push(p);
+  };
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  while (stack.length) {
+    const p = stack.pop();
+    const x = p % w, y = (p / w) | 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+  let holes = 0;
+  for (let p = 0; p < w * h; p++) if (transparent(p) && !seen[p]) holes++;
+  return holes / (w * h);
+}
+
+/** 透明でない画素の外接矩形 */
+function alphaBounds(data, w, h) {
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 24) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return null;
+  return { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+async function toSprite(buf, chroma = 'green') {
+  const img = sharp(buf).ensureAlpha();
+  const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+  removeBackground(data, info.width, info.height, chroma);
+  const bounds = alphaBounds(data, info.width, info.height);
+  if (!bounds) throw new Error('background removal left nothing');
+  // 抜きすぎ(キャラまで消えた)を検出する
+  if (bounds.width < info.width * 0.12 || bounds.height < info.height * 0.12) {
+    throw new Error('subject too small after cutout');
+  }
+  // 背景がまったく抜けていない(全面が残った)ときも失敗とみなす
+  let opaque = 0;
+  for (let i = 3; i < data.length; i += 4) if (data[i] > 24) opaque++;
+  const ratio = opaque / (info.width * info.height);
+  if (ratio > 0.92) throw new Error('background was not removed');
+  // 10%を切るものは、目で見るとほぼ「体を食われた残骸」になっている。
+  // 4%では緩すぎて、耳としっぽだけの絵が通ってしまっていた。
+  if (ratio < 0.10) throw new Error(`too much was removed (fill ${(ratio * 100).toFixed(0)}%)`);
+  // 1体に収まっていない / 内側が食われている生成は保存せずに引き直す
+  const blobs = blobCount(data, info.width, info.height);
+  if (blobs >= 2) throw new Error(`multiple characters (${blobs})`);
+  const holes = holeRatio(data, info.width, info.height);
+  if (holes > 0.02) throw new Error(`subject has holes (${(holes * 100).toFixed(1)}%)`);
+  const ragged = raggedness(data, info.width, info.height);
+  if (ragged > 9) throw new Error(`silhouette was eaten (ragged ${ragged.toFixed(1)})`);
+  const edge = edgeBrightness(data, info.width, info.height);
+  if (edge > 150) throw new Error(`a backdrop plate was left behind (edge ${edge.toFixed(0)})`);
+
+  const raw = sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } });
+  const cropped = await raw.extract(bounds).png().toBuffer();
+
+  // 正方形に収めつつ、上下左右に少し余白を残す
+  return sharp({
+    create: {
+      width: SPRITE_SIZE, height: SPRITE_SIZE, channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([{
+      input: await sharp(cropped)
+        .resize(SPRITE_SIZE - 12, SPRITE_SIZE - 12, { fit: 'inside', withoutEnlargement: false })
+        .toBuffer(),
+      gravity: 'center',
+    }])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+async function toTexture(buf) {
+  return sharp(buf)
+    .resize(TEXTURE_SIZE, TEXTURE_SIZE, { fit: 'cover' })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+// ------------------------------------------------------------
+// 実行
+// ------------------------------------------------------------
+
+async function runJob(job, stats) {
+  const outPath = path.join(OUT_ROOT, `${job.out}.png`);
+  if (!FORCE && existsSync(outPath)) { stats.skipped++; return; }
+  mkdirSync(path.dirname(outPath), { recursive: true });
+
+  const MAX_ATTEMPTS = 8;
+  let rateLimitWaits = 0;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const raw = await fetchImage(job, attempt);
+      const png = job.cutout ? await toSprite(raw, job.chroma ?? 'green') : await toTexture(raw);
+      await writeFile(outPath, png);
+      stats.done++;
+      process.stdout.write(`  ✓ ${job.out}  (${stats.done + stats.failed + stats.skipped}/${stats.total})\n`);
+      return;
+    } catch (err) {
+      if (err.rateLimited && rateLimitWaits < 6) {
+        // レート制限は失敗ではない。シードを変えずに待ち直す。
+        rateLimitWaits++;
+        attempt--;
+        await sleep(8000 * rateLimitWaits);
+        continue;
+      }
+      if (attempt >= MAX_ATTEMPTS - 1) {
+        stats.failed++;
+        stats.failures.push(`${job.out}: ${err.message}`);
+        process.stdout.write(`  ✗ ${job.out}  (${err.message})\n`);
+        return;
+      }
+      await sleep(1500 * (attempt + 1));
+    }
+  }
+}
+
+async function main() {
+  if (!existsSync(MANIFEST)) {
+    console.error('sprite-manifest.json がありません。先に build-sprite-manifest.mjs を実行してください。');
+    process.exit(1);
+  }
+  let jobs = JSON.parse(readFileSync(MANIFEST, 'utf8'));
+  if (ONLY) jobs = jobs.filter(j => j.out.startsWith(ONLY));
+  if (LIST_FILE) {
+    const wanted = new Set(
+      readFileSync(LIST_FILE, 'utf8').split('\n').map(l => l.trim()).filter(Boolean),
+    );
+    jobs = jobs.filter(j => wanted.has(j.out));
+  }
+
+  // 手で用意した絵は生成しない(--force でも上書きしない)
+  const manualHits = jobs.filter(j => MANUAL.has(j.out)).map(j => j.out);
+  if (manualHits.length > 0) {
+    jobs = jobs.filter(j => !MANUAL.has(j.out));
+    console.log(`手用意のため生成しない: ${manualHits.join(', ')}`);
+  }
+
+  const stats = { total: jobs.length, done: 0, skipped: 0, failed: 0, failures: [] };
+  console.log(`スプライト生成: ${jobs.length}件 (同時${CONCURRENCY}件)`);
+
+  const queue = jobs.slice();
+  const workers = Array.from({ length: CONCURRENCY }, async () => {
+    while (queue.length) {
+      const job = queue.shift();
+      if (job) await runJob(job, stats);
+    }
+  });
+  await Promise.all(workers);
+
+  console.log(`\n完了: 生成${stats.done} / スキップ${stats.skipped} / 失敗${stats.failed}`);
+  if (stats.failures.length) {
+    console.log('失敗した項目:');
+    for (const f of stats.failures) console.log('  - ' + f);
+    process.exitCode = 1;
+  }
+}
+
+main();

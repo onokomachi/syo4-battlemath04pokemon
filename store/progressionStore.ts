@@ -30,7 +30,6 @@ export interface LevelUpInfo {
   oldLevel: number;
   newLevel: number;
   mpReward: number;
-  newCard: ProblemCard | null;
 }
 
 // ============================
@@ -39,13 +38,6 @@ export interface LevelUpInfo {
 const initMathPoints = (): number => {
   try { return JSON.parse(localStorage.getItem('battleMathPoints') || '1000'); }
   catch { return 1000; }
-};
-const initOwnedCardIds = (): Set<number> => {
-  try {
-    const s = localStorage.getItem('battleMathOwnedCardIds');
-    if (s) return new Set(JSON.parse(s));
-  } catch {}
-  return new Set(CARD_DEFINITIONS.slice(0, 20).map(c => c.id));
 };
 const initPlayerLevel = (): number => {
   try { return JSON.parse(localStorage.getItem('battleMathPlayerLevel') || '1'); }
@@ -106,7 +98,6 @@ interface ProgressionState {
   uid: string | null;
   // 進捗 (localStorage + Firestore 同期)
   mathPoints: number;
-  ownedCardIds: Set<number>;
   playerLevel: number;
   playerExp: number;
   userLevelStats: Record<number, { avgTime: number; count: number }>;
@@ -140,7 +131,6 @@ interface ProgressionState {
   addMathPoints: (n: number) => void;
   setPlayerLevel: (n: number) => void;
   setPlayerExp: (n: number) => void;
-  setOwnedCardIds: (ids: Set<number>) => void;
   setEarnedBadgeIds: (ids: Set<string>) => void;
   setTotalCorrectAnswers: (n: number) => void;
   setTotalWins: (n: number) => void;
@@ -172,7 +162,6 @@ interface ProgressionState {
   claimLoginBonus: () => void;
   handleShopPurchase: (item: ShopItemDef) => void;
   checkCategoryMasterBadges: () => void;
-  buyCardPack: (mainCategory: string, cost: number) => ProblemCard[] | null;
 }
 
 export const useProgressionStore = create<ProgressionState>((set, get) => {
@@ -187,7 +176,6 @@ export const useProgressionStore = create<ProgressionState>((set, get) => {
   return {
     uid: null,
     mathPoints: initMathPoints(),
-    ownedCardIds: initOwnedCardIds(),
     playerLevel: initPlayerLevel(),
     playerExp: initPlayerExp(),
     userLevelStats: initUserLevelStats(),
@@ -217,7 +205,6 @@ export const useProgressionStore = create<ProgressionState>((set, get) => {
     addMathPoints: (n) => set(s => ({ mathPoints: s.mathPoints + n })),
     setPlayerLevel: (n) => set({ playerLevel: n }),
     setPlayerExp: (n) => set({ playerExp: n }),
-    setOwnedCardIds: (ids) => set({ ownedCardIds: ids }),
     setEarnedBadgeIds: (ids) => set({ earnedBadgeIds: ids }),
     setTotalCorrectAnswers: (n) => set({ totalCorrectAnswers: n }),
     setTotalWins: (n) => set({ totalWins: n }),
@@ -512,17 +499,11 @@ export const useProgressionStore = create<ProgressionState>((set, get) => {
         totalMpReward += currentLevel * 100;
       }
       if (currentLevel > oldLevel) {
-        let newCard: ProblemCard | null = null;
-        const unowned = CARD_DEFINITIONS.filter(c => !s.ownedCardIds.has(c.id));
-        if (unowned.length > 0) {
-          newCard = shuffleDeck(unowned)[0];
-          set(st => ({ ownedCardIds: new Set(st.ownedCardIds).add(newCard!.id) }));
-        } else {
-          totalMpReward += 500;
-        }
+        // カードゲーム廃止により、レベルアップ報酬はMPに一本化した。
+        // MPは3Dアドベンチャーのショップ(ボール・どうぐ)で使う。
         set(st => ({
           mathPoints: st.mathPoints + totalMpReward,
-          levelUpInfo: { oldLevel, newLevel: currentLevel, mpReward: totalMpReward, newCard },
+          levelUpInfo: { oldLevel, newLevel: currentLevel, mpReward: totalMpReward },
           playerLevel: currentLevel,
         }));
         // increment で加算し、残高巻き戻しを防ぐ
@@ -612,30 +593,6 @@ export const useProgressionStore = create<ProgressionState>((set, get) => {
       }
     },
 
-    // ============================
-    // カードパック購入 (CardShop)
-    // エビデンスA: 可変報酬スケジュール — 3〜6枚ランダム + 20%でCRITICAL!（Skinner 1938）
-    // ============================
-    buyCardPack: (mainCategory, cost) => {
-      const s = get();
-      const cards = CARD_DEFINITIONS.filter(c => !s.ownedCardIds.has(c.id) && c.mainCategory === mainCategory);
-      if (s.mathPoints < cost || cards.length === 0) return cards.length === 0 ? [] : null;
-      const isCritical = Math.random() < 0.2;
-      const baseCount = 3 + Math.floor(Math.random() * 2); // 3 or 4
-      const packCount = Math.min(cards.length, isCritical ? baseCount + 2 : baseCount);
-      const newCards = shuffleDeck(cards).slice(0, packCount);
-      set(st => {
-        const next = new Set(st.ownedCardIds);
-        newCards.forEach(c => next.add(c.id));
-        return { mathPoints: st.mathPoints - cost, ownedCardIds: next };
-      });
-      // increment を使い、並行更新(クエスト報酬等)との残高ずれを防ぐ
-      saveUser({
-        mathPoints: increment(-cost),
-        ownedCardIds: arrayUnion(...newCards.map(c => c.id)),
-      });
-      return newCards;
-    },
   };
 });
 
@@ -643,19 +600,18 @@ export const useProgressionStore = create<ProgressionState>((set, get) => {
 // localStorage 永続化 (旧 App.tsx の useEffect と同一キー・形状)
 // ============================
 type PersistedKey =
-  | 'mathPoints' | 'ownedCardIds' | 'playerLevel' | 'playerExp' | 'userLevelStats'
+  | 'mathPoints' | 'playerLevel' | 'playerExp' | 'userLevelStats'
   | 'ownedShopItems' | 'equippedTitle' | 'equippedTheme' | 'earnedTitleIds'
   | 'hintTokens' | 'expBoosterActive' | 'activeBooster';
 
 const PERSISTED_KEYS: PersistedKey[] = [
-  'mathPoints', 'ownedCardIds', 'playerLevel', 'playerExp', 'userLevelStats',
+  'mathPoints', 'playerLevel', 'playerExp', 'userLevelStats',
   'ownedShopItems', 'equippedTitle', 'equippedTheme', 'earnedTitleIds',
   'hintTokens', 'expBoosterActive', 'activeBooster',
 ];
 
 const persistToLocalStorage = (s: ProgressionState) => {
   localStorage.setItem('battleMathPoints', JSON.stringify(s.mathPoints));
-  localStorage.setItem('battleMathOwnedCardIds', JSON.stringify(Array.from(s.ownedCardIds)));
   localStorage.setItem('battleMathPlayerLevel', JSON.stringify(s.playerLevel));
   localStorage.setItem('battleMathPlayerExp', JSON.stringify(s.playerExp));
   localStorage.setItem('battleMathUserLevelStats', JSON.stringify(s.userLevelStats));

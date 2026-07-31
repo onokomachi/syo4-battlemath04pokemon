@@ -1,16 +1,13 @@
 import React from 'react';
-import type { ProblemCard } from '../types';
-import Card from './Card';
 
 interface LevelUpModalProps {
   oldLevel: number;
   newLevel: number;
   mpReward: number;
-  newCard: ProblemCard | null;
   onClose: () => void;
 }
 
-const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldLevel, newLevel, mpReward, newCard, onClose }) => {
+const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldLevel, newLevel, mpReward, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center backdrop-blur-md animate-math-fade-in p-4">
       <div className="bg-gray-800 border-2 border-purple-400 rounded-lg p-6 sm:p-8 shadow-2xl flex flex-col items-center gap-6 w-full max-w-lg text-white">
@@ -29,16 +26,9 @@ const LevelUpModal: React.FC<LevelUpModalProps> = ({ oldLevel, newLevel, mpRewar
                 <p className="text-2xl font-bold text-white font-mono bg-black/30 px-4 py-2 rounded-md">
                     + {mpReward} MP
                 </p>
-                {newCard ? (
-                    <div className="flex flex-col items-center gap-2">
-                        <p className="text-purple-300">新しいカードを獲得！</p>
-                        <div className="transform scale-75">
-                            <Card card={newCard} />
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-gray-400">（全カード入手済みのため、追加MPボーナスが加算されました）</p>
-                )}
+                <p className="text-gray-400 text-center text-sm">
+                    MPは ショップで サンスウボールや どうぐに つかえます
+                </p>
             </div>
         </div>
 

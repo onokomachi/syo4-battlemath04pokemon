@@ -27,7 +27,6 @@ interface UserData {
   totalWins: number;
   totalMatches: number;
   mathPoints: number;
-  ownedCardIds: number[];
   createdAt: any;
   totalCorrectAnswers?: number;
   loginStreak?: number;
@@ -421,12 +420,6 @@ const GameMaster: React.FC<GameMasterProps> = ({ db, onClose }) => {
                   )}
 
                   {/* Card collection */}
-                  <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-1">カード所持数</p>
-                    <p className="text-lg font-bold text-red-300 font-mono">
-                      {classDetailUser.ownedCardIds?.length || 0} 枚
-                    </p>
-                  </div>
 
                   <p className="text-xs text-gray-500 mb-1">登録日</p>
                   <p className="text-sm text-gray-400">{formatDate(classDetailUser.createdAt)}</p>
