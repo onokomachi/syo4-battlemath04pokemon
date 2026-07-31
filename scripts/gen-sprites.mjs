@@ -32,6 +32,20 @@ const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
 const LIST_FILE = args.includes('--list') ? args[args.indexOf('--list') + 1] : null;
 // Pollinations は無料枠のため同時接続を上げすぎると 429/503 を返す。
 const CONCURRENCY = Number(process.env.SPRITE_CONCURRENCY ?? 3);
+/**
+ * 種のずらし幅。
+ *
+ * Pollinations は (プロンプト, seed) ではなく seed でキャッシュしているらしく、
+ * プロンプトを直して --force で作り直しても、まったく同じ画像が返ってきていた。
+ * 失敗した数枚を何度回しても、検査の数値が1桁まで同じままで、
+ * 直したはずのプロンプトが効いていないように見えていたのはこのため。
+ *
+ * そこで --force のときは既定で時刻から種をずらし、毎回ちがう絵を引く。
+ * 再現したいときは SPRITE_SEED_SALT を明示すればよい。
+ */
+const SEED_SALT = Number(
+  process.env.SPRITE_SEED_SALT ?? (args.includes('--force') ? Date.now() % 100000 : 0),
+);
 
 /** 生成プロンプトで指定しているクロマキー色 */
 const CHROMA = { r: 0x19, g: 0xc3, b: 0x7d };
@@ -48,7 +62,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function fetchImage(job, attempt) {
   const url =
     `https://image.pollinations.ai/prompt/${encodeURIComponent(job.prompt)}` +
-    `?width=${job.size}&height=${job.size}&seed=${job.seed + attempt * 101}` +
+    `?width=${job.size}&height=${job.size}&seed=${job.seed + attempt * 101 + SEED_SALT}` +
     `&model=flux&nologo=true&private=true&enhance=false`;
   const res = await fetch(url, { signal: AbortSignal.timeout(180_000) });
   if (!res.ok) {

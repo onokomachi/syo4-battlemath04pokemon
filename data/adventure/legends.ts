@@ -81,7 +81,7 @@ export const LEGENDS: LegendDef[] = [
       'ムゲンドラは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a giant four-legged golden dragon with a scaly reptilian body, a long tail, folded leathery wings and curved horns',
+      'a big golden dragon standing on four legs, one solid body with thick golden scales, a long tail and two curved horns',
     shrine: { color: '#f5b942', style: 'monolith' },
   },
   {
@@ -137,7 +137,7 @@ export const LEGENDS: LegendDef[] = [
       'シンカイオウは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a giant blue-and-silver sea serpent with a long coiling scaly body, fins along its back and a crystal horn',
+      'a big blue-and-silver dragon standing on four legs, one solid body covered in smooth scales, a long tail and a single crystal horn',
     shrine: { color: '#4aa8e0', style: 'ring' },
   },
   {
@@ -193,7 +193,7 @@ export const LEGENDS: LegendDef[] = [
       'キョダイオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a giant four-legged stag beast whose body is bark and moss, with antlers of branches and glowing emerald rings on its flanks',
+      'a big green stag standing on four legs, one solid body of bark and moss, a long tail and large branching antlers',
     shrine: { color: '#5cbf7a', style: 'monolith' },
   },
   {
@@ -249,7 +249,7 @@ export const LEGENDS: LegendDef[] = [
       'リッタイオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a giant four-legged guardian beast armored in geometric crystal plates of gold and white marble, with angular spikes along its back',
+      'a big golden armored beast standing on four legs, one solid body plated in smooth geometric panels, a long tail and short blunt horns',
     shrine: { color: '#c9a227', style: 'pillar' },
   },
 ];

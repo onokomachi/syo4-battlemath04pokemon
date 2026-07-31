@@ -84,7 +84,10 @@ const LEGEND_STYLE =
   'an original Pokemon-style LEGENDARY pocket monster, a giant beast with animal anatomy: ' +
   'four legs with paws or claws, a long tail, a muzzle, scales and fur, tall horns, ' +
   'sharp angular armor plates and glowing ornate runes along its flanks, ' +
-  'a fully grown powerful adult creature, dignified and imposing';
+  'a fully grown powerful adult creature, dignified and imposing, ' +
+  // 明るさを言っておかないと、モデルが夜や洞窟の情景を描いてしまい、
+  // 背景が緑でなくなって作り直しに落ちる。
+  'brightly lit in clear daylight, light vivid colors, every part clearly visible';
 
 const NEG_BASE =
   // 背景まわりを厚めに書いてある。ここが薄いと、モデルが情景を描いてしまい
