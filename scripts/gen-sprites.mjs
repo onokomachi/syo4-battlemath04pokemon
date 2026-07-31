@@ -70,26 +70,42 @@ const dist2 = (r, g, b, c) => {
 
 /**
  * ふちから塗りつぶして背景を抜く。
- * クロマキー色に近い画素と、四隅の実際の色に近い画素の両方を背景とみなすので、
- * モデルが指定色を少し外しても抜ける。
+ *
+ * 「四隅の実際の色」を背景とみなす方式は、白い服や白い体のキャラで
+ * キャラ本体まで溶けてしまう(参照リポジトリ catwars で実際に起きた不具合)。
+ * そこで本作は必ずクロマグリーンを背景に生成させ、その色からの距離だけで抜く。
+ * 隅がクロマグリーンでなければ「モデルが指示を無視した」と判断して生成し直す。
  */
 function removeBackground(data, w, h) {
   const at = (x, y) => (y * w + x) * 4;
 
-  // 四隅の平均を「実際に描かれた背景色」とみなす
-  const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
-  let cr = 0, cg = 0, cb = 0;
-  for (const [x, y] of corners) {
-    const i = at(x, y);
-    cr += data[i]; cg += data[i + 1]; cb += data[i + 2];
+  // ふちの画素の中央値を「実際に描かれた背景色」とする。
+  // (四隅だけだと、隅にゴミが乗ったときに大きく外す)
+  const edge = [];
+  for (let x = 0; x < w; x += 2) {
+    edge.push(at(x, 0), at(x, h - 1));
   }
-  const corner = { r: cr / 4, g: cg / 4, b: cb / 4 };
+  for (let y = 0; y < h; y += 2) {
+    edge.push(at(0, y), at(w - 1, y));
+  }
+  const median = ch => {
+    const v = edge.map(i => data[i + ch]).sort((a, b) => a - b);
+    return v[Math.floor(v.length / 2)];
+  };
+  const bg = { r: median(0), g: median(1), b: median(2) };
 
-  const TOL_CHROMA = 78 * 78 * 3;   // 指定したクロマキー色からの許容距離
-  const TOL_CORNER = 42 * 42 * 3;   // 実際の隅の色からの許容距離
+  // 背景が緑でなければ、モデルが指示を無視している。
+  // そのまま抜くと白い服や白い体のキャラが背景ごと溶けるので、生成し直す。
+  if (!(bg.g > bg.r + 10 && bg.g > bg.b + 10)) {
+    throw new Error(`background is not green (${bg.r},${bg.g},${bg.b})`);
+  }
+
+  // 実際の背景色まわりを広めに、指定したクロマキー色まわりも念のため抜く
+  const TOL_BG = 62 * 62 * 3;
+  const TOL_CHROMA = 70 * 70 * 3;
   const isBg = i => {
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    return dist2(r, g, b, CHROMA) < TOL_CHROMA || dist2(r, g, b, corner) < TOL_CORNER;
+    return dist2(r, g, b, bg) < TOL_BG || dist2(r, g, b, CHROMA) < TOL_CHROMA;
   };
 
   const visited = new Uint8Array(w * h);
@@ -157,6 +173,12 @@ async function toSprite(buf) {
   if (bounds.width < info.width * 0.12 || bounds.height < info.height * 0.12) {
     throw new Error('subject too small after cutout');
   }
+  // 背景がまったく抜けていない(全面が残った)ときも失敗とみなす
+  let opaque = 0;
+  for (let i = 3; i < data.length; i += 4) if (data[i] > 24) opaque++;
+  const ratio = opaque / (info.width * info.height);
+  if (ratio > 0.92) throw new Error('background was not removed');
+  if (ratio < 0.04) throw new Error('almost everything was removed');
 
   const raw = sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } });
   const cropped = await raw.extract(bounds).png().toBuffer();

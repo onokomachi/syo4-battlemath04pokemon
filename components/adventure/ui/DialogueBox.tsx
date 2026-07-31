@@ -48,7 +48,7 @@ export const DialogueBox: React.FC<{
       style={{ touchAction: 'manipulation' }}
     >
       <div
-        className="w-full max-w-5xl rounded-3xl border-4 bg-white/97 shadow-2xl p-4 sm:p-6 relative"
+        className="w-full max-w-5xl rounded-3xl border-4 bg-white/95 shadow-2xl p-4 sm:p-6 relative"
         style={{ borderColor: accent }}
       >
         {speaker && (

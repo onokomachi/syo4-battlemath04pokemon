@@ -35,7 +35,10 @@ const BASE_STYLE = [
   'bold clean uniform outline, flat solid colors, cel shading with at most one flat shadow tone',
   'ZERO gradient shading, ZERO fur or hair texture, ZERO realistic anatomy, ZERO painterly rendering',
   'full body, standing, centered, complete character inside the frame',
-  'sticker illustration on a plain flat #19c37d chroma green background',
+  // 背景は必ずクロマグリーン。ここが守られないと背景除去でキャラが溶けるため、
+  // 先頭と末尾の両方で指定し、生成側で検証もしている(gen-sprites.mjs)。
+  'die-cut sticker illustration placed on a COMPLETELY PLAIN SOLID chroma green (#19c37d) background',
+  'the background is one single flat green color with no gradient, no pattern, no scenery, no floor, no shadow',
 ].join(', ');
 
 /**
@@ -63,11 +66,13 @@ const NEGATIVE_COMMON = [
 
 const NEGATIVE = [
   'no human, no human child, no person, no boy, no girl, no human face, no human hands, no human skin, no human hair',
+  'no white background, no grey background, no gradient background',
   NEGATIVE_COMMON,
 ].join(', ');
 
 const NEGATIVE_PEOPLE = [
   'no animal ears, no tail, no snout, no fursona, no monster',
+  'no white background, no grey background, no gradient background',
   NEGATIVE_COMMON,
 ].join(', ');
 

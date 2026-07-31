@@ -133,6 +133,7 @@ export const Building: React.FC<{
   z: number;
   accent: string;
 }> = ({ kind, x, y, z, accent }) => {
+  const signTex = useSignTexture(kind);
   const palette = {
     nurse: { wall: '#fff2f4', roof: '#f2657f', sign: '#ffffff' },
     shop: { wall: '#f3f7ff', roof: '#4a8fd8', sign: '#ffffff' },
@@ -167,10 +168,10 @@ export const Building: React.FC<{
           <meshLambertMaterial color="#bfe6ff" emissive="#7fc4ee" emissiveIntensity={0.35} />
         </mesh>
       ))}
-      {/* 看板 */}
-      <mesh position={[0, h + 0.15, d / 2 + 0.05]}>
-        <planeGeometry args={[3.0, 0.7]} />
-        <meshBasicMaterial map={useSignTexture(kind)} transparent toneMapped={false} />
+      {/* 看板。屋根の上だと見下ろし角で見えないので、かべの上部に貼る */}
+      <mesh position={[0, h - 0.45, d / 2 + 0.06]}>
+        <planeGeometry args={[w * 0.62, w * 0.155]} />
+        <meshBasicMaterial map={signTex} transparent toneMapped={false} />
       </mesh>
       {kind === 'dojo' && (
         <>

@@ -441,6 +441,15 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const accent = oppDef ? ELEMENTS[oppDef.type].color : '#38bdf8';
   const oppSprite = oppDef ? getMonsterSprite(oppDef.id) : '';
 
+  // 問題ビューが自前で入力欄を持つ型では、共通のキーパッド・解答らんは出さない
+  const SELF_INPUT_TYPES = [
+    'fill_in_proof', 'graphing', 'graphing_with_table', 'vertical_calculation',
+    'guided_equation', 'intersection_guided_equation', 'simultaneous_equation',
+  ];
+  const needsKeypad =
+    problem?.type !== 'guided' && problem?.type !== 'proof' && !problemData?.options;
+  const showsAnswerBox = !SELF_INPUT_TYPES.includes(problem?.type ?? '');
+
   // ============================================================
   // 見た目
   // ============================================================
@@ -475,6 +484,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
                      linear-gradient(180deg, #dff1ff 0%, #eafbe9 60%, #cfe9c8 100%)`,
       }}
     >
+      {/* 足元の土俵。ここが無いと2体が空中に浮いて見える */}
+      <div
+        className="absolute right-[6%] top-[38%] w-[42%] max-w-[360px] aspect-[3/1] rounded-[50%] opacity-70"
+        style={{ background: `radial-gradient(ellipse at center, ${accent}66 0%, ${accent}22 60%, transparent 72%)` }}
+      />
+      <div
+        className="absolute left-[4%] bottom-[4%] w-[40%] max-w-[330px] aspect-[3/1] rounded-[50%] opacity-70"
+        style={{ background: 'radial-gradient(ellipse at center, #ffffffaa 0%, #ffffff44 60%, transparent 72%)' }}
+      />
+
       {/* 相手 */}
       <div
         className={`absolute right-[10%] top-[12%] w-[34%] max-w-[280px] transition-transform ${shakeOpp ? 'animate-bounce' : ''}`}
@@ -588,7 +607,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         />
         <div className="min-w-0 flex-1">
           <p className="text-white font-black text-sm sm:text-base truncate">
-            {oppDef?.name} の こうげき！
+            {oppDef?.name} が もんだいを だしてきた！
           </p>
           <p className="text-white/60 text-[11px] sm:text-xs truncate">
             {problem?.subTopic}
@@ -604,61 +623,62 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         </div>
       </div>
 
-      {/* 中: 問題 */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 text-white">
-        <div className="mx-auto w-full max-w-4xl">
-          <ProblemQuestionView
-            currentProblem={problem}
-            problemData={problemData}
-            userAnswer={userAnswer}
-            setUserAnswer={setUserAnswer}
-            showAnswer={showAnswer}
-            problemViewRef={problemViewRef}
-            guidedDisplayProblem={problem}
-            handleGuidedComplete={handleGuidedComplete}
-            guidedKey={`${oppIndex}-${qIndex}-${isRetry}`}
-          />
-
-          {/* 解答らんとキーパッド(問題ビューが自前で入力を持つ型では出さない) */}
-          {problem?.type !== 'guided' && problem?.type !== 'proof' && !problemData?.options && (
-            <div className="mt-3 flex flex-col items-center gap-2">
-              {!['fill_in_proof', 'graphing', 'graphing_with_table', 'vertical_calculation', 'guided_equation', 'intersection_guided_equation', 'simultaneous_equation'].includes(problem?.type ?? '') && (
-                <div className="w-full max-w-lg">
-                  <div className="min-h-[3.25rem] px-3 py-2 rounded-xl bg-slate-950/70 border-2 border-sky-400/40 flex items-center">
-                    <span className="text-xs font-bold text-sky-300 mr-3 shrink-0">こたえ</span>
-                    {problem?.type === 'text' || !problem?.type ? (
-                      <input
-                        value={userAnswer}
-                        onChange={e => !showAnswer && setUserAnswer(e.target.value)}
-                        disabled={showAnswer}
-                        placeholder="ここに にゅうりょく"
-                        className="flex-1 bg-transparent text-xl sm:text-2xl font-mono font-bold text-white outline-none placeholder:text-slate-600 placeholder:text-sm"
-                      />
-                    ) : (
-                      <span className="flex-1 text-xl sm:text-2xl font-mono font-bold text-white break-all">
-                        {userAnswer || <span className="text-slate-600 text-sm">キーパッドで にゅうりょく</span>}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className="w-full max-w-lg">
-                <Keypad
-                  onKeyClick={k => {
-                    if (showAnswer) return;
-                    if (k === 'Backspace') setUserAnswer(userAnswer.slice(0, -1));
-                    else if (k === 'Clear') setUserAnswer('');
-                    else if (k === 'Enter') submit();
-                    else if (problemViewRef.current) problemViewRef.current.handleKeyClick(k);
-                    else setUserAnswer(userAnswer + k);
-                  }}
-                  layout={keypadLayout}
-                  disabled={showAnswer}
-                />
-              </div>
-            </div>
-          )}
+      {/* 中: iPadを横に持ったとき、左に問題・右に入力が並ぶようにする。
+          縦に細長い端末では自動的に上下に積まれる。 */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:gap-3 p-2 sm:p-3 text-white">
+        {/* 問題 */}
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-slate-950/50 p-3 sm:p-4 flex items-center justify-center">
+          {/* 小4が読みやすいよう、バトル中の問題文は練習モードより一回り大きくする */}
+          <div className="mx-auto w-full max-w-3xl battle-question">
+            <ProblemQuestionView
+              currentProblem={problem}
+              problemData={problemData}
+              userAnswer={userAnswer}
+              setUserAnswer={setUserAnswer}
+              showAnswer={showAnswer}
+              problemViewRef={problemViewRef}
+              guidedDisplayProblem={problem}
+              handleGuidedComplete={handleGuidedComplete}
+              guidedKey={`${oppIndex}-${qIndex}-${isRetry}`}
+            />
+          </div>
         </div>
+
+        {/* 解答らんとキーパッド(問題ビューが自前で入力を持つ型では出さない) */}
+        {needsKeypad && (
+          <div className="shrink-0 lg:w-[380px] xl:w-[420px] mt-2 lg:mt-0 flex flex-col gap-2 overflow-y-auto">
+            {showsAnswerBox && (
+              <div className="min-h-[3.25rem] px-3 py-2 rounded-2xl bg-slate-950/70 border-2 border-sky-400/40 flex items-center shrink-0">
+                <span className="text-xs font-bold text-sky-300 mr-3 shrink-0">こたえ</span>
+                {problem?.type === 'text' || !problem?.type ? (
+                  <input
+                    value={userAnswer}
+                    onChange={e => !showAnswer && setUserAnswer(e.target.value)}
+                    disabled={showAnswer}
+                    placeholder="ここに にゅうりょく"
+                    className="flex-1 min-w-0 bg-transparent text-xl sm:text-2xl font-mono font-bold text-white outline-none placeholder:text-slate-600 placeholder:text-sm"
+                  />
+                ) : (
+                  <span className="flex-1 min-w-0 text-xl sm:text-2xl font-mono font-bold text-white break-all">
+                    {userAnswer || <span className="text-slate-600 text-sm">キーパッドで にゅうりょく</span>}
+                  </span>
+                )}
+              </div>
+            )}
+            <Keypad
+              onKeyClick={k => {
+                if (showAnswer) return;
+                if (k === 'Backspace') setUserAnswer(userAnswer.slice(0, -1));
+                else if (k === 'Clear') setUserAnswer('');
+                else if (k === 'Enter') submit();
+                else if (problemViewRef.current) problemViewRef.current.handleKeyClick(k);
+                else setUserAnswer(userAnswer + k);
+              }}
+              layout={keypadLayout}
+              disabled={showAnswer}
+            />
+          </div>
+        )}
       </div>
 
       {/* 下: 決定ボタン */}
@@ -666,7 +686,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         {hint && (
           <button
             onClick={() => setHintOpen(true)}
-            className="px-4 py-3 rounded-xl bg-amber-400 text-amber-950 font-black text-sm sm:text-base shadow active:scale-95"
+            className="px-5 py-3 rounded-xl bg-amber-400 text-amber-950 font-black text-sm sm:text-base shadow active:scale-95 shrink-0"
           >
             💡 ヒント
           </button>
@@ -677,7 +697,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             disabled={showAnswer || (!userAnswer && problem?.type !== 'proof')}
             className="flex-1 py-3 sm:py-4 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:bg-slate-600 disabled:text-slate-400 text-white font-black text-xl sm:text-2xl shadow-lg active:scale-95 transition"
           >
-            こうげき！
+            ⚔ こうげき！
           </button>
         )}
       </div>

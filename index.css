@@ -11,3 +11,19 @@
   display: block;
   margin: 0 auto;
 }
+
+
+/* 3Dバトルの問題文は、練習モードより一回り大きく表示する
+   (iPadを横に持って少し離れて見るため) */
+.battle-question p {
+  font-size: 1.5rem;
+  line-height: 1.7;
+}
+@media (min-width: 1024px) {
+  .battle-question p {
+    font-size: 1.75rem;
+  }
+}
+.battle-question .svg-container {
+  max-width: 22rem;
+}

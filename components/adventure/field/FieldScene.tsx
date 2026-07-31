@@ -104,7 +104,9 @@ const World: React.FC<SceneProps> = ({
   );
 
   useFrame((state, dtRaw) => {
-    const dt = Math.min(dtRaw, 0.05); // タブ復帰時の飛びを防ぐ
+    // タブ復帰時に一気に飛ぶのを防ぐ上限。ただし小さくしすぎると、
+    // フレームレートの低い端末で移動そのものが遅くなるので 0.1s にしてある。
+    const dt = Math.min(dtRaw, 0.1);
     const c = control.current;
     const p = player.current;
 
@@ -140,13 +142,18 @@ const World: React.FC<SceneProps> = ({
       p.dirX = vx; p.dirZ = vz;
 
       // 草むらを歩いた歩数で野生に遭遇する
-      if (inGrass(p.x, p.z, patches)) {
+      const onGrass = inGrass(p.x, p.z, patches);
+      if (onGrass) {
         p.steps += speed * PLAYER_SPEED * dt;
         if (p.steps > p.nextEncounter) {
           p.steps = 0;
           p.nextEncounter = 7 + Math.random() * 11;
           onEncounter();
         }
+      }
+      // 開発時だけ、位置と草むら判定を覗けるようにしておく(自動テスト用)
+      if ((import.meta as any).env?.DEV) {
+        (window as any).__adv = { x: p.x, z: p.z, steps: p.steps, grass: onGrass, patches };
       }
     }
 
@@ -167,8 +174,9 @@ const World: React.FC<SceneProps> = ({
     if (nextFlip !== flip) setFlip(nextFlip);
 
     // --- カメラ追従(うしろ上から見おろす) ---
-    const camTarget = new THREE.Vector3(p.x, p.y + 1.6, p.z);
-    const desired = new THREE.Vector3(p.x, p.y + 9.5, p.z + 12.5);
+    // 高さと距離はポケモンのDS/3DS作品に近い、ゆるい見下ろし角にしてある。
+    const camTarget = new THREE.Vector3(p.x, p.y + 1.5, p.z);
+    const desired = new THREE.Vector3(p.x, p.y + 7.6, p.z + 10.2);
     camera.position.lerp(desired, 1 - Math.pow(0.0015, dt));
     camera.lookAt(camTarget);
 

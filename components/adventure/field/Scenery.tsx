@@ -136,15 +136,53 @@ export const Ground: React.FC<{
   const mapped = useMemo(() => {
     const t = tex.clone();
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(size / 8, size / 8);
+    // 1タイル4ワールド単位。粗いと足元がのっぺりして見える
+    t.repeat.set(size / 4, size / 4);
     t.needsUpdate = true;
     return t;
   }, [tex, size]);
 
+  // フィールドの外側。これが無いと、ふちの向こうに空が見えて
+  // 「板の上を歩いている」ように見えてしまう。
+  const skirtTex = useMemo(() => {
+    const t = tex.clone();
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(size / 4, size / 4);
+    t.needsUpdate = true;
+    return t;
+  }, [tex, size]);
+
+  const hills = useMemo(() => {
+    const rng = makeRng(seed ^ 0x7f4a);
+    return Array.from({ length: 26 }, () => {
+      const a = rng() * Math.PI * 2;
+      const r = size * (1.1 + rng() * 0.9);
+      return {
+        x: Math.cos(a) * r,
+        z: Math.sin(a) * r,
+        s: size * (0.18 + rng() * 0.22),
+      };
+    });
+  }, [seed, size]);
+
   return (
-    <mesh geometry={geometry} receiveShadow>
-      <meshLambertMaterial map={mapped} vertexColors />
-    </mesh>
+    <group>
+      <mesh geometry={geometry} receiveShadow renderOrder={1}>
+        <meshLambertMaterial map={mapped} vertexColors />
+      </mesh>
+      {/* 外側の地面(遠景) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]}>
+        <planeGeometry args={[size * 6, size * 6]} />
+        <meshLambertMaterial map={skirtTex} color={style.groundAccent} />
+      </mesh>
+      {/* 遠くの丘。地平線に起伏を出して奥行きを感じさせる */}
+      {hills.map((h, i) => (
+        <mesh key={i} position={[h.x, -0.4, h.z]}>
+          <sphereGeometry args={[h.s, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshLambertMaterial color={style.grass} flatShading />
+        </mesh>
+      ))}
+    </group>
   );
 };
 
@@ -288,14 +326,23 @@ export const GrassPatches: React.FC<{
     <group>
       {/* 区画そのもの(濃い色の円) */}
       {patches.map((p, i) => (
-        <mesh
-          key={i}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[p.x, heightAt(p.x, p.z, seed, size) + 0.06, p.z]}
-        >
-          <circleGeometry args={[p.r, 28]} />
-          <meshLambertMaterial color={style.grass} transparent opacity={0.92} />
-        </mesh>
+        <group key={i}>
+          {/* ふちの明るい輪。「ここが草むら」とひと目でわかるようにする */}
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[p.x, heightAt(p.x, p.z, seed, size) + 0.05, p.z]}
+          >
+            <circleGeometry args={[p.r + 0.5, 28]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.28} depthWrite={false} />
+          </mesh>
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[p.x, heightAt(p.x, p.z, seed, size) + 0.07, p.z]}
+          >
+            <circleGeometry args={[p.r, 28]} />
+            <meshLambertMaterial color={style.grass} />
+          </mesh>
+        </group>
       ))}
       {/* 立った草 */}
       <instancedMesh
@@ -304,7 +351,7 @@ export const GrassPatches: React.FC<{
         frustumCulled={false}
         castShadow
       >
-        <coneGeometry args={[0.24, 0.85, 4]} />
+        <coneGeometry args={[0.26, 1.05, 4]} />
         <meshLambertMaterial color={style.grass} />
       </instancedMesh>
     </group>

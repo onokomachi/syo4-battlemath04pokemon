@@ -398,7 +398,7 @@ const AdventureMode: React.FC<Props> = ({
 
       {/* 上部のHUD */}
       <div className="absolute top-0 inset-x-0 p-2 sm:p-3 flex items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto rounded-2xl bg-white/92 shadow-lg px-3 py-2 sm:px-4 sm:py-2.5">
+        <div className="pointer-events-auto rounded-2xl bg-white/90 shadow-lg px-3 py-2 sm:px-4 sm:py-2.5">
           <p className="text-lg sm:text-xl font-black text-slate-800 leading-none">{town.name}</p>
           <p className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5">{town.unit}</p>
           <div className="mt-1.5 flex items-center gap-2">
@@ -424,7 +424,7 @@ const AdventureMode: React.FC<Props> = ({
             <button
               key={label}
               onClick={fn}
-              className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/92 shadow-lg font-black text-slate-700 text-sm sm:text-base active:scale-95"
+              className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/90 shadow-lg font-black text-slate-700 text-sm sm:text-base active:scale-95"
             >
               {label}
             </button>
