@@ -25,7 +25,44 @@ export interface SpriteJob {
   cutout: boolean;
   size: number;
   seed: number;
+  /**
+   * 背景に使う色。省略時は緑。
+   *
+   * 緑色のキャラを緑背景で撮ると、体まで一緒に抜けてしまう(クロマキーの
+   * 基本的な失敗)。実際、コケと樹皮でできた緑の鹿は、何度作り直しても
+   * 「輪郭が食われている」で弾かれつづけていた。
+   * そこで、体の色が緑に寄っているものだけ背景をマゼンタに切りかえる。
+   */
+  chroma?: 'green' | 'magenta';
 }
+
+/**
+ * その色が緑に近いか(色相がおよそ 60〜190度)。
+ * 近いなら、背景は緑ではなくマゼンタを使う。
+ */
+const isGreenish = (hex: string): boolean => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max === min) return false;
+  const d = max - min;
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return h >= 60 && h <= 190;
+};
+
+/** 背景の指定文を、使う色に合わせて作る */
+const bgFor = (chroma: 'green' | 'magenta') =>
+  chroma === 'magenta'
+    ? 'a die-cut game sprite floating in mid-air on a PURE MAGENTA SCREEN, ' +
+      'the entire background is one solid flat chroma magenta #e600b4, chroma key studio shot, ' +
+      'magenta empty space above below and all around the character'
+    : 'a die-cut game sprite floating in mid-air on a PURE GREEN SCREEN, ' +
+      'the entire background is one solid flat chroma green #19c37d, chroma key studio shot, ' +
+      'green empty space above below and all around the character';
 
 /**
  * プロンプトの組み立て方について。
@@ -136,8 +173,9 @@ export const buildJobs = (): SpriteJob[] => {
       cutout: true,
       size: 512,
       seed: nextSeed(),
+      chroma: isGreenish(el.color) ? 'magenta' : 'green',
       prompt: [
-        BG,
+        bgFor(isGreenish(el.color) ? 'magenta' : 'green'),
         // motif 側の "mascot" は人型を誘発するので creature に寄せる
         m.motif.replace(/\bmascot\b/g, 'animal creature'),
         tint(el.color),
@@ -162,8 +200,9 @@ export const buildJobs = (): SpriteJob[] => {
       cutout: true,
       size: 512,
       seed: nextSeed(),
+      chroma: isGreenish(el.color) ? 'magenta' : 'green',
       prompt: [
-        BG,
+        bgFor(isGreenish(el.color) ? 'magenta' : 'green'),
         e.motif,
         tint(el.color),
         // 進化後は一段かっこよく。ただし怖くはしない。
@@ -190,8 +229,12 @@ export const buildJobs = (): SpriteJob[] => {
       // flux は否定を解さないので、"no human" と書くと human という語が
       // 効いてしまい、かえって人型が出る(実際に半裸の女神と獣人が出た)。
       // 何を描くかだけを、動物であることが疑いようのない言葉で書く。
+      // 伝説はつねにマゼンタ背景。大きくて色が濃く、金や深い青緑をまとうため、
+      // 緑背景だと体の一部が背景と見なされて食われる。緑で通っていた個体も
+      // マゼンタで問題なく抜けるので、条件分岐にせず一律にしてある。
+      chroma: 'magenta',
       prompt: [
-        BG_POSITIVE,
+        bgFor('magenta'),
         l.motif,
         tint(el.color),
         LEGEND_STYLE,

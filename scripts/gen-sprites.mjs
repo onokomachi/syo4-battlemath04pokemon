@@ -47,8 +47,23 @@ const SEED_SALT = Number(
   process.env.SPRITE_SEED_SALT ?? (args.includes('--force') ? Date.now() % 100000 : 0),
 );
 
-/** 生成プロンプトで指定しているクロマキー色 */
-const CHROMA = { r: 0x19, g: 0xc3, b: 0x7d };
+/**
+ * 生成プロンプトで指定しているクロマキー色。
+ *
+ * 緑1色ではだめで、緑色のキャラは緑背景だと体まで抜けてしまう
+ * (コケと樹皮でできた緑の鹿が、何度作り直しても輪郭を食われつづけた)。
+ * job.chroma で1枚ごとに選べるようにしてある。
+ */
+const CHROMA_COLORS = {
+  green: { r: 0x19, g: 0xc3, b: 0x7d },
+  magenta: { r: 0xe6, g: 0x00, b: 0xb4 },
+};
+
+/** その色が、指定したクロマ色の側に十分寄っているか */
+const chromaScore = (kind, r, g, b) =>
+  kind === 'magenta'
+    ? Math.min(r, b) - g          // マゼンタは赤と青が強く、緑が弱い
+    : g - Math.max(r, b);         // 緑は緑だけが強い
 /** 出力サイズ */
 const SPRITE_SIZE = 256;
 const TEXTURE_SIZE = 512;
@@ -93,7 +108,8 @@ const dist2 = (r, g, b, c) => {
  * そこで本作は必ずクロマグリーンを背景に生成させ、その色からの距離だけで抜く。
  * 隅がクロマグリーンでなければ「モデルが指示を無視した」と判断して生成し直す。
  */
-function removeBackground(data, w, h) {
+function removeBackground(data, w, h, kind = 'green') {
+  const CHROMA = CHROMA_COLORS[kind] ?? CHROMA_COLORS.green;
   const at = (x, y) => (y * w + x) * 4;
 
   // ふちの画素の中央値を「実際に描かれた背景色」とする。
@@ -119,9 +135,9 @@ function removeBackground(data, w, h) {
   // 画素ごとの緑判定だから。30 にすると、モデルがよく描く淡いセージ色の背景
   // (175,205,184 など)を8回とも弾いてしまい、抜けば普通に使える絵まで
   // 作り直しに回りつづけていた。
-  const greenness = bg.g - Math.max(bg.r, bg.b);
-  if (greenness < 12) {
-    throw new Error(`background is not green (${bg.r},${bg.g},${bg.b})`);
+  const score = chromaScore(kind, bg.r, bg.g, bg.b);
+  if (score < 12) {
+    throw new Error(`background is not ${kind} (${bg.r},${bg.g},${bg.b})`);
   }
 
   // 抜く条件は2つの積。
@@ -133,7 +149,7 @@ function removeBackground(data, w, h) {
   const TOL_CHROMA = 70 * 70 * 3;
   const isBg = i => {
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    if (g - Math.max(r, b) < 10) return false;
+    if (chromaScore(kind, r, g, b) < 10) return false;
     return dist2(r, g, b, bg) < TOL_BG || dist2(r, g, b, CHROMA) < TOL_CHROMA;
   };
 
@@ -166,7 +182,13 @@ function removeBackground(data, w, h) {
         data[at(x, y + 1) + 3] === 0 || data[at(x, y - 1) + 3] === 0;
       if (!touchesAlpha) continue;
       const r = data[i], g = data[i + 1], b = data[i + 2];
-      if (g > r && g > b) {
+      if (kind === 'magenta') {
+        // マゼンタかぶり: 赤と青だけが浮いている画素を、緑に合わせて落とす
+        if (r > g && b > g) {
+          data[i] = Math.max(g, Math.round(r * 0.7));
+          data[i + 2] = Math.max(g, Math.round(b * 0.7));
+        }
+      } else if (g > r && g > b) {
         const cap = Math.round((r + b) / 2);
         data[i + 1] = Math.max(cap, Math.round(g * 0.6));
       }
@@ -295,10 +317,10 @@ function alphaBounds(data, w, h) {
   return { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 
-async function toSprite(buf) {
+async function toSprite(buf, chroma = 'green') {
   const img = sharp(buf).ensureAlpha();
   const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
-  removeBackground(data, info.width, info.height);
+  removeBackground(data, info.width, info.height, chroma);
   const bounds = alphaBounds(data, info.width, info.height);
   if (!bounds) throw new Error('background removal left nothing');
   // 抜きすぎ(キャラまで消えた)を検出する
@@ -364,7 +386,7 @@ async function runJob(job, stats) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       const raw = await fetchImage(job, attempt);
-      const png = job.cutout ? await toSprite(raw) : await toTexture(raw);
+      const png = job.cutout ? await toSprite(raw, job.chroma ?? 'green') : await toTexture(raw);
       await writeFile(outPath, png);
       stats.done++;
       process.stdout.write(`  ✓ ${job.out}  (${stats.done + stats.failed + stats.skipped}/${stats.total})\n`);
