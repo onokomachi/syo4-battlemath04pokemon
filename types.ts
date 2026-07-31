@@ -315,7 +315,6 @@ export interface UserProfile {
   playerExp: number;
   totalWins: number;
   totalMatches: number;
-  ownedCardIds: number[];
   createdAt?: any;
   // 形式別勝敗 (denormalized for single-query ranking)
   formatWins?: {
@@ -494,9 +493,7 @@ export interface ProblemCard {
   ability?: Ability;
 }
 
-export type TurnPhase = 'selecting_card' | 'solving_problem' | 'round_end' | 'game_over' | 'waiting_for_opponent';
-export type GameState = 'login_screen' | 'main_menu' | 'deck_building' | 'in_game' | 'end' | 'practice_mode' | 'review_mode' | 'card_shop' | 'matchmaking' | 'gamemaster' | 'tutorial' | 'speed_duel_setup' | 'speed_duel' | 'mock_test' | 'learning_log';
-export type TurnInitiative = 'player' | 'pc';
+export type GameState = 'login_screen' | 'main_menu' | 'adventure' | 'practice_mode' | 'review_mode' | 'matchmaking' | 'gamemaster' | 'speed_duel_setup' | 'speed_duel' | 'mock_test' | 'learning_log';
 
 // For FillInProofProblemView to connect with a virtual keypad in the future
 export interface ProblemViewRef {

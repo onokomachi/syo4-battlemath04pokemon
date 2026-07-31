@@ -3,13 +3,13 @@
  *
  * 統合機能:
  *  - Firebase Authentication (Google OAuth + Guest)  [エビデンスA: Firebase公式パターン]
- *  - HP制カードバトル (aicardbattle2より移植)        [エビデンスB: 標準カードゲーム設計]
- *  - PvP マルチプレイヤー (Firestore リアルタイム)   [エビデンスA: Firebase onSnapshot]
+ *  - 3Dアドベンチャー「ナンバーランド」(モンスター収集+算数バトル)
+ *  - スピードデュエル / PvP (Firestore リアルタイム) [エビデンスA: Firebase onSnapshot]
  *  - ランキングボード                               [エビデンスA: Firestore query/orderBy]
  *  - 管理画面 (GameMaster)                          [エビデンスB: RBAC管理UI設計]
  *  - DDA (Dynamic Difficulty Adjustment)            [エビデンスB: ゲームAI適応設計]
  */
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect,
   getRedirectResult, signOut,
@@ -21,19 +21,15 @@ import {
   runTransaction, where,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
-import type { ProblemCard, TurnPhase, GameState, TurnInitiative, Room, BattleMode, BattleFormat, StudentProfile } from './types';
+import type { GameState, Room, BattleMode, BattleFormat, StudentProfile } from './types';
 import {
-  CARD_DEFINITIONS, HAND_SIZE, DECK_SIZE,
-  INITIAL_HP, calcDamage, ADMIN_EMAILS,
+  CARD_DEFINITIONS, ADMIN_EMAILS,
   DAILY_QUEST_DEFS, getTodayStr,
   SHOP_ITEMS, TITLE_DEFS, THEME_CONFIGS, DEFAULT_SCHOOL_YEAR, getCurrentSchoolYear,
   SCHOOL_NAME, TARGET_GRADE,
 } from './constants';
-import GameBoard from './components/GameBoard';
-import DeckBuilder from './components/DeckBuilder';
 import MainMenu from './components/MainMenu';
 import PracticeMode from './components/PracticeMode';
-import CardShop from './components/CardShop';
 import LevelUpModal from './components/LevelUpModal';
 import AdminPasswordModal from './components/AdminPasswordModal';
 import GravityBackground from './components/GravityBackground';
@@ -60,7 +56,6 @@ import { addIncorrectToSrs, getDueCount } from './services/spacedRepetitionServi
 import { recordAttempt, getCategoryWeights } from './services/weaknessAnalysisService';
 import WeaknessPanel from './components/WeaknessPanel';
 import ItemShop from './components/ItemShop';
-import TutorialBattle from './components/TutorialBattle';
 import SpeedDuelSetup from './components/SpeedDuelSetup';
 import SpeedDuelBoard from './components/SpeedDuelBoard';
 import NewYearPrompt from './components/NewYearPrompt';
@@ -73,10 +68,22 @@ import {
   saveActivePvpSession, loadActivePvpSession, clearActivePvpSession, PVP_RESUME_MAX_AGE_MS,
 } from './hooks/usePvpConnection';
 
-// 採点は utils/answerChecker.ts に一本化（カードバトル・スピード対戦・練習モード共通）
+// 3Dアドベンチャーは three.js を含み重いので、選ばれたときだけ読みこむ
+// (練習モードしか使わない児童の初期読み込みを遅くしないため)
+const AdventureMode = lazy(() => import('./components/adventure/AdventureMode'));
+
+// 採点は utils/answerChecker.ts に一本化（3Dバトル・スピード対戦・練習モード共通）
 
 // シャッフルは utils/shuffle.ts (Fisher-Yates)、進捗・ゲーミフィケーション状態は
 // store/progressionStore.ts (Zustand) に一本化
+
+/** 3Dアドベンチャーの読み込み中に出す画面 */
+const AdventureLoading: React.FC = () => (
+  <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-b from-sky-300 to-emerald-100">
+    <div className="text-6xl animate-bounce">🗺</div>
+    <p className="mt-4 text-2xl font-black text-slate-700">ナンバーランドへ しゅっぱつ…</p>
+  </div>
+);
 
 // ============================
 // App Component
@@ -115,13 +122,11 @@ const App: React.FC = () => {
   // --- Game State ---
   const [gameState, setGameState] = useState<GameState>('login_screen');
   const [gameMode, setGameMode] = useState<BattleMode>('cpu');
-  const [turnPhase, setTurnPhase] = useState<TurnPhase>('selecting_card');
-  const [initiative, setInitiative] = useState<TurnInitiative>('player');
 
   // --- Player Progression & ゲーミフィケーション (Zustand store) ---
   // localStorage 永続化・Firestore 書き込みはストア内で行う
   const {
-    mathPoints, ownedCardIds, playerLevel, playerExp, userLevelStats,
+    mathPoints, playerLevel, playerExp, userLevelStats,
     levelUpInfo, setLevelUpInfo, pendingBadge, setPendingBadge,
     loginStreak, totalWins, totalCorrectAnswers, chainCount, setChainCount,
     earnedBadgeIds, ownedShopItems, equippedTitle, setEquippedTitle,
@@ -131,36 +136,15 @@ const App: React.FC = () => {
     setUid, earnBadge, handleQuestProgress, checkTitleConditions,
     onCorrectAnswerEvent: recordAnswerOutcome, flushSessionData,
     addBoostedMp, addCpuBattleMp, addExp, claimLoginBonus, handleShopPurchase,
-    checkCategoryMasterBadges, buyCardPack, recordSolveTime,
+    checkCategoryMasterBadges, recordSolveTime,
     addMathPoints, incrementTotalWins,
   } = useProgressionStore();
 
   // --- Battle State ---
-  const [playerDeck, setPlayerDeck] = useState<ProblemCard[]>([]);
-  const [pcDeck, setPcDeck] = useState<ProblemCard[]>([]);
-  const [playerHand, setPlayerHand] = useState<ProblemCard[]>([]);
-  const [pcHand, setPcHand] = useState<ProblemCard[]>([]);
-  const [playerHP, setPlayerHP] = useState(INITIAL_HP);
-  const [pcHP, setPcHP] = useState(INITIAL_HP);
-  const [playerScore, setPlayerScore] = useState(0);
-  const [pcScore, setPcScore] = useState(0);
-  const [playerPlayedCard, setPlayerPlayedCard] = useState<ProblemCard | null>(null);
-  const [pcPlayedCard, setPcPlayedCard] = useState<ProblemCard | null>(null);
-  const [gameLog, setGameLog] = useState<string[]>([]);
-  const [winner, setWinner] = useState<string | null>(null);
-  const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
-  const [roundResult, setRoundResult] = useState<string | null>(null);
-  const [playerAnswered, setPlayerAnswered] = useState(false);
-  const [pcAnswered, setPcAnswered] = useState(false);
-  const [roundStartTime, setRoundStartTime] = useState(0);
-  const [mismatchRound, setMismatchRound] = useState(false);
   const [battleFormat, setBattleFormat] = useState<BattleFormat>('master_duel');
-  const [playerRoundWins, setPlayerRoundWins] = useState(0);
-  const [pcRoundWins, setPcRoundWins] = useState(0);
-  const [currentRound, setCurrentRound] = useState(1);
 
   // --- Speed Duel State ---
-  const [battleType, setBattleType] = useState<BattleType>('card_battle');
+  const [battleType, setBattleType] = useState<BattleType>('speed_duel');
   const [speedCategories, setSpeedCategories] = useState<string[]>([]);
   const [speedProblems, setSpeedProblems] = useState<SpeedProblem[]>([]);
   const [speedRound, setSpeedRound] = useState(1);
@@ -184,7 +168,6 @@ const App: React.FC = () => {
   const unsubscribeRoomRef = useRef<(() => void) | null>(null);
   const isHostRef = useRef(isHost);
   const processedMatchIdRef = useRef<string | null>(null);
-  const pvpDeckRef = useRef<ProblemCard[]>([]);
   const currentRoomIdRef = useRef<string | null>(null);
   const gameModeRef = useRef<BattleMode>('cpu');
   const gameStateRef = useRef<GameState>(gameState);
@@ -252,9 +235,6 @@ const App: React.FC = () => {
   }, [earnBadge, checkTitleConditions, user]);
 
   // --- バトル中の一時 UI State (ストア外) ---
-  const [wrongAnswerText, setWrongAnswerText] = useState<string | null>(null);
-  const [playerWrongAnswer, setPlayerWrongAnswer] = useState<string | null>(null);
-  const [wrongCategory, setWrongCategory] = useState<string | null>(null);
   // パネル表示
   const [showQuestPanel, setShowQuestPanel] = useState(false);
   const [showLoginBonus, setShowLoginBonus] = useState(false);
@@ -274,11 +254,6 @@ const App: React.FC = () => {
   // localStorage 永続化は store/progressionStore.ts の subscribe で実施
   // (studentProfile は各セット箇所で直接書き込み)
 
-  // ロックされた単元のカードはデッキ・バトルで使用不可(所持はしたまま非表示)
-  const ownedCards = useMemo(
-    () => CARD_DEFINITIONS.filter(c => ownedCardIds.has(c.id) && !lockedUnits.has(c.mainCategory)),
-    [ownedCardIds, lockedUnits],
-  );
 
   // Splash screen timer (minimum 2 seconds)
   useEffect(() => {
@@ -312,7 +287,6 @@ const App: React.FC = () => {
             if (d.mathPoints !== undefined) store().setMathPoints(d.mathPoints);
             if (d.playerLevel !== undefined) store().setPlayerLevel(d.playerLevel);
             if (d.playerExp !== undefined) store().setPlayerExp(d.playerExp);
-            if (d.ownedCardIds) store().setOwnedCardIds(new Set(d.ownedCardIds));
             // ゲーミフィケーションデータ読み込み
             if (d.earnedBadgeIds) store().setEarnedBadgeIds(new Set(d.earnedBadgeIds));
             if (d.totalCorrectAnswers !== undefined) store().setTotalCorrectAnswers(d.totalCorrectAnswers);
@@ -385,7 +359,6 @@ const App: React.FC = () => {
               playerExp: store().playerExp,
               totalWins: 0,
               totalMatches: 0,
-              ownedCardIds: Array.from(store().ownedCardIds),
               earnedBadgeIds: [],
               totalCorrectAnswers: 0,
               totalAnswered: 0,
@@ -418,14 +391,8 @@ const App: React.FC = () => {
   // 正解イベント統合処理 (バッジ・クエスト等はストア側で実施)
   // ここでは正解ヒント表示のみ App 側で扱う
   // ============================
-  const onCorrectAnswerEvent = useCallback((isCorrect: boolean, correctAnswer: string) => {
+  const onCorrectAnswerEvent = useCallback((isCorrect: boolean, _correctAnswer: string) => {
     recordAnswerOutcome(isCorrect);
-    if (isCorrect) {
-      setWrongAnswerText(null);
-    } else {
-      // 不正解: 正解ヒント表示
-      setWrongAnswerText(correctAnswer);
-    }
   }, [recordAnswerOutcome]);
 
   // ログインストリークバッジ
@@ -438,12 +405,6 @@ const App: React.FC = () => {
     checkTitleConditions();
   }, [loginStreak, earnBadge, checkTitleConditions, totalCorrectAnswers, totalWins, playerLevel, earnedBadgeIds]);
 
-  // 正解ヒント自動クリア（3秒後）
-  useEffect(() => {
-    if (!wrongAnswerText) return;
-    const t = setTimeout(() => setWrongAnswerText(null), 3000);
-    return () => clearTimeout(t);
-  }, [wrongAnswerText]);
 
   // セッションデータ書き込み (flushSessionData) はストア側に移動
 
@@ -522,7 +483,7 @@ const App: React.FC = () => {
   };
 
   const handleGuestPlay = () => {
-    setGameState(tutorialDone ? 'main_menu' : 'tutorial');
+    setGameState('main_menu');
   };
 
   // ログインボーナス: MP加算・Firestore書き込みはストア、受取済みフラグはApp側UI状態
@@ -554,14 +515,6 @@ const App: React.FC = () => {
       clearActivePvpSession();
     }
     processedMatchIdRef.current = null;
-    setWinner(null);
-    setPlayerPlayedCard(null);
-    setPcPlayedCard(null);
-    setMismatchRound(false);
-    setPlayerRoundWins(0);
-    setPcRoundWins(0);
-    setCurrentRound(1);
-    setTurnPhase('selecting_card');
   }, []);
 
 
@@ -604,12 +557,11 @@ const App: React.FC = () => {
       // ルームが外部要因で finished になった場合（相手離脱・管理者終了等）
       if (data.status === 'finished' && (data.winnerId === 'abandoned' || data.winnerId === 'admin_terminated')) {
         cleanupGameSession();
-        setGameState(battleTypeRef.current === 'speed_duel' ? 'speed_duel_setup' : 'deck_building');
+        setGameState('speed_duel_setup');
         return;
       }
 
       if (data.status === 'playing' && gameStateRef.current === 'matchmaking') {
-        setCurrentRound(1);
         processedMatchIdRef.current = null;
 
         if (data.battleType === 'speed_duel' && data.speedProblems) {
@@ -633,11 +585,9 @@ const App: React.FC = () => {
             setSpeedTimeLeft(SPEED_DUEL_TIME_LIMIT_SEC);
           }, 2000);
         } else {
-          setTimeout(() => {
-            const deckToUse = pvpDeckRef.current.length > 0 ? pvpDeckRef.current : playerDeck;
-            startGame(deckToUse, false, data);
-            setGameState('in_game');
-          }, 500);
+          // カードバトルは廃止したので、旧形式のルームには参加せず待機画面へ戻す
+          cleanupGameSession();
+          setGameState('speed_duel_setup');
         }
       }
 
@@ -673,35 +623,6 @@ const App: React.FC = () => {
         }
       }
 
-      if (gameStateRef.current === 'in_game') {
-        setPlayerHP(isHostVal ? data.p1Hp : data.p2Hp);
-        setPcHP(isHostVal ? data.p2Hp : data.p1Hp);
-
-        if (data.winnerId && processedMatchIdRef.current !== roomId) {
-          processedMatchIdRef.current = roomId;
-          const isWinner = (data.winnerId === 'host' && isHostVal) || (data.winnerId === 'guest' && !isHostVal);
-          const isAbandoned = data.winnerId === 'abandoned' || data.winnerId === 'admin_terminated';
-          if (isAbandoned) {
-            setWinner('中断されました');
-          } else {
-            setWinner(data.winnerId === 'draw' ? '引き分け' : isWinner ? '勝利！' : '敗北...');
-          }
-          if (isWinner && !isAbandoned) {
-            addExp(500);
-            addBoostedMp(300);
-            saveUserToFirestore({ totalWins: increment(1), totalMatches: increment(1) });
-            earnBadge('first_pvp_win');
-            // PvP10勝バッジチェックはサーバー側totalWinsで判断できないので省略
-          } else if (!isAbandoned) {
-            addExp(100);
-            saveUserToFirestore({ totalMatches: increment(1) });
-          }
-          if (!isAbandoned) handleQuestProgress('pvp_match');
-          flushSessionData().catch(() => {}); // fire-and-forget
-          setChainCount(0);
-          setGameState('end');
-        }
-      }
     }, (error) => {
       const msg = error?.message || '';
       if (msg.includes('not found') || msg.includes('404') || error?.code === 'not-found') {
@@ -777,8 +698,10 @@ const App: React.FC = () => {
           createdAt: serverTimestamp(), hostLastActive: serverTimestamp(),
           guestLastActive: null, hostReady: true, guestReady: false,
           round: 1, p1Move: null, p2Move: null,
-          p1Hp: INITIAL_HP, p2Hp: INITIAL_HP, winnerId: null,
-          battleType: battleType || 'card_battle',
+          // p1Hp/p2Hp は旧カードバトルのフィールド。firestore.rules の必須項目
+          // なので、スピード対戦では使わないが 0 で作っておく。
+          p1Hp: 0, p2Hp: 0, winnerId: null,
+          battleType: 'speed_duel',
         };
         // Speed duel: add categories and problems to room
         if (battleType === 'speed_duel') {
@@ -820,8 +743,8 @@ const App: React.FC = () => {
       saveActivePvpSession({
         roomId,
         isHost: result === 'host',
-        battleType: battleType || 'card_battle',
-        deckIds: pvpDeckRef.current.map(c => c.id),
+        battleType: 'speed_duel',
+        deckIds: [],
         savedAt: Date.now(),
       });
     } catch (e: any) {
@@ -841,70 +764,6 @@ const App: React.FC = () => {
 
   useEffect(() => { if (currentRoomId) listenToRoom(currentRoomId); }, [currentRoomId]);
 
-
-
-  // ============================
-  // Game Start
-  // ============================
-  // ZPD重み付きデッキ構築（エビデンスA: Vygotsky 1978）
-  const buildAdaptiveCpuDeck = useCallback((): ProblemCard[] => {
-    const weights = getCategoryWeights();
-    const cards = CARD_DEFINITIONS.filter(c => !lockedUnits.has(c.mainCategory));
-    // 各カードに重みを割り当て（未記録カテゴリはデフォルト2）
-    const weighted = cards.map(c => ({ card: c, weight: weights[c.category] || 2 }));
-    const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
-
-    // 重み付きサンプリング（復元なし）
-    const selected: ProblemCard[] = [];
-    const pool = [...weighted];
-    while (selected.length < DECK_SIZE && pool.length > 0) {
-      let roll = Math.random() * pool.reduce((s, w) => s + w.weight, 0);
-      let idx = 0;
-      for (; idx < pool.length - 1; idx++) {
-        roll -= pool[idx].weight;
-        if (roll <= 0) break;
-      }
-      selected.push(pool[idx].card);
-      pool.splice(idx, 1);
-    }
-    return selected;
-  }, []);
-
-  const startGame = useCallback((playerDeckSetup: ProblemCard[], isCpu: boolean, roomData?: Room, format?: BattleFormat) => {
-    cleanupGameSession(true);
-    const pcDeckSetup = isCpu ? buildAdaptiveCpuDeck() : shuffleDeck(CARD_DEFINITIONS.filter(c => !lockedUnits.has(c.mainCategory))).slice(0, DECK_SIZE);
-    const shuffledP = shuffleDeck(playerDeckSetup);
-    const shuffledC = shuffleDeck(pcDeckSetup);
-    setPlayerHand(shuffledP.slice(0, HAND_SIZE));
-    setPlayerDeck(shuffledP.slice(HAND_SIZE));
-    setPcHand(shuffledC.slice(0, HAND_SIZE));
-    setPcDeck(shuffledC.slice(HAND_SIZE));
-    if (roomData) {
-      setPlayerHP(isHostRef.current ? roomData.p1Hp : roomData.p2Hp);
-      setPcHP(isHostRef.current ? roomData.p2Hp : roomData.p1Hp);
-    } else {
-      setPlayerHP(INITIAL_HP);
-      setPcHP(INITIAL_HP);
-    }
-    setPlayerScore(0);
-    setPcScore(0);
-    setWinner(null);
-    setRoundResult(null);
-    setPlayerAnswered(false);
-    setPcAnswered(false);
-    setInitiative(Math.random() > 0.5 ? 'player' : 'pc');
-    setTurnPhase('selecting_card');
-    if (format) setBattleFormat(format);
-    setPlayerRoundWins(0);
-    setPcRoundWins(0);
-    setCurrentRound(1);
-    const formatLabel = format === 'best_of_3' ? '【3本勝負】' : format === 'best_of_5' ? '【5本勝負】' : format === 'best_of_7' ? '【7本勝負】' : '【マスターデュエル】';
-    setGameLog([`${formatLabel} バトル開始！問題に答えてダメージを与えよう！`]);
-  }, [cleanupGameSession, buildAdaptiveCpuDeck]);
-
-  // ============================
-  // Speed Duel Logic
-  // ============================
   const generateSpeedProblems = useCallback((subtopics: string[], count: number): SpeedProblem[] => {
     // Support both subtopic names (granular) and main category names (legacy)
     const subtopicSet = new Set(subtopics);
@@ -1177,61 +1036,6 @@ const App: React.FC = () => {
   }, [speedPhase, speedGameResult, gameMode, addExp, addBoostedMp, incrementTotalWins, saveUserToFirestore, handleQuestProgress, flushSessionData]);
 
   // ============================
-  // Auto-draw helper
-  // ============================
-  const handleAutoDraw = useCallback((
-    hand: ProblemCard[], deck: ProblemCard[], targetLevel: number
-  ) => {
-    const idx = deck.findIndex(c => c.difficulty === targetLevel);
-    if (idx !== -1) {
-      const newCard = deck[idx];
-      const newDeck = [...deck];
-      newDeck.splice(idx, 1);
-      const oldCard = hand[Math.floor(Math.random() * hand.length)];
-      const newHand = [...hand.filter(c => c.id !== oldCard.id), newCard];
-      newDeck.push(oldCard);
-      return { newHand, newDeck, success: true };
-    }
-    return { newHand: hand, newDeck: deck, success: false };
-  }, []);
-
-  // ============================
-  // HP Battle Resolution
-  // エビデンスB: ATK/DEF + 正解ダメージ統合設計
-  // ============================
-  const resolveHpBattle = useCallback((
-    playerCorrect: boolean,
-    playerCard: ProblemCard,
-    pcCard: ProblemCard
-  ) => {
-    // Damage formula: difficulty × 2 HP
-    // SCORE_BOOST: +2 bonus damage on correct answer
-    // DEFENSIVE_STANCE: block damage when wrong
-    if (playerCorrect) {
-      let dmg = calcDamage(playerCard.difficulty);
-      if (playerCard.ability?.type === 'SCORE_BOOST') dmg += (playerCard.ability.value || 1) * 2;
-      addLog(`正解！${(pcCard.problem.data as Record<string, unknown>).question ? String((pcCard.problem.data as Record<string, unknown>).question).slice(0, 20) : ''}... → ${dmg}ダメージ！`);
-      setPcHP(prev => Math.max(0, prev - dmg));
-      setPlayerScore(s => s + 1);
-      return 'player_win';
-    } else {
-      if (playerCard.ability?.type === 'DEFENSIVE_STANCE') {
-        addLog(`不正解 [防御スタンス] ダメージをガード！`);
-        return 'defended';
-      }
-      const dmg = calcDamage(pcCard.difficulty);
-      addLog(`不正解… ${dmg}ダメージを受けた`);
-      setPlayerHP(prev => Math.max(0, prev - dmg));
-      setPcScore(s => s + 1);
-      return 'pc_win';
-    }
-  }, []);
-
-  const addLog = useCallback((msg: string) => {
-    setGameLog(prev => [...prev.slice(-10), msg]);
-  }, []);
-
-  // ============================
   // PvP再接続
   // 誤リロード後、保存済みセッションのルームがまだ進行中なら復帰を提案する
   // ============================
@@ -1296,346 +1100,20 @@ const App: React.FC = () => {
         setCurrentRoomId(saved.roomId);
         setGameState('speed_duel');
       } else {
-        // カードバトル: HPはルームから復元、手札は引き直し
-        setBattleType('card_battle');
-        const deck = saved.deckIds
-          .map(id => CARD_DEFINITIONS.find(c => c.id === id))
-          .filter((c): c is ProblemCard => !!c);
-        const deckToUse = deck.length >= HAND_SIZE ? deck : shuffleDeck(CARD_DEFINITIONS.filter(c => !lockedUnits.has(c.mainCategory))).slice(0, DECK_SIZE);
-        pvpDeckRef.current = deckToUse;
-        startGame(deckToUse, false, room);
-        setCurrentRoomId(saved.roomId);
-        setGameState('in_game');
-        addLog('🔌 対戦に再接続しました（手札は引き直しです）');
+        // カードバトルは廃止したため、旧形式のセッションは復帰させず破棄する
+        clearActivePvpSession();
       }
     } catch (e) {
       console.error('PvP resume error:', e);
       clearActivePvpSession();
     }
-  }, [startGame, addLog]);
+  }, []);
 
   const dismissResume = useCallback(async (saved: SavedPvpSession) => {
     setResumeCandidate(null);
     // 破棄 = 投了扱い（相手の勝利でルームを終了）
     await leaveRoom(saved.roomId, saved.isHost);
   }, [leaveRoom]);
-
-  // ============================
-  // Player Answer Handler
-  // ============================
-  const handlePlayerAnswer = (answer: string) => {
-    if (playerAnswered || pcAnswered || !pcPlayedCard || !playerPlayedCard) return;
-    setPlayerAnswered(true);
-    const solveTime = Date.now() - roundStartTime;
-    // Proof problems are auto-correct (same as practice mode)
-    // Multiple-choice: compare as sorted sets so answer order doesn't matter
-    const problemData = pcPlayedCard.problem.data as any;
-    const correct = pcPlayedCard.problem.type === 'proof'
-      ? true
-      : checkAnswer(answer, pcPlayedCard.problem.answer, { multiple: !!problemData?.multiple, requireForm: (problemData as any)?.requireForm });
-
-    if (correct) {
-      // Update DDA stats
-      recordSolveTime(pcPlayedCard.difficulty, solveTime);
-      // スピードバッジ: 3秒以内正解
-      if (solveTime < 3000) earnBadge('speed_demon');
-    }
-
-    // ゲーミフィケーション: チェイン・バッジ・クエスト更新
-    onCorrectAnswerEvent(correct, pcPlayedCard.problem.answer);
-
-    // メタ認知: カテゴリ別正答率を記録（エビデンスA: Wang et al. 1993, ES=0.69）
-    recordAttempt(pcPlayedCard.category, correct);
-
-    // がくしゅうのきろく: 1問ログ(きょうやった問題の即時確認用)
-    recordProblemLog({
-      mode: 'battle',
-      subTopic: pcPlayedCard.category,
-      question: String((pcPlayedCard.problem.data as any)?.question || ''),
-      userAnswer: answer,
-      correct,
-      timeSec: Math.round(solveTime / 100) / 10,
-    });
-
-    // 精緻化フィードバック: 不正解時にプレイヤーの回答とカテゴリを記録
-    if (!correct) {
-      setPlayerWrongAnswer(answer);
-      setWrongCategory(pcPlayedCard.category);
-      // SRS: 不正解を間隔反復キューに追加（エビデンスA: Cepeda 2006, d=0.42）
-      const qData = pcPlayedCard.problem.data as Record<string, unknown>;
-      addIncorrectToSrs(
-        pcPlayedCard.category,
-        String(qData.question || '').slice(0, 50),
-        pcPlayedCard.problem.answer,
-        pcPlayedCard.problem.type
-      );
-    } else {
-      setPlayerWrongAnswer(null);
-      setWrongCategory(null);
-    }
-
-    const outcome = resolveHpBattle(correct, playerPlayedCard, pcPlayedCard);
-    setRoundResult(outcome === 'player_win' ? 'ラウンド勝利！' : 'ラウンド敗北...');
-    if (!pcAnswered) setPcAnswered(true);
-    setTurnPhase('round_end');
-  };
-
-  // ============================
-  // Card Selection
-  // ============================
-  // 手札+デッキに同レベルカードがあるか判定
-  const hasMatchingCard = useCallback((targetDiff: number): boolean => {
-    return playerHand.some(c => c.difficulty === targetDiff) ||
-           playerDeck.some(c => c.difficulty === targetDiff);
-  }, [playerHand, playerDeck]);
-
-  const handleCardClickInHand = (card: ProblemCard) => {
-    if (turnPhase !== 'selecting_card') return;
-
-    // PC先攻時: 同レベルマッチング制約
-    if (initiative === 'pc' && pcPlayedCard !== null) {
-      const canMatch = hasMatchingCard(pcPlayedCard.difficulty);
-      if (canMatch && card.difficulty !== pcPlayedCard.difficulty) {
-        // 同レベルカードが存在するなら、それを選ぶよう促す
-        addLog('同じ難易度のカードを選んでください');
-        return;
-      }
-      // 同レベルカードが無い場合 → 任意カードで応戦OK（mismatch round）
-    }
-
-    if (selectedCardId === card.id) {
-      // 難易度不一致ラウンド判定
-      const isMismatch = initiative === 'pc' && pcPlayedCard !== null &&
-                          card.difficulty !== pcPlayedCard.difficulty;
-      setMismatchRound(isMismatch);
-      if (isMismatch) {
-        addLog(`⚡ レベル不一致で応戦！ 解答時間ボーナス獲得（+50%）`);
-      }
-
-      setPlayerPlayedCard(card);
-      setPlayerHand(prev => prev.filter(c => c.id !== card.id));
-      if (initiative === 'player') {
-        let pcMatchingCard = pcHand.find(c => c.difficulty === card.difficulty);
-        if (!pcMatchingCard) {
-          const res = handleAutoDraw(pcHand, pcDeck, card.difficulty);
-          if (res.success) {
-            addLog('PC: カードを引き直しています...');
-            setPcHand(res.newHand);
-            setPcDeck(res.newDeck);
-            pcMatchingCard = res.newHand.find(c => c.difficulty === card.difficulty);
-          }
-        }
-        const pcCard = pcMatchingCard || pcHand[Math.floor(Math.random() * pcHand.length)];
-        setPcPlayedCard(pcCard);
-        setPcHand(prev => prev.filter(c => c.id !== pcCard.id));
-        setTurnPhase('solving_problem');
-        setRoundStartTime(Date.now());
-      } else {
-        setTurnPhase('solving_problem');
-        setRoundStartTime(Date.now());
-      }
-    } else {
-      setSelectedCardId(card.id);
-    }
-  };
-
-  // ============================
-  // PC Initiative
-  // ============================
-  useEffect(() => {
-    if (gameState !== 'in_game' || turnPhase !== 'selecting_card' || initiative !== 'pc' || pcPlayedCard !== null) return;
-    const timer = setTimeout(() => {
-      const pcCard = pcHand[Math.floor(Math.random() * pcHand.length)];
-      if (!pcCard) return;
-      setPcPlayedCard(pcCard);
-      setPcHand(prev => prev.filter(c => c.id !== pcCard.id));
-      addLog(`PC: レベル${pcCard.difficulty} の問題を出題`);
-      const hasMatch = playerHand.some(c => c.difficulty === pcCard.difficulty);
-      if (!hasMatch) {
-        // まずデッキから同レベルカードを自動補充
-        const res = handleAutoDraw(playerHand, playerDeck, pcCard.difficulty);
-        if (res.success) {
-          addLog('カードを自動補充しました');
-          setPlayerHand(res.newHand);
-          setPlayerDeck(res.newDeck);
-        } else {
-          // 手札にもデッキにも同レベルがない → 任意カードで応戦可能
-          addLog('⚠ 同レベルカードがありません — 手持ちのカードで応戦しましょう！');
-        }
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [gameState, turnPhase, initiative, pcPlayedCard, pcHand, playerHand, playerDeck, handleAutoDraw, addLog]);
-
-  // ============================
-  // PC Solve Timer (DDA)
-  // エビデンスB: Dynamic Difficulty Adjustment
-  // ============================
-  useEffect(() => {
-    if (turnPhase !== 'solving_problem' || pcAnswered || !pcPlayedCard) return;
-    const diff = pcPlayedCard.difficulty;
-    const stats = userLevelStats[diff] || { avgTime: diff * 12000, count: 0 };
-    const baseTime = stats.count > 2 ? stats.avgTime : diff * 12000;
-    let finalTime = baseTime * 1.25;
-    // レベル不一致ラウンド: 解答時間+50%ボーナス
-    if (mismatchRound) finalTime *= 1.5;
-    if (pcPlayedCard.ability?.type === 'TIME_PRESSURE') finalTime -= (pcPlayedCard.ability.value || 3) * 1000;
-    const solveTime = Math.max(3000, Math.min(120000, finalTime));
-
-    const timer = setTimeout(() => {
-      if (!playerAnswered) {
-        if (playerPlayedCard?.ability?.type !== 'DEFENSIVE_STANCE') {
-          const dmg = calcDamage(pcPlayedCard.difficulty);
-          setPlayerHP(prev => Math.max(0, prev - dmg));
-          addLog(`時間切れ！${dmg}ダメージを受けた`);
-          setPcScore(s => s + 1);
-        }
-        setRoundResult('ラウンド敗北...');
-        setTurnPhase('round_end');
-      }
-      setPcAnswered(true);
-    }, solveTime);
-    return () => clearTimeout(timer);
-  }, [turnPhase, pcAnswered, playerAnswered, pcPlayedCard, playerPlayedCard, userLevelStats, mismatchRound]);
-
-  // ============================
-  // Round End / Win Check (supports both HP and round-based formats)
-  // ============================
-  const getRequiredWins = useCallback((format: BattleFormat): number => {
-    if (format === 'best_of_3') return 2;
-    if (format === 'best_of_5') return 3;
-    if (format === 'best_of_7') return 4;
-    return 0; // master_duel uses HP
-  }, []);
-
-  useEffect(() => {
-    if (turnPhase !== 'round_end') return;
-    const timer = setTimeout(async () => {
-      const isPlayerWonRound = roundResult?.includes('勝利');
-      const isPlayerLostRound = roundResult?.includes('敗北');
-
-      // Track round wins for best-of-N formats
-      let newPlayerRoundWins = playerRoundWins;
-      let newPcRoundWins = pcRoundWins;
-      if (battleFormat !== 'master_duel') {
-        if (isPlayerWonRound) {
-          newPlayerRoundWins = playerRoundWins + 1;
-          setPlayerRoundWins(newPlayerRoundWins);
-        } else if (isPlayerLostRound) {
-          newPcRoundWins = pcRoundWins + 1;
-          setPcRoundWins(newPcRoundWins);
-        }
-      }
-
-      // Determine if game is over
-      let gameOver = false;
-      let isWin = false;
-      let isDraw = false;
-
-      if (battleFormat === 'master_duel') {
-        // HP-based win condition
-        if (playerHP <= 0 || pcHP <= 0) {
-          gameOver = true;
-          isWin = pcHP <= 0 && playerHP > 0;
-          isDraw = pcHP <= 0 && playerHP <= 0;
-        }
-      } else {
-        // Round-based win condition
-        const required = getRequiredWins(battleFormat);
-        if (newPlayerRoundWins >= required || newPcRoundWins >= required) {
-          gameOver = true;
-          isWin = newPlayerRoundWins >= required;
-          isDraw = false;
-        }
-        // Also end if HP reaches 0 (knockout in round format)
-        if (!gameOver && (playerHP <= 0 || pcHP <= 0)) {
-          gameOver = true;
-          isWin = pcHP <= 0 && playerHP > 0;
-          isDraw = pcHP <= 0 && playerHP <= 0;
-        }
-      }
-
-      if (gameOver) {
-        // Immediately exit 'round_end' phase to prevent this effect from re-firing
-        // when state updates (addExp, setPlayerRoundWins, etc.) trigger a re-render
-        setTurnPhase('selecting_card');
-        const formatLabel = battleFormat === 'best_of_3' ? '3本勝負' : battleFormat === 'best_of_5' ? '5本勝負' : battleFormat === 'best_of_7' ? '7本勝負' : 'マスターデュエル';
-        const formatWinKey = `formatWins.${battleFormat}`;
-        const formatMatchKey = `formatMatches.${battleFormat}`;
-        if (isDraw) {
-          setWinner('引き分け\nお互い健闘しました！');
-          addExp(200);
-          saveUserToFirestore({ totalMatches: increment(1), [formatMatchKey]: increment(1) });
-        } else if (isWin) {
-          const winDetail = battleFormat !== 'master_duel' ? `\n${newPlayerRoundWins}-${newPcRoundWins} (${formatLabel})` : '';
-          setWinner(`勝利！\nおめでとう！${winDetail}`);
-          addExp(500);
-          // CPU戦は1日の獲得上限あり(荒稼ぎ防止)。PvPは対人戦のため上限なし。
-          if (gameMode === 'cpu') addCpuBattleMp(300); else addBoostedMp(300);
-          incrementTotalWins();
-          saveUserToFirestore({ totalWins: increment(1), totalMatches: increment(1), [formatWinKey]: increment(1), [formatMatchKey]: increment(1) });
-          if (gameMode === 'cpu') earnBadge('first_cpu_win');
-          else earnBadge('first_pvp_win');
-          if (playerHP >= INITIAL_HP) earnBadge('perfect_battle');
-          if (playerHP <= 5) earnBadge('comeback');
-          checkCategoryMasterBadges();
-          // 称号条件チェック (totalWins はストアで加算済み)
-          checkTitleConditions();
-        } else {
-          const loseDetail = battleFormat !== 'master_duel' ? `\n${newPlayerRoundWins}-${newPcRoundWins} (${formatLabel})` : '';
-          setWinner(`敗北...\n次こそ勝とう！${loseDetail}`);
-          addExp(100);
-          saveUserToFirestore({ totalMatches: increment(1), [formatMatchKey]: increment(1) });
-        }
-        await flushSessionData();
-        setGameState('end');
-        return;
-      }
-
-      // Round-based format: advance round counter and log score
-      if (battleFormat !== 'master_duel') {
-        setCurrentRound(prev => prev + 1);
-        addLog(`第${currentRound}回戦終了 [${newPlayerRoundWins}-${newPcRoundWins}]`);
-      }
-
-      // PvP: update Firestore HP
-      if (gameMode === 'pvp' && currentRoomId && db && isHostRef.current) {
-        const p1Hp = playerHP;
-        const p2Hp = pcHP;
-        let wId = p1Hp <= 0 && p2Hp <= 0 ? 'draw' : p1Hp <= 0 ? 'guest' : p2Hp <= 0 ? 'host' : null;
-        const updates: any = { p1Hp, p2Hp, p1Move: null, p2Move: null };
-        if (wId) { updates.winnerId = wId; updates.status = 'finished'; }
-        else { updates.round = increment(1); }
-        await updateDoc(doc(db, 'rooms', currentRoomId), updates).catch(console.error);
-      }
-
-      // Next round setup
-      setInitiative(isPlayerLostRound ? 'player' : 'pc');
-      setPlayerHand(prev => {
-        const needed = HAND_SIZE - prev.length;
-        if (needed <= 0 || playerDeck.length === 0) return prev;
-        const newCards = playerDeck.slice(0, needed);
-        setPlayerDeck(d => d.slice(needed));
-        return [...prev, ...newCards];
-      });
-      setPcHand(prev => {
-        const needed = HAND_SIZE - prev.length;
-        if (needed <= 0 || pcDeck.length === 0) return prev;
-        const newCards = pcDeck.slice(0, needed);
-        setPcDeck(d => d.slice(needed));
-        return [...prev, ...newCards];
-      });
-      setPlayerPlayedCard(null);
-      setPcPlayedCard(null);
-      setRoundResult(null);
-      setPlayerAnswered(false);
-      setPcAnswered(false);
-      setSelectedCardId(null);
-      setMismatchRound(false);
-      setTurnPhase('selecting_card');
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [turnPhase, playerHP, pcHP, gameMode, currentRoomId, playerDeck, pcDeck, addExp, roundResult, battleFormat, playerRoundWins, pcRoundWins, currentRound, getRequiredWins]);
 
   // ============================
   // Render
@@ -1705,6 +1183,25 @@ const App: React.FC = () => {
           />
         );
 
+      case 'adventure':
+        return (
+          <Suspense fallback={<AdventureLoading />}>
+          <AdventureMode
+            onExit={() => setGameState('main_menu')}
+            lockedUnits={lockedUnits}
+            mathPoints={mathPoints}
+            onAddMathPoints={n => addMathPoints(n)}
+            onSpendMathPoints={n => {
+              if (mathPoints < n) return false;
+              addMathPoints(-n);
+              return true;
+            }}
+            defaultName={studentProfile?.displayLabel}
+            uid={user?.uid ?? null}
+          />
+          </Suspense>
+        );
+
       case 'practice_mode':
         return (
           <PracticeMode
@@ -1740,28 +1237,6 @@ const App: React.FC = () => {
           />
         );
 
-      case 'deck_building':
-        return (
-          <DeckBuilder
-            ownedCards={ownedCards}
-            onDeckSubmit={(deck, mode, format) => {
-              const bmode: BattleMode = (mode as string) === 'pvp' ? 'pvp' : 'cpu';
-              setGameMode(bmode);
-              setBattleFormat(format);
-              setBattleType('card_battle');
-              if (bmode === 'pvp') {
-                pvpDeckRef.current = deck;
-                setPlayerDeck(deck);
-                setGameState('matchmaking');
-              } else {
-                startGame(deck, true, undefined, format);
-                setGameState('in_game');
-              }
-            }}
-            onBack={() => setGameState('main_menu')}
-          />
-        );
-
       case 'matchmaking':
         return (
           <Matchmaking
@@ -1770,7 +1245,7 @@ const App: React.FC = () => {
             onCancel={async () => {
               await leaveRoom(currentRoomId, isHost);
               cleanupGameSession();
-              setGameState(battleType === 'speed_duel' ? 'speed_duel_setup' : 'deck_building');
+              setGameState('speed_duel_setup');
             }}
             currentRoomId={currentRoomId}
             user={user}
@@ -1786,7 +1261,7 @@ const App: React.FC = () => {
               setBattleType('speed_duel');
               startSpeedDuel(categories, format, mode);
             }}
-            onBack={() => { setBattleType('card_battle'); setGameState('main_menu'); }}
+            onBack={() => setGameState('main_menu')}
             isLoggedIn={!!user}
             lockedUnits={lockedUnits}
           />
@@ -1807,7 +1282,6 @@ const App: React.FC = () => {
             onExit={() => {
               if (speedTimerRef.current) clearInterval(speedTimerRef.current);
               if (speedCpuTimerRef.current) clearTimeout(speedCpuTimerRef.current);
-              setBattleType('card_battle');
               setGameState('main_menu');
             }}
             roundWinner={speedRoundWinner}
@@ -1817,114 +1291,6 @@ const App: React.FC = () => {
             isOpponentAnswered={speedOpponentAnswered}
             timeLeft={speedTimeLeft}
             gameResult={speedGameResult}
-          />
-        );
-
-      case 'card_shop':
-        return (
-          <CardShop
-            mathPoints={mathPoints}
-            onBuyPack={(m, cost, _t) => buyCardPack(m, cost)}
-            onExit={() => setGameState('main_menu')}
-            lockedUnits={lockedUnits}
-          />
-        );
-
-      case 'in_game':
-        return (
-          <>
-            <GameBoard
-              turnPhase={turnPhase}
-              playerScore={playerScore}
-              pcScore={pcScore}
-              playerHP={playerHP}
-              pcHP={pcHP}
-              initialHP={INITIAL_HP}
-              playerHand={playerHand}
-              pcHandSize={pcHand.length}
-              playerDeckSize={playerDeck.length}
-              pcDeckSize={pcDeck.length}
-              playerPlayedCard={playerPlayedCard}
-              pcPlayedCard={pcPlayedCard}
-              onCardSelect={handleCardClickInHand}
-              onAnswerSubmit={handlePlayerAnswer}
-              selectedCardId={selectedCardId}
-              gameLog={gameLog}
-              roundResult={roundResult}
-              maxScore={INITIAL_HP}
-              initiative={initiative}
-              chainCount={chainCount}
-              wrongAnswerText={wrongAnswerText}
-              playerWrongAnswer={playerWrongAnswer}
-              wrongCategory={wrongCategory}
-              mismatchRound={mismatchRound}
-              battleFormat={battleFormat}
-              playerRoundWins={playerRoundWins}
-              pcRoundWins={pcRoundWins}
-              currentRound={currentRound}
-              battleTheme={equippedTheme}
-            />
-            {/* 相手切断通知バナー */}
-            {opponentDisconnected && gameMode === 'pvp' && (
-              <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-900/90 border border-red-500 rounded-xl px-6 py-3 flex items-center gap-4 shadow-2xl">
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                <div className="flex flex-col">
-                  <span className="text-red-200 text-sm font-bold">相手の接続が切れました</span>
-                  <span className="text-red-300/60 text-[10px]">しばらくすると自動的に勝利になります</span>
-                </div>
-                <button
-                  onClick={async () => {
-                    if (currentRoomId && db) {
-                      await updateDoc(doc(db, 'rooms', currentRoomId), {
-                        status: 'finished',
-                        winnerId: isHost ? 'host' : 'guest',
-                      }).catch(() => {});
-                    }
-                  }}
-                  className="bg-red-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-colors"
-                >
-                  今すぐ勝利を宣言
-                </button>
-              </div>
-            )}
-          </>
-        );
-
-      case 'end':
-        return (
-          <div className="text-center flex flex-col items-center justify-center h-full animate-level-up-reveal">
-            <h1 className="text-7xl font-bold text-hologram mb-4 whitespace-pre-line uppercase tracking-widest leading-tight">
-              {winner}
-            </h1>
-            <div className="flex gap-4 mt-12">
-              <button
-                onClick={() => { cleanupGameSession(); setChainCount(0); setGameState('deck_building'); }}
-                className="btn-tactical py-4 px-10 rounded-lg text-xl tracking-[0.4em]"
-              >
-                RETRY
-              </button>
-              <button
-                onClick={async () => { await flushSessionData(); cleanupGameSession(); setChainCount(0); setGameState('main_menu'); }}
-                className="border border-gray-600 text-gray-400 hover:text-white py-4 px-10 rounded-lg text-xl tracking-[0.4em] transition-colors"
-              >
-                MENU
-              </button>
-            </div>
-          </div>
-        );
-
-      case 'tutorial':
-        return (
-          <TutorialBattle
-            onComplete={() => {
-              setTutorialDone(true);
-              earnBadge('tutorial_clear');
-              setGameState('main_menu');
-            }}
-            onSkip={() => {
-              setTutorialDone(true);
-              setGameState('main_menu');
-            }}
           />
         );
 
@@ -2009,7 +1375,7 @@ const App: React.FC = () => {
               <p className="text-3xl mb-3">🔌</p>
               <h2 className="text-lg font-bold text-white mb-2">進行中の対戦があります</h2>
               <p className="text-xs text-gray-400 mb-6">
-                {resumeCandidate.battleType === 'speed_duel' ? 'スピード対戦' : 'カードバトル'}の途中で切断されました。再接続しますか？
+                スピード対戦の途中で切断されました。再接続しますか？
               </p>
               <div className="flex gap-3">
                 <button
