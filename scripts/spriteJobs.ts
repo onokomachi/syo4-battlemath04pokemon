@@ -38,7 +38,19 @@ export interface SpriteJob {
  *   ① 背景(抜けないと使えない) → ② 何を描くか(motif) → ③ 画風 → ④ 除外
  * に固定し、全体を700字前後に切りつめてある。②を前に出すのが要点。
  */
-const BG = 'SOLID FLAT CHROMA GREEN #19c37d BACKGROUND, one flat green color, nothing else behind the character';
+// 「グリーンスクリーン」という言い方が、いちばん強く効く。
+// 単に「緑の背景」と書くと、伝説のように「荘厳」「壮大」と指定した絵で
+// モデルが勝手に暗い情景を描き、背景が緑でなくなって作り直しになっていた。
+const BG =
+  'a die-cut game sprite photographed on a PURE GREEN SCREEN, ' +
+  'solid flat chroma green #19c37d filling the whole background, chroma key studio shot, ' +
+  'nothing at all behind the character';
+
+/** 否定語をいっさい使わない背景指定(伝説用) */
+const BG_POSITIVE =
+  'a die-cut game sprite floating in mid-air on a PURE GREEN SCREEN, ' +
+  'the entire background is one solid flat chroma green #19c37d, chroma key studio shot, ' +
+  'green empty space above below and all around the creature';
 
 const EYES = 'EXACTLY TWO EYES, one left one right, same size, level and symmetrical';
 
@@ -58,25 +70,41 @@ const PEOPLE_STYLE =
   '— a person, not an animal';
 
 /**
- * 伝説・幻は「かわいく」しない。圧倒的で荘厳な存在にする。
- * ただし小4対象なので、グロテスク・写実的すぎる描写は除外する。
+ * 伝説・幻は「かわいく」しない。ただし画風まで変えてはいけない。
+ *
+ * 一度「壮大な神話の獣」「荘厳」と書いてみたところ、モデルが
+ * 西洋ファンタジーの人型(半裸の女神・筋肉質の獣人)を描いた。
+ * 小4向けとして不適で、しかも "no humanoid" の除外指定では止まらない。
+ *
+ * そこで、ほかのモンスターと同じ「ポケモン風の生きもの」という土台は
+ * 変えずに、大きさ・シルエット・装飾だけで格を上げる方針にした。
+ * 本家の伝説ポケモンも、画風は通常個体と同じで、姿の作りこみだけが違う。
  */
 const LEGEND_STYLE =
-  'a HUGE LEGENDARY MYTHICAL BEAST, imposing and majestic, regal and powerful, ' +
-  'bold cel-shaded anime illustration, bright saturated colors, clean outline, evenly lit, ' +
-  'NOT cute, NOT chibi, NOT a plush toy, NOT a round mascot, no kawaii face';
+  'an original Pokemon-style LEGENDARY pocket monster, a giant beast with animal anatomy: ' +
+  'four legs with paws or claws, a long tail, a muzzle, scales and fur, tall horns, ' +
+  'sharp angular armor plates and glowing ornate runes along its flanks, ' +
+  'a fully grown powerful adult creature, dignified and imposing';
 
 const NEG_BASE =
-  'no text, no watermark, no scenery, no floor, no ground shadow, no circle or plate behind it, ' +
-  'no multiple characters, no cropped limbs, ' +
+  // 背景まわりを厚めに書いてある。ここが薄いと、モデルが情景を描いてしまい
+  // 背景が緑でなくなって、8回とも作り直しに落ちる。
+  'no gradient background, no white background, no dark background, no colored background, ' +
+  'no scenery, no landscape, no sky, no clouds, no floor, no ground shadow, no dramatic lighting, ' +
+  'no circle or plate behind it, no text, no watermark, no multiple characters, no cropped limbs, ' +
   'no third eye, no extra eyes, no forehead eye, no compound eyes, no asymmetric eyes, no closed eye';
 
 const NEGATIVE = `no human, no person, no human face, ${NEG_BASE}`;
 const NEGATIVE_PEOPLE = `no animal ears, no tail, no snout, no monster, ${NEG_BASE}`;
 const NEGATIVE_LEGEND =
-  `no chibi, no baby animal, no plush toy, no round mascot, no kawaii, ` +
-  `no human, no humanoid, no muscles, no bare skin, no gore, ` +
-  `no dark silhouette, no backlighting, no monochrome, ${NEG_BASE}`;
+  // 人型を止める語を厚めに並べてある。1〜2語では止まらず、
+  // 半裸の女神や筋肉質の獣人が出てくる。
+  'no human, no humanoid, no person, no woman, no man, no girl, no human body, ' +
+  'no human face, no breasts, no muscles, no bare skin, no nudity, ' +
+  'no goddess, no angel, no fairy, no elf, no warrior, no armor-clad knight, ' +
+  'no chibi, no baby animal, no plush toy, no round blob mascot, ' +
+  'no gore, no horror, no dark silhouette, no backlighting, no monochrome, ' +
+  `no oil painting, no photorealism, ${NEG_BASE}`;
 
 /** 見た目グレードごとの追加指定。難易度が上がるほど「かっこいい」方向へ寄せる。 */
 const TIER_STYLE: Record<ArtTier, string> = {
@@ -154,14 +182,19 @@ export const buildJobs = (): SpriteJob[] => {
       cutout: true,
       size: 768,
       seed: nextSeed(),
+      // 伝説だけは「no 〜」を1つも書かない。
+      //
+      // flux は否定を解さないので、"no human" と書くと human という語が
+      // 効いてしまい、かえって人型が出る(実際に半裸の女神と獣人が出た)。
+      // 何を描くかだけを、動物であることが疑いようのない言葉で書く。
       prompt: [
-        BG,
+        BG_POSITIVE,
         l.motif,
         tint(el.color),
         LEGEND_STYLE,
-        EYES,
-        'ONE creature, full body, three-quarter view, centered',
-        `NEGATIVE: ${NEGATIVE_LEGEND}`,
+        ART_STYLE,
+        'two symmetrical eyes, a proud fierce expression',
+        'ONE creature, full body, side three-quarter view, centered in frame',
       ].join('. '),
     });
   }

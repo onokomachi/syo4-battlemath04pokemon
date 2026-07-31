@@ -81,7 +81,7 @@ export const LEGENDS: LegendDef[] = [
       'ムゲンドラは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a majestic golden dragon with vast spread wings, a long serpentine body, gleaming golden scales and a crown of radiant light',
+      'a giant four-legged golden dragon with a scaly reptilian body, a long tail, folded leathery wings and curved horns',
     shrine: { color: '#f5b942', style: 'monolith' },
   },
   {
@@ -109,7 +109,7 @@ export const LEGENDS: LegendDef[] = [
       'カラクリオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a mechanical lion of polished brass and steel, its mane formed from interlocking glowing gears, a burning amber core in its chest',
+      'a giant four-legged mechanical lion of brass and steel, with a mane of interlocking gears and a glowing amber core in its chest',
     shrine: { color: '#ef6a5a', style: 'pillar' },
   },
   {
@@ -137,7 +137,7 @@ export const LEGENDS: LegendDef[] = [
       'シンカイオウは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a majestic sea serpent king of flowing translucent water in deep blue and silver, crowned with a radiant crystal',
+      'a giant blue-and-silver sea serpent with a long coiling scaly body, fins along its back and a crystal horn',
     shrine: { color: '#4aa8e0', style: 'ring' },
   },
   {
@@ -165,7 +165,7 @@ export const LEGENDS: LegendDef[] = [
       'イチノカミは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a divine white-and-silver nine-tailed guardian beast with flowing pearlescent fur and a halo of concentric glowing rings',
+      'a giant white-and-silver nine-tailed fox beast standing on four paws, with pearlescent fur and glowing rings floating around its tails',
     shrine: { color: '#e86fae', style: 'torii' },
   },
   {
@@ -193,7 +193,7 @@ export const LEGENDS: LegendDef[] = [
       'キョダイオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'an ancient forest guardian beast whose body is a living tree with glowing emerald growth rings and immense antlers of branches',
+      'a giant four-legged stag beast whose body is bark and moss, with antlers of branches and glowing emerald rings on its flanks',
     shrine: { color: '#5cbf7a', style: 'monolith' },
   },
   {
@@ -221,7 +221,7 @@ export const LEGENDS: LegendDef[] = [
       'ジクウオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a majestic celestial bird with vast luminous wings trailing a glowing rising line, violet and silver plumage, crowned with starlight',
+      'a giant violet-and-silver bird beast with vast feathered wings, long tail feathers and a sharp crest',
     shrine: { color: '#8f7ae5', style: 'ring' },
   },
   {
@@ -249,7 +249,7 @@ export const LEGENDS: LegendDef[] = [
       'リッタイオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a majestic guardian beast built from glowing geometric crystal plates, sharp angular armor of gold and white marble, a halo of floating polyhedra',
+      'a giant four-legged guardian beast armored in geometric crystal plates of gold and white marble, with angular spikes along its back',
     shrine: { color: '#c9a227', style: 'pillar' },
   },
 ];
@@ -285,7 +285,7 @@ export const MYTHICALS: LegendDef[] = [
       'ゼロディアは、音もなく あなたの となりに 立った！',
     ],
     motif:
-      'a mysterious phantom beast with a sleek deep-indigo body marked by glowing violet patterns and a single great ring of violet light behind it',
+      'a giant sleek panther-like beast on four paws, deep indigo scales with glowing violet ring markings and a long whip tail',
     shrine: { color: '#4b3f72', style: 'monolith' },
   },
   {
@@ -322,7 +322,7 @@ export const MYTHICALS: LegendDef[] = [
       '―― ナンバーランドの 物語は、ここで ひとつの 区切りを むかえた。',
     ],
     motif:
-      'a divine creator beast with a radiant white and rainbow prismatic body, a halo of seven glowing colored rings, and a flowing celestial mantle',
+      'a giant winged serpent-dragon with rainbow prismatic scales, seven glowing colored rings orbiting its long body',
     shrine: { color: '#a99cc4', style: 'torii' },
   },
 ];
