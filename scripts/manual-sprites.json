@@ -4,5 +4,7 @@
   "monsters/legend-kazu",
   "monsters/legend-shosu",
   "monsters/mythical-number",
-  "npc/master-14"
+  "npc/master-14",
+  "player/boy-back",
+  "player/boy-side"
 ]
