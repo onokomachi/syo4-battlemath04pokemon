@@ -93,7 +93,7 @@ const GravityBackground: React.FC = () => {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
       ctx.beginPath();
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.18)';
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.18)';
       ctx.lineWidth = 1;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -178,7 +178,7 @@ const GravityBackground: React.FC = () => {
 
       // グリッドの描画
       ctx.beginPath();
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
       ctx.lineWidth = 1.2;
 
       for (let r = 0; r < rows; r++) {
@@ -206,7 +206,7 @@ const GravityBackground: React.FC = () => {
       ctx.stroke();
 
       // 交差点の描画
-      ctx.fillStyle = 'rgba(248, 113, 113, 0.65)';
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.65)';
       points.forEach((p, i) => {
         if (i % 2 === 0) {
           ctx.beginPath();

@@ -185,6 +185,11 @@ const App: React.FC = () => {
     // 起動時に1回だけ読む(オフライン時はキャッシュ→全開放)
     fetchLockedUnits(db).then(setLockedUnits).catch(() => {});
   }, []);
+  // ログインしていない(=おためしプレイ、またはFirebase未設定でのローカルプレイ)
+  // ときは、先生の単元ロックを適用しない。ロックは実際のクラスの進度に
+  // 合わせる機能なので、クラスに属さないおためしプレイでは全ステージを開放する。
+  const EMPTY_LOCKED_UNITS = useMemo(() => new Set<string>(), []);
+  const effectiveLockedUnits = user ? lockedUnits : EMPTY_LOCKED_UNITS;
 
   // --- 追加された管理者(先生が管理画面から追加・削除。固定のADMIN_EMAILSに加算) ---
   const [firestoreAdminEmails, setFirestoreAdminEmails] = useState<string[]>([]);
@@ -767,12 +772,12 @@ const App: React.FC = () => {
   const generateSpeedProblems = useCallback((subtopics: string[], count: number): SpeedProblem[] => {
     // Support both subtopic names (granular) and main category names (legacy)
     const subtopicSet = new Set(subtopics);
-    const eligible = CARD_DEFINITIONS.filter(c => (subtopicSet.has(c.category) || subtopicSet.has(c.mainCategory)) && !lockedUnits.has(c.mainCategory));
+    const eligible = CARD_DEFINITIONS.filter(c => (subtopicSet.has(c.category) || subtopicSet.has(c.mainCategory)) && !effectiveLockedUnits.has(c.mainCategory));
     const shuffled = shuffleDeck(eligible);
     // 単元・難易度を保持（弱点分析/SRS記録・CPUのDDAに使用）
     return shuffled.slice(0, Math.min(count, shuffled.length))
       .map(c => ({ ...c.problem, category: c.category, difficulty: c.difficulty }));
-  }, []);
+  }, [effectiveLockedUnits]);
 
   const getSpeedTotalRounds = useCallback((format: BattleFormat): number => {
     if (format === 'best_of_3') return 3;
@@ -1188,7 +1193,7 @@ const App: React.FC = () => {
           <Suspense fallback={<AdventureLoading />}>
           <AdventureMode
             onExit={() => setGameState('main_menu')}
-            lockedUnits={lockedUnits}
+            lockedUnits={effectiveLockedUnits}
             mathPoints={mathPoints}
             onAddMathPoints={n => addMathPoints(n)}
             onSpendMathPoints={n => {
@@ -1209,7 +1214,7 @@ const App: React.FC = () => {
             db={db}
             user={user}
             studentProfile={studentProfile}
-            lockedUnits={lockedUnits}
+            lockedUnits={effectiveLockedUnits}
           />
         );
 
@@ -1263,7 +1268,7 @@ const App: React.FC = () => {
             }}
             onBack={() => setGameState('main_menu')}
             isLoggedIn={!!user}
-            lockedUnits={lockedUnits}
+            lockedUnits={effectiveLockedUnits}
           />
         );
 
