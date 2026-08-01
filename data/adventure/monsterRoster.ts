@@ -197,7 +197,7 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['割合でくらべる(差のわな)', 'サノワナ', 'a tricky vine mascot hiding a subtraction trap', '「差」でくらべると、ひっかかるわなをしかけてくる。'],
     ['倍の文章題(何倍か)', 'バイモン', 'a leafy mascot reading a story scroll with a times arrow', 'お話から「何ばいか」を見つけ出す。'],
     ['倍の文章題(くらべられる量)', 'クラモン', 'a leafy mascot measuring a tall stack from a story', 'お話から「くらべられる量」を取り出す。'],
-    ['倍の文章題(もとにする量)', 'モトモン', 'a leafy mascot digging to find a hidden root from a story', 'お話にかくれた「もとにする量」をほり出す。'],
+    ['倍の文章題(もとにする量)', 'モトモン', 'a small leafy round mascot creature holding a wooden stick', 'お話にかくれた「もとにする量」をほり出す。'],
     ['倍の文章題(割合でくらべる)', 'ワリモナ', 'a leafy mascot balancing two ratio ribbons', 'お話の2つの割合を、てんびんでくらべる。'],
     ['まちがいをなおそう(倍の見方)', 'ナオスン', 'a gentle leafy mascot repairing a broken equation with vines', 'まちがった考え方を、つるでやさしく結びなおす。'],
   ],
