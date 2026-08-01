@@ -166,16 +166,24 @@ export const buildJobs = (): SpriteJob[] => {
   // ALL_MONSTERS には伝説・幻も入っているが、あれは画風が別なので必ず外す。
   // 外し忘れると、末尾の重複除去(先勝ち)でチビ可愛い版のほうが採用され、
   // 伝説がただの丸い動物になる。
+  //
+  // タイプの色だけでは判定しきれない個体がいる(カクセイバーは金 #c9a227 = 色相45度で
+  // 「緑寄り」の判定にはギリギリ入らないのに、実際の生成は緑いろの光る球になり、
+  // 緑背景だと体まで抜けてしまっていた)。そういう個体だけ手で上書きする。
+  const MONSTER_CHROMA_OVERRIDE: Record<string, 'green' | 'magenta'> = {
+    'boss-004': 'magenta', // カクセイバー(金の光の演出が緑がかって出る)
+  };
   for (const m of ALL_MONSTERS.filter(x => !x.rarity)) {
     const el = ELEMENTS[m.type];
+    const chroma = MONSTER_CHROMA_OVERRIDE[m.id] ?? (isGreenish(el.color) ? 'magenta' : 'green');
     jobs.push({
       out: `monsters/${m.id}`,
       cutout: true,
       size: 512,
       seed: nextSeed(),
-      chroma: isGreenish(el.color) ? 'magenta' : 'green',
+      chroma,
       prompt: [
-        bgFor(isGreenish(el.color) ? 'magenta' : 'green'),
+        bgFor(chroma),
         // motif 側の "mascot" は人型を誘発するので creature に寄せる
         m.motif.replace(/\bmascot\b/g, 'animal creature'),
         tint(el.color),
@@ -291,14 +299,21 @@ export const buildJobs = (): SpriteJob[] => {
   }
 
   // ---- NPC・トレーナー ----
+  // 服の色が緑いろのNPC(例: バイコの「緑の服」)は、緑背景だと
+  // 服ごと抜けてしまう。個別に上書きできるようにしておく。
+  const NPC_CHROMA_OVERRIDE: Record<string, 'green' | 'magenta'> = {
+    'master-14': 'magenta', // バイコ(森の守り手、緑の服)
+  };
   for (const n of NPC_SPRITES) {
+    const chroma = NPC_CHROMA_OVERRIDE[n.id] ?? 'green';
     jobs.push({
       out: `npc/${n.id}`,
       cutout: true,
       size: 512,
       seed: nextSeed(),
+      chroma,
       prompt: [
-        BG,
+        bgFor(chroma),
         n.motif,
         PEOPLE_STYLE,
         HUMAN_STYLE,

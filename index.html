@@ -4,15 +4,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Battle-Math:04 — 小4算数 まるごと学習ゲーム</title>
+    <title>SANMON:04 — 小4算数 まるごと学習ゲーム</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@500;700&family=Cinzel+Decorative:wght@700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg-deep: #000000;
-  --accent-red: #ef4444;
-  --neon-glow: 0 0 10px rgba(239, 68, 68, 0.8), 0 0 20px rgba(239, 68, 68, 0.4);
+  --accent-green: #22c55e;
+  --accent-yellow: #facc15;
+  --neon-glow: 0 0 10px rgba(34, 197, 94, 0.8), 0 0 20px rgba(250, 204, 21, 0.4);
 }
 
 body {
@@ -28,37 +29,36 @@ body {
 .hud-panel {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(25px);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(239, 68, 68, 0.03);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(74, 222, 128, 0.03);
 }
 
 .text-hologram {
-  /* エレメンタル配色: 炎(左)から氷(右)へのグラデーション。白は使わない。
-     ワールドマップの背景テーマ(極光/桜吹雪/インフェルノ/天空神)と世界観を揃えている。 */
+  /* SANMON:04 のブランド配色: 緑(左)から黄(右)へのグラデーション。白は使わない。 */
   font-family: 'Orbitron', sans-serif;
   font-weight: 900;
   font-style: italic;
-  background: linear-gradient(100deg, #fde68a 0%, #fb923c 20%, #ef4444 38%, #c026d3 54%, #818cf8 68%, #22d3ee 85%, #67e8f9 100%);
+  background: linear-gradient(100deg, #bbf7d0 0%, #4ade80 22%, #22c55e 42%, #84cc16 60%, #eab308 78%, #facc15 92%, #fde68a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 14px rgba(196, 71, 233, 0.5)) drop-shadow(0 4px 2px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 0 14px rgba(74, 222, 128, 0.5)) drop-shadow(0 4px 2px rgba(0, 0, 0, 0.8));
 }
 
 .btn-tactical {
-  background: rgba(239, 68, 68, 0.04);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(74, 222, 128, 0.04);
+  border: 1px solid rgba(74, 222, 128, 0.3);
   color: #fff;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-tactical:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.7);
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.25);
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(250, 204, 21, 0.7);
+  box-shadow: 0 0 30px rgba(250, 204, 21, 0.25);
   letter-spacing: 0.1em;
 }
 
 .corner-accent {
-  position: absolute; width: 12px; height: 12px; border-color: rgba(239, 68, 68, 0.6); border-style: solid;
+  position: absolute; width: 12px; height: 12px; border-color: rgba(74, 222, 128, 0.6); border-style: solid;
 }
 .lt { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
 .rt { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
