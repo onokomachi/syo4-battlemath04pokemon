@@ -71,7 +71,10 @@ export const NPC_SPRITES: NpcSpriteDef[] = [
   master('11', 'a smiling pastry chef in a pink chef coat holding a cake knife'),
   master('12', 'a slim clockmaker in a purple vest with a monocle and pocket watch'),
   master('13', 'a desert explorer in a sand-colored cloak with a cube-shaped lantern'),
-  master('14', 'a serene guardian woman in a plain green cloak'),
+  // 「森の守り手」と書くと、森そのものが背景として焼きこまれてしまい、
+  // 作り直すたびに再発した。実際に使っている絵は、元の生成でたまたま
+  // 出た緑の着物の女の子(手用意の絵として manual-sprites.json に固定)。
+  master('14', 'a girl in a green kimono-style robe with a cord belt'),
 
   // --- 物語の人物 ---
   { id: 'prof', motif: 'a friendly professor with round glasses, a white lab coat and wild grey hair, holding a clipboard' },

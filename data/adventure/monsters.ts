@@ -86,7 +86,10 @@ const BOSS_ROWS: Array<[string, string, string, string, ArtTier]> = [
   ['大きい数のしくみ', 'ケタゴラス', 'a majestic golden owl guardian with abacus-bead armor and a starry cape', '一兆までの数を、まばたきひとつで読みあげるという。', 'knight'],
   ['折れ線グラフと表', 'グラフェニクス', 'a graceful phoenix-like bird whose tail feathers form a rising line graph', '風にのって、これから起こる変わり方を先に見せる。', 'knight'],
   ['わり算の筆算(÷1けた)', 'ワリューガ', 'a noble armored dragon knight holding a division bracket as a shield', 'どんな数もきれいにわけてしまう、谷の守り手。', 'dragon'],
-  ['角の大きさ', 'カクセイバー', 'a shining armored knight holding a long sword', '360°すべての角を、剣のひとふりで測るという。', 'knight'],
+  // 「盾が分度器になる」と書くと、分度器が画面いっぱいの円形ハローとして
+  // 描かれてしまい、生成し直すたびに背景の一部と誤認された。
+  // (実際に使っている絵は、元の生成でたまたま出た「剣と盾を持つ子猫の騎士」)
+  ['角の大きさ', 'カクセイバー', 'a small cat-eared knight in armor holding a sword and a round shield', '360°すべての角を、剣のひとふりで測るという。', 'knight'],
   ['小数のしくみ', 'シズクィーン', 'an elegant water-spirit queen crowned with a glowing decimal point', '湖のぬし。0.1のつぶを自在にあやつる。', 'knight'],
   ['わり算の筆算(÷2けた)', 'ソウリュウガ', 'twin blue dragons intertwined, sharing a single division bracket crown', '双子の滝にすむ2頭の竜。2けたの数を軽々とわる。', 'dragon'],
   ['がい数', 'ミツモリオン', 'a vast cloud lion with a blurred glowing mane and calm wise eyes', '霧の森のぬし。すべてをだいたいで見とおす。', 'knight'],
