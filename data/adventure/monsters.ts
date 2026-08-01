@@ -83,23 +83,23 @@ export const MONSTER_DEX: MonsterDef[] = buildDex();
 
 /** [単元名, 名前, モチーフ, 説明, 見た目グレード] */
 const BOSS_ROWS: Array<[string, string, string, string, ArtTier]> = [
-  ['大きい数のしくみ', 'ケタゴラス', 'a majestic golden owl guardian with abacus-bead armor and a starry cape', '一兆までの数を、まばたきひとつで読みあげるという。', 'knight'],
-  ['折れ線グラフと表', 'グラフェニクス', 'a graceful phoenix-like bird whose tail feathers form a rising line graph', '風にのって、これから起こる変わり方を先に見せる。', 'knight'],
-  ['わり算の筆算(÷1けた)', 'ワリューガ', 'a noble armored dragon knight holding a division bracket as a shield', 'どんな数もきれいにわけてしまう、谷の守り手。', 'dragon'],
+  ['大きい数のしくみ', 'ケタゴラス', 'a huge golden scarab-beetle guardian in polished abacus-bead armor, a starry cape draped over its wing cases', '一兆までの数を、まばたきひとつで読みあげるという。', 'knight'],
+  ['折れ線グラフと表', 'グラフェニクス', 'a graceful violet phoenix whose long tail feathers rise in a sharp zigzag line', '風にのって、これから起こる変わり方を先に見せる。', 'knight'],
+  ['わり算の筆算(÷1けた)', 'ワリューガ', 'a noble crimson armored dragon knight holding a great cleaving blade', 'どんな数もきれいにわけてしまう、谷の守り手。', 'dragon'],
   // 「盾が分度器になる」と書くと、分度器が画面いっぱいの円形ハローとして
   // 描かれてしまい、生成し直すたびに背景の一部と誤認された。
   // (実際に使っている絵は、元の生成でたまたま出た「剣と盾を持つ子猫の騎士」)
   ['角の大きさ', 'カクセイバー', 'a small cat-eared knight in armor holding a sword and a round shield', '360°すべての角を、剣のひとふりで測るという。', 'knight'],
-  ['小数のしくみ', 'シズクィーン', 'an elegant water-spirit queen crowned with a glowing decimal point', '湖のぬし。0.1のつぶを自在にあやつる。', 'knight'],
-  ['わり算の筆算(÷2けた)', 'ソウリュウガ', 'twin blue dragons intertwined, sharing a single division bracket crown', '双子の滝にすむ2頭の竜。2けたの数を軽々とわる。', 'dragon'],
-  ['がい数', 'ミツモリオン', 'a vast cloud lion with a blurred glowing mane and calm wise eyes', '霧の森のぬし。すべてをだいたいで見とおす。', 'knight'],
-  ['計算のきまり', 'カラクリード', 'a grand clockwork golem with polished brass gears in perfect order', '工房のぬし。歯車の順じょをけっしてまちがえない。', 'knight'],
-  ['面積', 'メンセキオン', 'a giant tile golem lion whose body is made of glowing unit squares', '広さをひとにらみで言いあてる、タイル平原の王。', 'knight'],
-  ['小数のかけ算とわり算', 'シオカゼドラゴ', 'a sleek sea dragon riding a wave, decimal points glowing on its fins', '岬の波にのって、小数の計算をあやつる海の竜。', 'dragon'],
-  ['分数', 'ブンスウィート', 'a regal cake-castle guardian, a layered dessert knight with a fraction crown', 'お菓子の街の王。どんなケーキも公平に切りわける。', 'knight'],
-  ['変わり方調べ', 'トキメクリ', 'a mystical clock-tower spirit with rotating rings of paired numbers', '時計塔のぬし。2つの数のかんけいを時をこえて見せる。', 'knight'],
-  ['直方体と立方体', 'キューブロス', 'an ancient cube golem sphinx of sandstone with glowing edges', '砂漠の遺跡を守る立方体の番人。展開すると地図になる。', 'knight'],
-  ['倍の見方', 'バイジュノキ', 'a colossal ancient tree dragon with glowing rings and vast roots', '巨大樹の森のぬし。何ばいにでも大きくなれるという。', 'dragon'],
+  ['小数のしくみ', 'シズクィーン', 'a large blue-and-silver water dragon with a clear crystal crown on its brow', '湖のぬし。0.1のつぶを自在にあやつる。', 'knight'],
+  ['わり算の筆算(÷2けた)', 'ソウリュウガ', 'a twin-headed copper clockwork dragon in heavy brass armor', '双子の滝にすむ2頭の竜。2けたの数を軽々とわる。', 'dragon'],
+  ['がい数', 'ミツモリオン', 'a vast serene cream-and-white cloud whale drifting in mist, soft glowing markings along its flank', '霧の森のぬし。すべてをだいたいで見とおす。', 'knight'],
+  ['計算のきまり', 'カラクリード', 'a grand steel clockwork golem with polished brass gears set in perfect order', '工房のぬし。歯車の順じょをけっしてまちがえない。', 'knight'],
+  ['面積', 'メンセキオン', 'a colossal golden tile-armored tortoise, its broad shell a grid of glowing squares', '広さをひとにらみで言いあてる、タイル平原の王。', 'knight'],
+  ['小数のかけ算とわり算', 'シオカゼドラゴ', 'a sleek blue-and-white sea dragon with long fins, riding a curling wave', '岬の波にのって、小数の計算をあやつる海の竜。', 'dragon'],
+  ['分数', 'ブンスウィート', 'a regal pink-and-cream cake-castle golem knight in layered dessert armor', 'お菓子の街の王。どんなケーキも公平に切りわける。', 'knight'],
+  ['変わり方調べ', 'トキメクリ', 'a violet clock-tower owl spirit with slowly turning gear rings around it', '時計塔のぬし。2つの数のかんけいを時をこえて見せる。', 'knight'],
+  ['直方体と立方体', 'キューブロス', 'an ancient golden cube-sphinx of carved sandstone with glowing edges', '砂漠の遺跡を守る立方体の番人。展開すると地図になる。', 'knight'],
+  ['倍の見方', 'バイジュノキ', 'a colossal green ancient tree dragon with glowing growth rings and vast roots', '巨大樹の森のぬし。何ばいにでも大きくなれるという。', 'dragon'],
 ];
 
 const buildBosses = (): MonsterDef[] =>

@@ -25,6 +25,15 @@ const CELL = 200;      // 1マスの大きさ
 const LABEL = 22;      // 名前を書く帯の高さ
 const COLS = 6;
 
+/**
+ * シートの地色は、ゲーム内の草の色にそろえる。
+ *
+ * 白地に並べていたころは、キャラの下に敷かれた明るい円盤や、
+ * 情景ごと切り抜かれてしまった薄い背景が、白にまぎれて見えなかった。
+ * 実際に使われる色の上に置いて、はじめて気づける失敗がある。
+ */
+const BACKDROP = { r: 110, g: 140, b: 105, alpha: 1 };
+
 const files = readdirSync(SRC).filter(f => f.endsWith('.png')).sort();
 
 /** 名前の帯をSVGで作る(フォントに依存しないよう英数字のみ) */
@@ -60,7 +69,7 @@ for (let s = 0; s * perSheet < files.length; s++) {
 
   const out = path.join(OUT, `${dirName}-${String(s + 1).padStart(2, '0')}.png`);
   await sharp({
-    create: { width: W, height: H, channels: 4, background: { r: 241, g: 245, b: 249, alpha: 1 } },
+    create: { width: W, height: H, channels: 4, background: BACKDROP },
   })
     .composite(composites)
     .png()

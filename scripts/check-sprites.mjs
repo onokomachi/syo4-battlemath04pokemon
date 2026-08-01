@@ -17,6 +17,7 @@
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+import { holeRatio, blobCount, raggedness, edgeBrightness } from './sprite-image.mjs';
 
 /**
  * 手で用意した絵は検査しない。
@@ -43,117 +44,6 @@ const walk = dir => {
     else if (name.endsWith('.png')) out.push(p);
   }
   return out;
-};
-
-/**
- * 内側の穴の割合。外周からの塗りつぶしで届かない透明画素を数える。
- * 正常なスプライトでも、腕と胴のすきま等で少しは出るので、閾値は緩めに取る。
- */
-const holeRatio = (data, w, h) => {
-  const transparent = i => data[i * 4 + 3] < 40;
-  const seen = new Uint8Array(w * h);
-  const stack = [];
-  const push = (x, y) => {
-    if (x < 0 || y < 0 || x >= w || y >= h) return;
-    const p = y * w + x;
-    if (seen[p] || !transparent(p)) return;
-    seen[p] = 1;
-    stack.push(p);
-  };
-  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
-  while (stack.length) {
-    const p = stack.pop();
-    const x = p % w, y = (p / w) | 0;
-    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
-  }
-  let holes = 0, transparentTotal = 0;
-  for (let p = 0; p < w * h; p++) {
-    if (!transparent(p)) continue;
-    transparentTotal++;
-    if (!seen[p]) holes++;
-  }
-  return holes / (w * h);
-};
-
-/**
- * 大きな不透明のかたまりの数。2つ以上あれば「複数キャラが描かれた」とみなす。
- * 小さなかけら(全体の3%未満)は装飾やゴミなので数えない。
- */
-/**
- * シルエットの「ぼろぼろ度」= 周囲長 / √面積。
- *
- * 背景除去がキャラを食うと、輪郭が外側とつながったまま細かく刻まれる。
- * こうなると「内側の穴」でも「塗りつぶし率」でも捕まらないが、
- * 周囲長だけが跳ね上がる。実測では、まともな絵は 3〜5、
- * 食われた絵は 11〜19 にはっきり分かれた。
- */
-const raggedness = (data, w, h) => {
-  const op = p => data[p * 4 + 3] > 40;
-  let area = 0, per = 0;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = y * w + x;
-      if (!op(p)) continue;
-      area++;
-      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
-          !op(p - 1) || !op(p + 1) || !op(p - w) || !op(p + w)) per++;
-    }
-  }
-  return area ? per / Math.sqrt(area) : 0;
-};
-
-/**
- * シルエットのふちの明るさ。
- *
- * ちゃんと切り抜けた絵は、まわりが「黒っぽい輪郭線」なのでふちが暗い。
- * 背景に丸い板を描かれると、その板は緑ではないので抜けずに残り、
- * ふちが板の色(たいてい明るい)になる。実測で、まともな絵のふちは
- * 平均40〜135、板が残った絵は186以上とはっきり分かれた。
- */
-const edgeBrightness = (data, w, h) => {
-  const op = p => data[p * 4 + 3] > 40;
-  let sum = 0, n = 0;
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const p = y * w + x;
-      if (!op(p)) continue;
-      if (op(p - 1) && op(p + 1) && op(p - w) && op(p + w)) continue;
-      sum += (data[p * 4] + data[p * 4 + 1] + data[p * 4 + 2]) / 3;
-      n++;
-    }
-  }
-  return n ? sum / n : 0;
-};
-
-const blobCount = (data, w, h) => {
-  const opaque = p => data[p * 4 + 3] > 40;
-  const seen = new Uint8Array(w * h);
-  const sizes = [];
-  for (let start = 0; start < w * h; start++) {
-    if (seen[start] || !opaque(start)) continue;
-    let size = 0;
-    const stack = [start];
-    seen[start] = 1;
-    while (stack.length) {
-      const p = stack.pop();
-      size++;
-      const x = p % w, y = (p / w) | 0;
-      const push = (nx, ny) => {
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
-        const q = ny * w + nx;
-        if (seen[q] || !opaque(q)) return;
-        seen[q] = 1;
-        stack.push(q);
-      };
-      push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
-    }
-    sizes.push(size);
-  }
-  sizes.sort((a, b) => b - a);
-  const biggest = sizes[0] ?? 0;
-  // いちばん大きいかたまりの30%以上のものを「もう1体」と数える
-  return sizes.filter(v => v > Math.max(w * h * 0.02, biggest * 0.3)).length;
 };
 
 const files = walk(ROOT).filter(f => !f.includes(`${path.sep}terrain${path.sep}`));

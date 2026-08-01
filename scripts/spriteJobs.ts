@@ -7,7 +7,7 @@
  */
 
 import { ALL_MONSTERS } from '../data/adventure/monsters';
-import { ELEMENTS } from '../data/adventure/elements';
+import { ELEMENTS, ELEMENT_ART } from '../data/adventure/elements';
 import { TOWNS } from '../data/adventure/towns';
 import { LEAGUE_TOWN } from '../data/adventure/league';
 import { PLAYER_APPEARANCES, NPC_SPRITES } from '../data/adventure/people';
@@ -83,20 +83,41 @@ const BG =
   'solid flat chroma green #19c37d filling the whole background, chroma key studio shot, ' +
   'nothing at all behind the character';
 
-/** 否定語をいっさい使わない背景指定(伝説用) */
-const BG_POSITIVE =
-  'a die-cut game sprite floating in mid-air on a PURE GREEN SCREEN, ' +
-  'the entire background is one solid flat chroma green #19c37d, chroma key studio shot, ' +
-  'green empty space above below and all around the creature';
-
 const EYES = 'EXACTLY TWO EYES, one left one right, same size, level and symmetrical';
+
+/**
+ * 目の指定(肯定文のみ)。
+ *
+ * flux は否定を解さないので "no third eye" と書くと third eye が効いてしまい、
+ * かえって複眼が出る。実際、以前の伝説生成で「no human」と書いたら人が出た。
+ * そこで、あってほしい状態だけを言いきる。
+ */
+const EYES_POSITIVE =
+  'exactly two eyes, one on the left and one on the right, both the same size, level and symmetrical';
 
 /** 全生成で共有する下地。ここだけは崩さない(画風がばらけるため) */
 const ART_STYLE =
   'flat 2D vector die-cut sticker illustration, bold clean outline, flat solid colors';
 
-/** ふつうのモンスター(151体+ボス14体+進化44体)の画風 */
-const MON_STYLE = `${ART_STYLE}, Sanrio-style kawaii, chibi proportions, huge round glossy eyes`;
+/**
+ * ポケモンらしさの下地。
+ *
+ * 公式イラスト(杉森建の絵)に共通しているのは、次の点だと整理した。
+ *   ① ひと目でわかる単純なシルエット ② 太くはっきりした輪郭線
+ *   ③ ベタ塗りの明るい色で、体色は2〜3色まで
+ *   ④ 左右対称の大きな目 ⑤ 「かっこよさ」に少しだけ愛嬌を混ぜる
+ * ここを全体で固定し、個体差はモチーフの一点だけで出す。
+ * こうしないと、色も形も少しずつ違うのに全部同じに見える、という
+ * これまでの状態(どれも丸くて白っぽい獣)から抜け出せない。
+ */
+const POKE_STYLE =
+  'official Pokemon creature artwork, Ken Sugimori style, ' +
+  'clean cel-shaded anime illustration, bold black outline, flat vibrant colors, ' +
+  'simple readable silhouette, two or three main colors, ' +
+  'a single original pocket monster creature with animal anatomy';
+
+/** 1体だけ・全身・正面やや斜め。切り抜きの前提でもある。 */
+const FRAMING = 'ONE creature alone, full body, front three-quarter view, centered in frame';
 
 /** 人物の画風。モンスターほど丸くはしない。 */
 const HUMAN_STYLE = `${ART_STYLE}, cute storybook game art, chibi proportions, big friendly eyes`;
@@ -134,27 +155,53 @@ const NEG_BASE =
   'no circle or plate behind it, no text, no watermark, no multiple characters, no cropped limbs, ' +
   'no third eye, no extra eyes, no forehead eye, no compound eyes, no asymmetric eyes, no closed eye';
 
-const NEGATIVE = `no human, no person, no human face, ${NEG_BASE}`;
 const NEGATIVE_PEOPLE = `no animal ears, no tail, no snout, no monster, ${NEG_BASE}`;
-const NEGATIVE_LEGEND =
-  // 人型を止める語を厚めに並べてある。1〜2語では止まらず、
-  // 半裸の女神や筋肉質の獣人が出てくる。
-  'no human, no humanoid, no person, no woman, no man, no girl, no human body, ' +
-  'no human face, no breasts, no muscles, no bare skin, no nudity, ' +
-  'no goddess, no angel, no fairy, no elf, no warrior, no armor-clad knight, ' +
-  'no chibi, no baby animal, no plush toy, no round blob mascot, ' +
-  'no gore, no horror, no dark silhouette, no backlighting, no monochrome, ' +
-  `no oil painting, no photorealism, ${NEG_BASE}`;
-
-/** 見た目グレードごとの追加指定。難易度が上がるほど「かっこいい」方向へ寄せる。 */
-const TIER_STYLE: Record<ArtTier, string> = {
-  baby: 'a tiny round baby mascot, pastel, no armor, utterly harmless',
-  brave: 'wearing a small scarf or tiny cape, cheerful and plucky, still round',
-  knight: 'wearing simple stylized armor plates and a small cape, brave, still round',
-  dragon: 'a chibi dragon with small rounded wings and a stubby tail, heroic but friendly, never scary',
+/**
+ * 見た目グレードごとの「育ち具合」。かわいい → かっこいい の道すじを、
+ * 体つき・立ち方・装飾の3つだけで表す(肯定文のみ)。
+ *
+ * 本家のポケモンも、進化で種族が変わるわけではなく、
+ * 同じ生きものが大きくなり、姿勢が変わり、装飾が増える、という作りになっている。
+ * ここを段でそろえておくと、151体ばらばらに作っても系統が見えてくる。
+ */
+const TIER_GROWTH: Record<ArtTier, string> = {
+  baby:
+    'a small round baby creature with a soft chubby body, short stubby limbs, ' +
+    'a big head, gentle and harmless, cute and appealing',
+  brave:
+    'a young creature with a plucky upright stance, slightly longer limbs, ' +
+    'a small crest or tuft, cheerful and spirited, still rounded and cute',
+  knight:
+    'a fully grown creature with a proud confident stance, sleek armor plating ' +
+    'on its shoulders and back, sharper crest and claws, cool and dependable, ' +
+    'with a friendly face',
+  dragon:
+    'a powerful majestic creature with a long tail, spread wings and tall horns, ' +
+    'ornate glowing markings, heroic and impressive, with a bright open expression',
 };
 
+/**
+ * 単元ボスだけの追加指定。
+ *
+ * ボスも tier は knight/dragon なので、そのままだと同じ単元の進化形と
+ * 見わけがつかなくなる(実際、金の甲虫の進化形とボスがほぼ同じ絵になった)。
+ * ボスは「その一族の頂点」なので、体格・装飾・貫禄で一段上に置く。
+ */
+const BOSS_GROWTH =
+  'the mighty leader of its kind, much larger and more imposing than the others, ' +
+  'an ornate crown or crest, a flowing cape or mantle, elaborate golden trim on its armor, ' +
+  'a commanding regal presence';
+
 const tint = (hex: string) => `colored mainly ${hex}`;
+
+/**
+ * タイプの見た目属性を1文にする。同じ単元の子が「一族に見える」ための背骨。
+ * バトルの相性計算にはいっさい関わらない、絵づくり専用の情報。
+ */
+const elementLine = (type: keyof typeof ELEMENT_ART) => {
+  const a = ELEMENT_ART[type];
+  return `a ${a.element}-type pocket monster, ${a.palette}, ${a.aura}`;
+};
 
 let seedCounter = 1000;
 const nextSeed = () => (seedCounter += 7);
@@ -182,17 +229,21 @@ export const buildJobs = (): SpriteJob[] => {
       size: 512,
       seed: nextSeed(),
       chroma,
+      // 否定文(NEGATIVE: no 〜)は書かない。
+      //
+      // flux は否定を解さず、書いた語がそのまま効いてしまう。
+      // 「no third eye」と書いた回に限って目が3つ出ていたのは、たぶんこれ。
+      // 何を描いてほしいかだけを、順に言いきる。
       prompt: [
         bgFor(chroma),
         // motif 側の "mascot" は人型を誘発するので creature に寄せる
         m.motif.replace(/\bmascot\b/g, 'animal creature'),
+        elementLine(m.type),
         tint(el.color),
-        'an original Pokemon-style pocket monster, an animal creature, not a human',
-        TIER_STYLE[m.tier],
-        MON_STYLE,
-        EYES,
-        'ONE character, full body, front view, centered',
-        `NEGATIVE: ${NEGATIVE}`,
+        m.id.startsWith('boss-') ? BOSS_GROWTH : TIER_GROWTH[m.tier],
+        POKE_STYLE,
+        EYES_POSITIVE,
+        FRAMING,
       ].join('. '),
     });
   }
@@ -212,14 +263,16 @@ export const buildJobs = (): SpriteJob[] => {
       prompt: [
         bgFor(isGreenish(el.color) ? 'magenta' : 'green'),
         e.motif,
+        elementLine(base.type),
         tint(el.color),
-        // 進化後は一段かっこよく。ただし怖くはしない。
-        'an EVOLVED Pokemon-style pocket monster, bigger and cooler than its baby form, ' +
-          'confident heroic stance, still rounded and friendly, never scary',
-        MON_STYLE,
-        EYES,
-        'ONE character, full body, front view, centered',
-        `NEGATIVE: ${NEGATIVE}`,
+        // 進化後は一段かっこよく。ただし「別の生きもの」にはしない。
+        // 種族が変わってしまうと、進化した実感より「別の子に入れかわった」感が出る。
+        'an EVOLVED form of the same species, larger and stronger than its earlier form, ' +
+          'the same animal with a longer body, sleek armor plating and a proud confident stance, ' +
+          'cool and heroic with a friendly face',
+        POKE_STYLE,
+        EYES_POSITIVE,
+        FRAMING,
       ].join('. '),
     });
   }
@@ -244,11 +297,13 @@ export const buildJobs = (): SpriteJob[] => {
       prompt: [
         bgFor('magenta'),
         l.motif,
+        elementLine(l.type),
         tint(el.color),
         LEGEND_STYLE,
-        ART_STYLE,
-        'two symmetrical eyes, a proud fierce expression',
-        'ONE creature, full body, side three-quarter view, centered in frame',
+        POKE_STYLE,
+        EYES_POSITIVE,
+        'a proud fierce expression',
+        'ONE creature alone, full body, side three-quarter view, centered in frame',
       ].join('. '),
     });
   }
