@@ -291,14 +291,21 @@ export const buildJobs = (): SpriteJob[] => {
   }
 
   // ---- NPC・トレーナー ----
+  // 服の色が緑いろのNPC(例: バイコの「緑の服」)は、緑背景だと
+  // 服ごと抜けてしまう。個別に上書きできるようにしておく。
+  const NPC_CHROMA_OVERRIDE: Record<string, 'green' | 'magenta'> = {
+    'master-14': 'magenta', // バイコ(森の守り手、緑の服)
+  };
   for (const n of NPC_SPRITES) {
+    const chroma = NPC_CHROMA_OVERRIDE[n.id] ?? 'green';
     jobs.push({
       out: `npc/${n.id}`,
       cutout: true,
       size: 512,
       seed: nextSeed(),
+      chroma,
       prompt: [
-        BG,
+        bgFor(chroma),
         n.motif,
         PEOPLE_STYLE,
         HUMAN_STYLE,
