@@ -17,7 +17,7 @@
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
-import { holeRatio, blobCount, raggedness, edgeBrightness } from './sprite-image.mjs';
+import { holeRatio, blobCount, raggedness, edgeBrightness, chromaScore } from './sprite-image.mjs';
 
 /**
  * 手で用意した絵は検査しない。
@@ -29,6 +29,22 @@ import { holeRatio, blobCount, raggedness, edgeBrightness } from './sprite-image
 const MANUAL = new Set(
   existsSync(path.join(import.meta.dirname, 'manual-sprites.json'))
     ? JSON.parse(readFileSync(path.join(import.meta.dirname, 'manual-sprites.json'), 'utf8'))
+    : [],
+);
+
+/**
+ * out名 → 撮影に使ったクロマ色。
+ *
+ * タイプが緑寄り(くさタイプなど)のモンスターは、背景を緑にすると体まで
+ * 抜けてしまうため、生成時にマゼンタ背景へ切りかえている(spriteJobs.ts の
+ * isGreenish)。「緑の抜け残り」を一律に緑画素の割合で見ると、これらの
+ * 正しい緑色の体が軒並み誤検出される(実測で最大81%!)。
+ * マニフェストから実際の撮影色を引き、その色の抜け残りだけを見る。
+ */
+const MANIFEST_PATH = path.join(import.meta.dirname, 'sprite-manifest.json');
+const CHROMA_BY_OUT = new Map(
+  existsSync(MANIFEST_PATH)
+    ? JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')).map(j => [j.out, j.chroma ?? 'green'])
     : [],
 );
 
@@ -51,32 +67,36 @@ const bad = [];
 
 for (const file of files) {
   const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const rel = path.relative(ROOT, file);
+  const out = rel.replace(/\.png$/, '').split(path.sep).join('/');
+  const chroma = CHROMA_BY_OUT.get(out) ?? 'green';
+
   let opaque = 0;
-  let greenish = 0;
+  let residue = 0;
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 40) continue;
     opaque++;
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    // 緑が明確に優勢で、かつ彩度がある画素を「抜け残り」候補とみなす
-    if (g > r + 26 && g > b + 26) greenish++;
+    // 実際に撮影に使ったクロマ色だけを「抜け残り」候補とみなす。
+    // 緑タイプのキャラをマゼンタで撮った絵は、体が緑でも問題ない。
+    if (chromaScore(chroma, r, g, b) > 26) residue++;
   }
   const total = info.width * info.height;
   const fill = opaque / total;
-  const greenRatio = opaque ? greenish / opaque : 0;
+  const residueRatio = opaque ? residue / opaque : 0;
   const holes = holeRatio(data, info.width, info.height);
   const blobs = blobCount(data, info.width, info.height);
   const ragged = raggedness(data, info.width, info.height);
   const edge = edgeBrightness(data, info.width, info.height);
-  const rel = path.relative(ROOT, file);
 
   const problems = [];
   // 手用意の絵は、人が見て決めたものなので機械の判定にかけない
-  const manual = MANUAL.has(rel.replace(/\.png$/, ''));
+  const manual = MANUAL.has(out);
   if (manual) {
     if (!ONLY_BAD) console.log(`— ${rel}  (手用意のため検査しない)`);
     continue;
   }
-  if (greenRatio > 0.08) problems.push(`緑の抜け残り ${(greenRatio * 100).toFixed(0)}%`);
+  if (residueRatio > 0.08) problems.push(`${chroma === 'magenta' ? 'マゼンタ' : '緑'}の抜け残り ${(residueRatio * 100).toFixed(0)}%`);
   if (fill > 0.9) problems.push(`背景が抜けていない (${(fill * 100).toFixed(0)}%)`);
   // 10%を切るものは、目で見ると「体を食われた残骸」になっている
   if (fill < 0.10) problems.push(`体が食われている (${(fill * 100).toFixed(0)}%)`);
@@ -87,17 +107,13 @@ for (const file of files) {
 
   if (problems.length) bad.push({ rel, problems });
   if (!ONLY_BAD) {
-    console.log(`${problems.length ? '✗' : '✓'} ${rel}  fill=${(fill * 100).toFixed(0)}% green=${(greenRatio * 100).toFixed(0)}% holes=${(holes * 100).toFixed(1)}% blobs=${blobs} ragged=${ragged.toFixed(1)} edge=${edge.toFixed(0)}`);
+    console.log(`${problems.length ? '✗' : '✓'} ${rel}  fill=${(fill * 100).toFixed(0)}% ${chroma}=${(residueRatio * 100).toFixed(0)}% holes=${(holes * 100).toFixed(1)}% blobs=${blobs} ragged=${ragged.toFixed(1)} edge=${edge.toFixed(0)}`);
   }
 }
 
 console.log(`\n検査 ${files.length}枚 / 要確認 ${bad.length}枚`);
-if (bad.some(b => b.problems.some(p => p.includes('緑')))) {
-  console.log('※ もともと緑色のキャラ(緑の服・緑の体)は「緑の抜け残り」に誤検出されます。');
-  console.log('  作り直す前に、実際の画像を目で見て判断してください。');
-}
 for (const b of bad) console.log(`  - ${b.rel}: ${b.problems.join(', ')}`);
 if (bad.length) {
   console.log('\n作り直すには:');
-  console.log(bad.map(b => `  node scripts/gen-sprites.mjs --force --only ${b.rel.replace(/\\/g, '/').replace('.png', '')}`).join('\n'));
+  console.log(bad.map(b => `  node scripts/gen-cf-sprites.mjs --force --only ${b.rel.replace(/\\/g, '/').replace('.png', '')}`).join('\n'));
 }
