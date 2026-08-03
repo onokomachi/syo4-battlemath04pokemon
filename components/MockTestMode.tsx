@@ -228,6 +228,13 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
   const [current, setCurrent] = useState('');
   const [steps, setSteps] = useState<TestStepResult[]>([]);
   const [scores, setScores] = useState({ omote: 0, omoteMax: 0, ura: 0, uraMax: 0 });
+  // 中止の確認は window.confirm を使わない。
+  //
+  // 端末によっては(モバイルのフルスクリーン表示や埋めこみwebviewなど)
+  // window.confirm がダイアログを出さずに黙って false を返すことがあり、
+  // 「中止を押しても何も起こらない」という報告と一致する。ゲームの見た目にも
+  // ネイティブダイアログは合わないので、自前のモーダルに置きかえる。
+  const [confirmingExit, setConfirmingExit] = useState(false);
   const bests = getTestBests();
 
   const startTest = (m: TestMode) => {
@@ -540,7 +547,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
 
         <div className="flex gap-2 mt-3 max-w-lg mx-auto">
           <button
-            onClick={() => { if (window.confirm('テストを中止しますか? (記録は のこりません)')) onExit(); }}
+            onClick={() => setConfirmingExit(true)}
             className="btn-tactical px-4 py-3 rounded-xl font-bold text-white/40 border-white/10 text-xs"
           >
             中止
@@ -556,6 +563,35 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
           )}
         </div>
       </div>
+
+      {confirmingExit && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setConfirmingExit(false)}
+        >
+          <div
+            className="hud-panel w-full max-w-sm rounded-2xl p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-base font-bold text-white text-center mb-1">テストを中止しますか?</p>
+            <p className="text-xs text-red-400 text-center mb-4">記録は のこりません</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmingExit(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-sm btn-tactical border-white/10"
+              >
+                もどる
+              </button>
+              <button
+                onClick={onExit}
+                className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-500 text-white border border-red-400/30"
+              >
+                中止する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
