@@ -4,14 +4,10 @@
 #
 #   node scripts/gen-cf-sprites.mjs --force --list scripts/regen-pending.txt
 #
-monsters/evo-021
-monsters/evo-022
-monsters/evo-038
-monsters/evo-040
-monsters/evo-042
-monsters/evo-048
-monsters/evo-046
-monsters/evo-054
+# 「輪郭が食われている」で3日連続失敗していた15体は、モチーフを直した
+# (体から離れた飾り・まき散らし・双頭・細長い胴を、体にくっついた表現に書きかえた)。
+# 次に流すときは、無駄なリトライが減っているはず。
+#
 monsters/evo-057
 monsters/evo-062
 monsters/evo-064
@@ -46,17 +42,22 @@ monsters/legend-bunsu
 monsters/legend-graph
 monsters/legend-zukei
 monsters/mythical-zero
+monsters/mon-129
 monsters/mon-115
 monsters/mon-116
-monsters/mon-129
 monsters/mon-146
-monsters/mon-151
 monsters/mon-150
+monsters/mon-151
 monsters/boss-002
 monsters/boss-006
-monsters/evo-014
-monsters/evo-020
 monsters/boss-010
-monsters/evo-010
 monsters/evo-004
-monsters/mon-120
+monsters/evo-010
+monsters/evo-014
+monsters/evo-021
+monsters/evo-020
+monsters/evo-048
+monsters/evo-054
+monsters/evo-046
+monsters/evo-042
+monsters/evo-040

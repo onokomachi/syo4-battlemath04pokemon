@@ -38,7 +38,7 @@ export const EVOLUTIONS: EvolutionDef[] = [
     flavor: '兆をこえる数でも、ひと目で読みあげる。ヨミィが読みの力を極めた姿。' },
   { subtopic: '数直線(億・兆)', name: 'メモリューガ', reason: '土台',
     motif:
-      'a long regal cream-and-gold dragon-serpent with glowing measure notches running its full length',
+      'a regal cream-and-gold dragon with glowing measure marks along its back',
     flavor: '体が一本の数直線になった。どんな大きさの数も、その上に置ける。' },
   { subtopic: '3けた×3けたのかけ算', name: 'サンケタイガ', reason: '中核',
     motif:
@@ -48,11 +48,11 @@ export const EVOLUTIONS: EvolutionDef[] = [
   // ---- 折れ線グラフと表 ----
   { subtopic: '折れ線グラフのよみとり', name: 'オレセンフウ', reason: '中核',
     motif:
-      'a large violet falcon with long sweeping zigzag tail feathers trailing light',
+      'a large violet falcon with one long curved tail feather trailing light',
     flavor: '飛んだあとに残る線で、これから何が起きるかを教えてくれる。' },
   { subtopic: '二次元表に整理する', name: 'セイリオン', reason: '中核',
     motif:
-      'a regal violet lion-cat with a grid-patterned mantle and glowing tiles orbiting it',
+      'a regal violet lion-cat with a grid-patterned mantle draped over its back',
     flavor: 'たてとよこ、両方から見わたして、散らかった数をきれいに並べる。' },
 
   // ---- わり算の筆算(÷1けた) ----
@@ -62,11 +62,11 @@ export const EVOLUTIONS: EvolutionDef[] = [
     flavor: '「わりきれない」ことを、こわがらなくなった姿。あまりは大事な答えの一部。' },
   { subtopic: '2けた÷1けた', name: 'ニケタード', reason: '中核',
     motif:
-      'a red oni warrior in dark armor holding a two-pronged cleaving blade',
+      'a red oni warrior in dark armor holding one broad cleaving blade close to its body',
     flavor: 'たてる・かける・ひく・おろす。4つの動きが体にしみこんでいる。' },
   { subtopic: '3けた÷1けた', name: 'ミケタード', reason: '中核',
     motif:
-      'a tall red oni warrior in heavy armor with a three-pronged cleaving blade',
+      'a tall red oni warrior in heavy armor holding one wide cleaving blade close to its body',
     flavor: 'けたが増えても、やることは同じだと知っている。' },
   { subtopic: '商に0がたつわり算', name: 'ゼロタツオー', reason: 'つまずき',
     motif:
@@ -112,7 +112,7 @@ export const EVOLUTIONS: EvolutionDef[] = [
     flavor: '遠くから数を見て、だいたいの答えをあてる。当たらなくても、あわてない。' },
   { subtopic: '2けた÷2けた', name: 'フタケタード', reason: '中核',
     motif:
-      'a twin-headed copper clockwork wolf in heavy brass armor',
+      'a large copper clockwork wolf in heavy brass armor with twin crest-horns on its head',
     flavor: '2けたでわることに、もう ひるまない。' },
   { subtopic: '3けた÷2けた', name: 'ミツケタード', reason: '中核',
     motif:
@@ -190,7 +190,7 @@ export const EVOLUTIONS: EvolutionDef[] = [
     flavor: 'かけらの山を、まるごと何個ぶんかに整えなおす。' },
   { subtopic: '帯分数を仮分数に(標準)', name: 'オビカリオン', reason: '中核',
     motif:
-      'a stately pink dessert-beast scattering a spiral of equal slices',
+      'a stately pink dessert-beast holding a neat spiral stack of equal slices',
     flavor: 'まるごとをかけらに戻す。計算しやすい形を、自分で選べる。' },
   { subtopic: '等しい分数(数直線)', name: 'ヒトシオン', reason: '土台',
     motif:
