@@ -175,9 +175,16 @@ const TIER_GROWTH: Record<ArtTier, string> = {
     'a fully grown creature with a proud confident stance, sleek armor plating ' +
     'on its shoulders and back, sharper crest and claws, cool and dependable, ' +
     'with a friendly face',
+  // 「翼」「角」を名指ししない。tier はサブトピックの難易度だけで決まり、
+  // 種族(モチーフ)とは無関係に振られる。実際、鳥でも竜でもない「ケーキの妖精」
+  // 「若木の獣」が difficulty 5 のせいで dragon 段になり、"spread wings and
+  // tall horns" を押しつけられて、翼の生えようがない体に翼を生やそうとした絵が
+  // 輪郭検査に落ちつづけていた(mon-129, mon-146, mon-150 など)。
+  // 進化後・ボスの「本物の竜」は、それぞれの motif 側ですでに翼や角を
+  // 明示しているので、ここは種族を問わない「貫禄」だけを言う。
   dragon:
-    'a powerful majestic creature with a long tail, spread wings and tall horns, ' +
-    'ornate glowing markings, heroic and impressive, with a bright open expression',
+    'a powerful mature creature with a confident heroic stance, ornate glowing ' +
+    'markings, imposing presence, with a bright open expression',
 };
 
 /**
