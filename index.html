@@ -57,6 +57,23 @@ body {
   letter-spacing: 0.1em;
 }
 
+.adventure-cta {
+  background: linear-gradient(120deg, rgba(21, 128, 61, 0.92) 0%, rgba(22, 163, 74, 0.88) 45%, rgba(202, 138, 4, 0.8) 100%);
+  border: 2px solid rgba(250, 204, 21, 0.55);
+  box-shadow: 0 0 40px rgba(74, 222, 128, 0.35), 0 0 80px rgba(250, 204, 21, 0.15), inset 0 0 40px rgba(255, 255, 255, 0.05);
+  animation: adventure-glow 3s ease-in-out infinite;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.adventure-cta:hover {
+  transform: translateY(-2px) scale(1.008);
+  border-color: rgba(253, 224, 71, 0.9);
+  box-shadow: 0 0 60px rgba(250, 204, 21, 0.5), 0 0 110px rgba(74, 222, 128, 0.3), inset 0 0 40px rgba(255, 255, 255, 0.08);
+}
+@keyframes adventure-glow {
+  0%, 100% { box-shadow: 0 0 40px rgba(74, 222, 128, 0.35), 0 0 80px rgba(250, 204, 21, 0.15), inset 0 0 40px rgba(255, 255, 255, 0.05); }
+  50% { box-shadow: 0 0 55px rgba(74, 222, 128, 0.5), 0 0 100px rgba(250, 204, 21, 0.28), inset 0 0 40px rgba(255, 255, 255, 0.05); }
+}
+
 .corner-accent {
   position: absolute; width: 12px; height: 12px; border-color: rgba(74, 222, 128, 0.6); border-style: solid;
 }
