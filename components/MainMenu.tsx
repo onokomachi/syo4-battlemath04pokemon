@@ -240,9 +240,37 @@ const MainMenu: React.FC<MainMenuProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full max-w-6xl px-4 sm:px-6">
+      <div className="w-full max-w-6xl px-4 sm:px-6 mb-4 sm:mb-6">
+        <button
+          onClick={() => onSelectMode('adventure')}
+          className="adventure-cta group relative w-full rounded-2xl sm:rounded-3xl px-6 sm:px-10 py-6 sm:py-8 md:py-10 flex items-center justify-center gap-4 sm:gap-6 overflow-hidden text-left"
+        >
+          <div className="corner-accent lt" />
+          <div className="corner-accent rt" />
+          <div className="corner-accent lb" />
+          <div className="corner-accent rb" />
+          <div className="pointer-events-none absolute -right-4 -bottom-6 text-[7rem] sm:text-[9rem] md:text-[11rem] opacity-[0.12] group-hover:opacity-20 group-hover:scale-105 transition-all duration-500 select-none">
+            🗺
+          </div>
+          <span className="relative text-5xl sm:text-6xl md:text-7xl drop-shadow-lg group-hover:scale-110 transition-transform duration-500 shrink-0">
+            🗺
+          </span>
+          <div className="relative flex flex-col items-start min-w-0">
+            <span className="text-[10px] sm:text-xs font-black tracking-[0.3em] text-amber-200 uppercase mb-1">
+              メインモード
+            </span>
+            <span className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-wide group-hover:text-amber-100 transition-colors leading-tight">
+              ぼうけんに でる
+            </span>
+            <span className="text-xs sm:text-sm text-emerald-50/90 font-bold mt-1.5">
+              3Dのナンバーランドを歩いて、モンスターと算数バトル！
+            </span>
+          </div>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 w-full max-w-6xl px-4 sm:px-6">
         {[
-          { mode: 'adventure' as GameState, label: 'ぼうけん', desc: '3Dのナンバーランドでモンスターをゲット', icon: '🗺', badge: 0 },
           { mode: 'speed_duel_setup' as GameState, label: 'スピード', desc: 'デッキ不要！早押し勝負', icon: '⚡', badge: 0 },
           { mode: 'practice_mode' as GameState, label: '練習', desc: '分野別に問題を解いて実力アップ', icon: '📖', badge: 0 },
           { mode: 'review_mode' as GameState, label: '復習', desc: '間違えた問題を最適なタイミングで', icon: '🔁', badge: srsReviewCount },
