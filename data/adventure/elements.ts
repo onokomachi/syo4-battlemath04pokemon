@@ -86,6 +86,70 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
   },
 };
 
+/**
+ * 見た目の属性。バトルの相性(7すくみ)には いっさい関わらない、絵づくり専用の情報。
+ *
+ * ポケモンらしさの核心は「ひと目で仲間だと分かり、ひと目で別の子だと分かる」こと。
+ * そのために、同じタイプの子は色と気配(aura)をそろえ、個体差は
+ * モチーフ側の一点だけで出す、という分担にしてある。
+ * ここを絵の生成プロンプトに必ず差しこむので、単元ごとの一族感が崩れない。
+ */
+export interface ElementArt {
+  /** 日本語の見た目属性名(図鑑に出す用) */
+  label: string;
+  /** 生成プロンプトに入れる英語の属性語 */
+  element: string;
+  /** その一族の基本配色 */
+  palette: string;
+  /** まとっている気配。体のまわりに少しだけ描かれる */
+  aura: string;
+}
+
+export const ELEMENT_ART: Record<ElementId, ElementArt> = {
+  kazu: {
+    label: 'ひかり',
+    element: 'light',
+    palette: 'warm gold and amber with cream highlights',
+    aura: 'a few soft golden light motes drifting around it',
+  },
+  keisan: {
+    label: 'ほのお',
+    element: 'fire',
+    palette: 'crimson red and burnished copper',
+    aura: 'a few small ember sparks rising from it',
+  },
+  shosu: {
+    label: 'みず',
+    element: 'water',
+    palette: 'clear blue and bright silver',
+    aura: 'a few clear water droplets floating around it',
+  },
+  bunsu: {
+    label: 'フェアリー',
+    element: 'fairy',
+    palette: 'soft pink and cream with rose accents',
+    aura: 'a light sprinkle of sparkling sugar dust',
+  },
+  bai: {
+    label: 'くさ',
+    element: 'grass',
+    palette: 'leaf green and warm brown',
+    aura: 'a few green leaves drifting around it',
+  },
+  graph: {
+    label: 'ひこう',
+    element: 'flying',
+    palette: 'violet and pale silver',
+    aura: 'a few thin wind streaks trailing behind it',
+  },
+  zukei: {
+    label: 'はがね',
+    element: 'steel',
+    palette: 'polished gold and pale stone',
+    aura: 'a few glowing geometric panels floating near it',
+  },
+};
+
 /** 単元名 → タイプ。MATH_CATEGORIES の全14単元を覆う。 */
 export const UNIT_TO_ELEMENT: Record<string, ElementId> = (() => {
   const map: Record<string, ElementId> = {};

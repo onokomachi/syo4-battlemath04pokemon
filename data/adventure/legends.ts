@@ -165,7 +165,7 @@ export const LEGENDS: LegendDef[] = [
       'イチノカミは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a giant white-and-silver nine-tailed fox beast standing on four paws, with pearlescent fur and glowing rings floating around its tails',
+      'a giant white-and-silver nine-tailed fox beast standing on four paws, with pearlescent fur and glowing rings wrapped around its tails',
     shrine: { color: '#e86fae', style: 'torii' },
   },
   {

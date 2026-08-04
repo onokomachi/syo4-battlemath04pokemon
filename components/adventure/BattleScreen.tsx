@@ -126,6 +126,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const [wasCorrect, setWasCorrect] = useState(false);
   const [isRetry, setIsRetry] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
+  // 自分から進んでヒントを見た(まちがえたあとの強制ヒントではない)かどうか。
+  // 見た場合は正解しても こうげきが弱くなる(ノーヒントで挑む価値を残すため)。
+  const [hintPenalty, setHintPenalty] = useState(false);
   const [flash, setFlash] = useState<'none' | 'hit' | 'hurt'>('none');
   const [shakeOpp, setShakeOpp] = useState(false);
   const problemViewRef = useRef<ProblemViewRef | null>(null);
@@ -154,6 +157,15 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setQIndex(0);
     setOppHp(oppStats.maxHp);
     if (oppDef) store.seeMonster(oppDef.id);
+    // 前の相手を倒したときの結果表示(showAnswer=true)を持ちこすと、
+    // こうげきボタンが disabled={showAnswer || ...} で ずっと押せなくなる。
+    // トレーナー戦で2体目に切りかわると入力できなくなっていたのはこれが原因。
+    setShowAnswer(false);
+    setUserAnswer('');
+    setWasCorrect(false);
+    setIsRetry(false);
+    setHintOpen(false);
+    setHintPenalty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oppIndex]);
 
@@ -190,6 +202,27 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     return generateSubtopicKeypadLayout(problems, problems[0]?.type || 'text');
   }, [problems]);
   const hint = hintOf(problem);
+
+  /**
+   * 自分から進んでヒントを見るときの処理。
+   *
+   * とくせい「ものしり」は「バトル中に1回だけ、ヒントをタダで見られる」と
+   * 説明していたが、実際には呼び出す場所がどこにも無く、常にヒントは
+   * 無条件でタダで見られてしまっていた(バトル中1回という制限も、
+   * 見ることじたいのペナルティも、どちらも存在しなかった)。
+   * ここで初めて実際の分岐にする: 「ものしり」の1回ぶんはペナルティなし、
+   * それ以外(または使いきったあと)はこの問題のこうげきが弱くなる。
+   */
+  const openHintVoluntarily = () => {
+    if (ability === 'hint' && !usedAbility.current.hint) {
+      usedAbility.current.hint = true;
+    } else if (!isRetry) {
+      // まちがえたあとの強制ヒント(isRetry中)は、すでに isRetry 側で
+      // ダメージが半分になっているので、二重にペナルティを課さない。
+      setHintPenalty(true);
+    }
+    setHintOpen(true);
+  };
 
   const typeMult = useMemo(() => {
     if (!lead?.def || !oppDef) return 1;
@@ -242,7 +275,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     if (correct) {
       stats.current.correct += 1;
       streak.current += 1;
-      const dmg = damageToOpponent(isRetry);
+      // まちがえたあとの強制ヒントと同じあつかいで、自分から見た
+      // ヒントも こうげきを弱くする(ノーヒントで挑む理由を残すため)。
+      const dmg = damageToOpponent(isRetry || hintPenalty);
       setOppHp(v => Math.max(0, v - dmg));
       setFlash('hit');
       setShakeOpp(true);
@@ -269,7 +304,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       window.setTimeout(() => setFlash('none'), 520);
     }
     setPhase('result');
-  }, [problem, userAnswer, showAnswer, isRetry, ability, save.maxHp]);
+  }, [problem, userAnswer, showAnswer, isRetry, hintPenalty, ability, save.maxHp]);
 
   /** ガイド付き問題(筆算シミュレーターなど)は自分で正誤を返してくる */
   const handleGuidedComplete = (correct: boolean) => {
@@ -326,6 +361,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setIsRetry(false);
     setShowAnswer(false);
     setUserAnswer('');
+    setHintPenalty(false);
     const next = qIndex + 1;
     if (next >= problems.length) {
       // 問題を使いきったら、相手の攻撃をしのぎきったことにして勝ち扱い
@@ -622,6 +658,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             もういちど チャレンジ
           </span>
         )}
+        {!isRetry && hintPenalty && (
+          <span className="px-3 py-1 rounded-full bg-amber-400 text-amber-950 text-xs font-black shrink-0">
+            💡 ヒントずみ(こうげき ひかえめ)
+          </span>
+        )}
         <div className="w-28 sm:w-40 shrink-0">
           <HpBar hp={hp} max={save.maxHp} label="じぶん" small />
         </div>
@@ -682,10 +723,17 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       <div className="shrink-0 p-2 sm:p-3 bg-slate-800/90 border-t-2 border-white/10 flex items-center gap-2">
         {hint && (
           <button
-            onClick={() => setHintOpen(true)}
+            onClick={openHintVoluntarily}
+            title={
+              hintPenalty
+                ? 'ヒントを見たので、せいかいしても こうげきが 弱くなるよ'
+                : ability === 'hint' && !usedAbility.current.hint
+                  ? 'とくせい「ものしり」で 1回だけ タダで 見られるよ'
+                  : 'ヒントを見ると、せいかいしても こうげきが 弱くなるよ'
+            }
             className="px-5 py-3 rounded-xl bg-amber-400 text-amber-950 font-black text-sm sm:text-base shadow active:scale-95 shrink-0"
           >
-            💡 ヒント
+            💡 ヒント{hintPenalty ? '(使用ずみ)' : ''}
           </button>
         )}
         {problem?.type !== 'guided' && (

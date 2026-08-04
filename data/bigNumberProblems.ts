@@ -143,6 +143,21 @@ const yomikakiExtra: Problem[] = yomikakiCombos.map(([chou, oku, man]) => {
 });
 const yomikaki: Problem[] = [...yomikakiBase, ...yomikakiExtra];
 
+/**
+ * 数字を右から4桁ずつ区切って読みやすくする(「1 4294 0000 0000」のような表示)。
+ *
+ * 以前はここに `(${numberToKanji(n)})` を書きそえていたが、漢数字表記は
+ * 億・万・兆の文字がそのまま位の名前になってしまい、「何の位ですか」という
+ * 問題文の中に答えが書いてあるのと同じことになっていた
+ * (練習モードにもあったバグ)。数字を区切って見やすくするだけにとどめる。
+ */
+const groupedDigits = (n: number): string => {
+  const s = String(n);
+  const chunks: string[] = [];
+  for (let i = s.length; i > 0; i -= 4) chunks.unshift(s.slice(Math.max(0, i - 4), i));
+  return chunks.join(' ');
+};
+
 // ---- 何の位・いくつ分 ----
 const kuraiBase: Problem[] = [
   t('1429400000000 の いちばん左の「1」は 何の位ですか。', '一兆の位', {
@@ -153,11 +168,11 @@ const kuraiBase: Problem[] = [
     options: ['百億の位', '十億の位', '千億の位', '一億の位'],
     hint: ['1 4294 0000 0000 と 区切ると、2は 億の部屋の 百の位だよ。'],
   }),
-  t('79 2000 0000(七億九千二百万)の「9」は、何が 9こ あることを 表していますか。', '1000万', {
+  t('79 2000 0000 の「9」は、何が 9こ あることを 表していますか。', '1000万', {
     options: ['1000万', '100万', '1億', '10億'],
     hint: ['9は 千万の位に あるね。', '1000万が 9こで 9000万だよ。'],
   }),
-  t('35 9480 0000 0000(三十五兆九千四百八十億)の「3」は、何が 3こ あることを 表していますか。', '10兆', {
+  t('35 9480 0000 0000 の「3」は、何が 3こ あることを 表していますか。', '10兆', {
     options: ['10兆', '1兆', '1000億', '100億'],
     hint: ['3は 十兆の位に あるよ。10兆が 3こ分だね。'],
   }),
@@ -175,13 +190,13 @@ const kuraiSpecs: KuraiSpec[] = [
   { n: 135000000, index: 8, form: 'quantity' },          // 1億3500万 の「1」
   { n: 4008000000000, index: 12, form: 'place' },        // 4兆80億 の「4」
   { n: 4008000000000, index: 9, form: 'quantity' },      // 4兆80億 の「8」
-  { n: 3005600000000, index: 11, form: 'place' },        // 3兆5億6000万 の「5」
+  { n: 3005600000000, index: 9, form: 'place' },         // 3兆56億 の「5」
   { n: 700000000, index: 8, form: 'quantity' },          // 7億 の「7」
   { n: 50000000000000, index: 13, form: 'place' },       // 50兆 の「5」
-  { n: 9999900000000, index: 12, form: 'quantity' },     // 9兆9999億9000万 の「9」(兆の位)
-  { n: 90000010000, index: 4, form: 'place' },           // 9兆1万 の「1」
+  { n: 7999900000000, index: 12, form: 'quantity' },     // 7兆9999億 の「7」(兆の位)
+  { n: 90000010000, index: 4, form: 'place' },           // 900億1万 の「1」
   { n: 24000500000, index: 9, form: 'place' },           // 240億50万 の「4」
-  { n: 6003700000000, index: 11, form: 'quantity' },     // 6兆3億700万 の「3」
+  { n: 6003700000000, index: 9, form: 'quantity' },      // 6兆37億 の「3」
   { n: 3600000000, index: 9, form: 'place' },            // 36億 の「6」
   { n: 8100000000000, index: 12, form: 'quantity' },     // 8兆1000億 の「8」
 ];
@@ -192,18 +207,26 @@ const digitAt = (n: number, index: number): string => {
 };
 const kuraiExtra: Problem[] = kuraiSpecs.map(({ n, index, form }) => {
   const d = digitAt(n, index);
+  // 数字が2回以上出てくる位を指させる問題は「どの○を指しているのか」が
+  // あいまいになる(実際、0が10個ならぶ数の「0」を聞く問題や、9が5つ
+  // ならぶ数の「9」を聞く問題が過去に混ざっていた)。ここで機械的に検出し、
+  // 見落としたまま出題してしまわないようにする。
+  const occurrences = [...String(n)].filter(c => c === d).length;
+  if (occurrences !== 1) {
+    throw new Error(`bigNumberProblems: 位の問題があいまいです(n=${n}, index=${index}, digit=${d}が${occurrences}回出現)`);
+  }
   if (form === 'place') {
     const ans = placeName(index);
     const options = [placeName(index), placeName(Math.max(0, index - 1)), placeName(index + 1), placeName(Math.max(0, index - 4))];
-    return t(`${n}(${numberToKanji(n)}) の「${d}」は 何の位ですか。`, ans, {
+    return t(`${groupedDigits(n)} の「${d}」は 何の位ですか。`, ans, {
       options: [...new Set(options)].slice(0, 4),
-      hint: ['右から 4けたずつ 区切って「万・億・兆」の 部屋を さがそう。', `${formatMixedJP(n)} の 中で、${d}は ${ans}に あるね。`],
+      hint: ['右から 4けたずつ 区切って「万・億・兆」の 部屋を さがそう。', `${d}が 出てくるのは 1か所だけ。そこが 何番目の 部屋かを 数えよう。`],
     });
   }
   const ans = quantityLabel(index);
-  return t(`${n}(${numberToKanji(n)}) の「${d}」は、何が ${d}こ あることを 表していますか。`, ans, {
+  return t(`${groupedDigits(n)} の「${d}」は、何が ${d}こ あることを 表していますか。`, ans, {
     options: [quantityLabel(index), quantityLabel(Math.max(0, index - 4)), quantityLabel(index + 4), quantityLabel(Math.max(0, index - 1))].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4),
-    hint: [`${d}は ${placeName(index)}に あるね。`, `${quantityLabel(index)}が ${d}こで ${formatMixedJP(Number(d) * 10 ** index)}だよ。`],
+    hint: [`${d}が 出てくるのは 1か所だけ。それが 何の位かを まず 数えよう。`, `10のべき乗の 形で いうと、どんな数に なるかな？`],
   });
 });
 const kurai: Problem[] = [...kuraiBase, ...kuraiExtra];

@@ -9,6 +9,16 @@
  * 手順の誘導を出さず、筆算のマス目を自由な順番でタップして入力し、
  * 最後に「答え合わせ」で一括採点する(商を立て忘れる、といったつまずきを
  * 自分で気づけるようにするため)。
+ *
+ * 「かける」「ひく」の入力は、わる数のけた数によらず いつも1けたずつの
+ * マスに分けて行う。「かける」は1マスに2けたまで入力でき、2けた目(十の位)は
+ * 繰り上がりとして 左どなりのマスに 小さく表示される(連鎖して伝わる)。
+ * 「ひく」は繰り下がり表示のない単純な1けた入力。これは wari-hissann3 の
+ * 本家実装にあった仕様で、当初の移植では「1つの入力欄にまとめて答えを打つ」
+ * 形に簡略化されてしまっていた。これだと2けた×1けたの部分積のような
+ * 「頭の中で先に2けたの答えを作ってから入力する」負担が残ってしまい、
+ * 実際の筆記(1けたずつ・繰り上がりは小さく書く)と体験がずれていたため、
+ * 本家の仕様に合わせて作り直した。
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import type { GuidedDivisionHissanData } from '../../types';
@@ -38,6 +48,12 @@ interface Props {
   data: GuidedDivisionHissanData;
   onComplete: (isCorrect: boolean) => void;
 }
+
+/** マスターモードのマス選択。商のマス、または「かける/ひく」の行+列。 */
+type MasterSelection =
+  | { kind: 'quotient'; index: number }
+  | { kind: 'column'; rowKey: string; col: number }
+  | null;
 
 const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
   const { dividend, divisor, zeroShortcut = false, masterMode = false } = data;
@@ -94,6 +110,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
 
   const expectedRows = useMemo(() => expectedRowMeta.map((r) => r.value), [expectedRowMeta]);
 
+  const rowKeyOf = (type: 'multiply' | 'remainder', stepIndex: number): string => `${type === 'multiply' ? 'm' : 'r'}-${stepIndex}`;
+
   const buildInitialGrid = (): GridRow[] => {
     const base: GridRow[] = [
       { type: 'quotient', values: Array(dividendStr.length).fill(null) },
@@ -107,9 +125,22 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     ];
   };
 
+  /** マスターモード: 行ごとの列バッファを、期待値のけた数ぶんの空文字配列で初期化する */
+  const buildMasterCellBuffers = (): Record<string, string[]> => {
+    const out: Record<string, string[]> = {};
+    for (const r of expectedRowMeta) {
+      out[rowKeyOf(r.type, r.stepIndex)] = Array(Math.max(1, r.value.length)).fill('');
+    }
+    return out;
+  };
+
   const [stepIndex, setStepIndex] = useState(0);
   const [subStep, setSubStep] = useState<StepType>('PLACE');
   const [userInput, setUserInput] = useState('');
+  // 「かける」「ひく」の入力: 位を選んで1マスずつ入力する。
+  // 「かける」は2桁入力すると十の位が繰り上がりとして左のマスに小さく表示される。
+  const [cellBuffers, setCellBuffers] = useState<string[]>([]);
+  const [selectedCol, setSelectedCol] = useState<number | null>(null);
   const [gridData, setGridData] = useState<GridRow[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [mistakeCount, setMistakeCount] = useState(0);
@@ -125,7 +156,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
   // リセットし、まちがえた時だけ自動表示する(見たい時は手動でも開ける)。
   const [hintRevealed, setHintRevealed] = useState(false);
   // マスターモード: どのマスを選んで入力中か(自由な順番でタップして選べる)
-  const [selectedCell, setSelectedCell] = useState<string | null>(null);
+  const [masterSelection, setMasterSelection] = useState<MasterSelection>(null);
+  const [masterCellBuffers, setMasterCellBuffers] = useState<Record<string, string[]>>({});
   const isProcessing = React.useRef(false);
 
   useEffect(() => {
@@ -137,13 +169,16 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     setStepIndex(0);
     setSubStep('PLACE');
     setUserInput('');
+    setCellBuffers([]);
+    setSelectedCol(null);
     setIsFinished(false);
     setPlaceMistakes(0);
     setTrialQuotient(null);
     setRollbackPrompt(null);
     setFeedback(null);
     setHintRevealed(false);
-    setSelectedCell(masterMode ? 'q-0' : null);
+    setMasterCellBuffers(buildMasterCellBuffers());
+    setMasterSelection(masterMode ? { kind: 'quotient', index: 0 } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dividend, divisor, masterMode]);
 
@@ -154,6 +189,24 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
 
   const activeStep = realSteps[stepIndex];
   const nextStep = realSteps[stepIndex + 1];
+
+  // 「かける」「ひく」の入力欄に入るたび、必要なマス数ぶんの入力バッファを用意し、
+  // いちばん右(一の位)のマスをはじめに選んでおく。
+  useEffect(() => {
+    if (!activeStep) return;
+    const q = trialQuotient ?? activeStep.quotient;
+    if (subStep === 'MULTIPLY') {
+      const len = Math.max(1, String(divisor * q).length);
+      setCellBuffers(Array(len).fill(''));
+      setSelectedCol(len - 1);
+    } else if (subStep === 'SUBTRACT') {
+      const expectedRemainder = activeStep.dividendPart - divisor * q;
+      const len = Math.max(1, String(expectedRemainder).length);
+      setCellBuffers(Array(len).fill(''));
+      setSelectedCol(len - 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subStep, stepIndex, trialQuotient]);
 
   const getRowCorrectValue = (rowIdx: number): string => expectedRows[rowIdx - 2] ?? '';
 
@@ -227,10 +280,12 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     for (let i = 0; i < dividendStr.length; i++) {
       if (!isQuotientDigitCorrect(i)) errorsFound = true;
     }
-    for (let rowIdx = 2; rowIdx < gridData.length; rowIdx++) {
-      const row = gridData[rowIdx];
-      const valStr = (row.value ?? '').toString();
-      if (valStr !== getRowCorrectValue(rowIdx)) errorsFound = true;
+    for (const r of expectedRowMeta) {
+      const key = rowKeyOf(r.type, r.stepIndex);
+      const buf = masterCellBuffers[key] ?? [];
+      for (let c = 0; c < r.value.length; c++) {
+        if ((buf[c] ?? '').slice(-1) !== r.value[c]) errorsFound = true;
+      }
     }
     setIsGraded(true);
     setHasMistakes(errorsFound);
@@ -242,15 +297,43 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     }
   };
 
+  const handleCellTap = (col: number) => {
+    if (isFinished || rollbackPrompt) return;
+    if (subStep !== 'MULTIPLY' && subStep !== 'SUBTRACT') return;
+    setSelectedCol(col);
+  };
+
   const handleKeypad = (val: string) => {
     if (isFinished || isAllEntered) return;
     if (subStep === 'BRING_DOWN' || subStep === 'PLACE') return;
     if (rollbackPrompt) return;
+    if (subStep === 'MULTIPLY' || subStep === 'SUBTRACT') {
+      if (selectedCol === null) return;
+      // 「かける」は繰り上がり表示のため最大2桁、「ひく」は繰り下がり表示をしないため1桁まで
+      const maxLen = subStep === 'MULTIPLY' ? 2 : 1;
+      setCellBuffers((prev) => {
+        const cur = prev[selectedCol] ?? '';
+        if (cur.length >= maxLen) return prev;
+        const next = [...prev];
+        next[selectedCol] = cur + val;
+        return next;
+      });
+      return;
+    }
     setUserInput((prev) => prev + val);
   };
 
   const handleBackspace = () => {
     if (isAllEntered || isFinished) return;
+    if (subStep === 'MULTIPLY' || subStep === 'SUBTRACT') {
+      if (selectedCol === null) return;
+      setCellBuffers((prev) => {
+        const next = [...prev];
+        next[selectedCol] = (next[selectedCol] ?? '').slice(0, -1);
+        return next;
+      });
+      return;
+    }
     setUserInput((prev) => prev.slice(0, -1));
   };
 
@@ -262,6 +345,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     el?.classList.add('lds-shake');
     setTimeout(() => el?.classList.remove('lds-shake'), 500);
     setUserInput('');
+    setCellBuffers((prev) => prev.map(() => ''));
   };
 
   const checkAnswer = () => {
@@ -311,9 +395,12 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     } else if (subStep === 'MULTIPLY') {
       const q = trialQuotient ?? activeStep.quotient;
       const expectedProduct = divisor * q;
-      if (parseInt(userInput, 10) === expectedProduct) {
-        setGridData((prev) => [...prev, { type: 'multiply', value: userInput, offset: activeStep.index }]);
-        setUserInput('');
+      const allFilled = cellBuffers.length > 0 && cellBuffers.every((c) => c !== '');
+      const combined = cellBuffers.map((c) => c.slice(-1)).join('');
+      if (allFilled && parseInt(combined, 10) === expectedProduct) {
+        setGridData((prev) => [...prev, { type: 'multiply', value: combined, offset: activeStep.index }]);
+        setCellBuffers([]);
+        setSelectedCol(null);
         if (expectedProduct > activeStep.dividendPart) {
           setRollbackPrompt({
             message: `${activeStep.dividendPart} から ${expectedProduct} は ひけない！\n仮の商「${q}」は 大きすぎたみたい。`,
@@ -330,9 +417,12 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
       const q = trialQuotient ?? activeStep.quotient;
       const expectedProduct = divisor * q;
       const expectedRemainder = activeStep.dividendPart - expectedProduct;
-      if (parseInt(userInput, 10) === expectedRemainder) {
-        setGridData((prev) => [...prev, { type: 'remainder', value: userInput, offset: activeStep.index }]);
-        setUserInput('');
+      const allFilled = cellBuffers.length > 0 && cellBuffers.every((c) => c !== '');
+      const combined = cellBuffers.map((c) => c.slice(-1)).join('');
+      if (allFilled && parseInt(combined, 10) === expectedRemainder) {
+        setGridData((prev) => [...prev, { type: 'remainder', value: combined, offset: activeStep.index }]);
+        setCellBuffers([]);
+        setSelectedCol(null);
         if (expectedRemainder >= divisor) {
           setRollbackPrompt({
             message: `あまりの ${expectedRemainder} が、わる数の ${divisor} と同じか大きいよ。\nまだ ${divisor} を ひけるね。仮の商「${q}」は 小さすぎたみたい。`,
@@ -375,29 +465,23 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
     setStepIndex(0);
     setSubStep('PLACE');
     setUserInput('');
+    setCellBuffers([]);
+    setSelectedCol(null);
     setIsAllEntered(false);
     setIsGraded(false);
     setHasMistakes(null);
     setPlaceMistakes(0);
     setTrialQuotient(null);
     setRollbackPrompt(null);
-    setSelectedCell(masterMode ? 'q-0' : null);
+    setMasterCellBuffers(buildMasterCellBuffers());
+    setMasterSelection(masterMode ? { kind: 'quotient', index: 0 } : null);
   };
 
   // --- マスターモード専用: マスを自由に選んで入力する ---
-  const masterRowIndexOf = (key: string): number => {
-    if (key.startsWith('m-') || key.startsWith('r-')) {
-      const stepIdx = parseInt(key.slice(2), 10);
-      const metaIdx = expectedRowMeta.findIndex((r) => r.stepIndex === stepIdx && r.type === (key.startsWith('m-') ? 'multiply' : 'remainder'));
-      return metaIdx >= 0 ? metaIdx + 2 : -1;
-    }
-    return -1;
-  };
-
   const handleMasterDigit = (d: string) => {
-    if (!selectedCell || isFinished) return;
-    if (selectedCell.startsWith('q-')) {
-      const col = parseInt(selectedCell.slice(2), 10);
+    if (!masterSelection || isFinished) return;
+    if (masterSelection.kind === 'quotient') {
+      const col = masterSelection.index;
       setGridData((prev) => {
         const next = [...prev];
         if (next[0]) {
@@ -409,23 +493,22 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
       });
       return;
     }
-    const rowIdx = masterRowIndexOf(selectedCell);
-    if (rowIdx < 0) return;
-    setGridData((prev) => {
-      const next = [...prev];
-      const row = next[rowIdx];
-      if (row) {
-        const cur = (row.value ?? '').toString();
-        next[rowIdx] = { ...row, value: cur + d };
-      }
-      return next;
+    const { rowKey, col } = masterSelection;
+    const isMultiplyRow = rowKey.startsWith('m-');
+    const maxLen = isMultiplyRow ? 2 : 1;
+    setMasterCellBuffers((prev) => {
+      const cur = prev[rowKey]?.[col] ?? '';
+      if (cur.length >= maxLen) return prev;
+      const cols = [...(prev[rowKey] ?? [])];
+      cols[col] = cur + d;
+      return { ...prev, [rowKey]: cols };
     });
   };
 
   const handleMasterBackspace = () => {
-    if (!selectedCell || isFinished) return;
-    if (selectedCell.startsWith('q-')) {
-      const col = parseInt(selectedCell.slice(2), 10);
+    if (!masterSelection || isFinished) return;
+    if (masterSelection.kind === 'quotient') {
+      const col = masterSelection.index;
       setGridData((prev) => {
         const next = [...prev];
         if (next[0]) {
@@ -437,16 +520,11 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
       });
       return;
     }
-    const rowIdx = masterRowIndexOf(selectedCell);
-    if (rowIdx < 0) return;
-    setGridData((prev) => {
-      const next = [...prev];
-      const row = next[rowIdx];
-      if (row) {
-        const cur = (row.value ?? '').toString();
-        next[rowIdx] = { ...row, value: cur.slice(0, -1) };
-      }
-      return next;
+    const { rowKey, col } = masterSelection;
+    setMasterCellBuffers((prev) => {
+      const cols = [...(prev[rowKey] ?? [])];
+      cols[col] = (cols[col] ?? '').slice(0, -1);
+      return { ...prev, [rowKey]: cols };
     });
   };
 
@@ -461,7 +539,9 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
         <div className="bg-gradient-to-br from-indigo-950/40 to-amber-950/40 p-4 rounded-2xl border border-red-500/20">
           <h3 className="text-amber-300 font-black text-sm mb-1">👑 マスターモード</h3>
           <p className="text-red-200/80 font-bold text-xs leading-relaxed">
-            ヒントはなしだよ！マスをタップして、じぶんで じゅんばんを決めながら すべてうめてね。うめおわったら「答え合わせ」だよ。
+            ヒントはなしだよ！マスをタップして、じぶんで じゅんばんを決めながら すべてうめてね。
+            「かける」は1マスに2けたまで入力すると、十の位が繰り上がりとして左のマスに小さく出るよ。
+            うめおわったら「答え合わせ」だよ。
           </p>
         </div>
 
@@ -470,15 +550,14 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
             <div id="lds-quotient-row" className="grid items-center text-center" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
               <div />
               {dividendStr.split('').map((_, i) => {
-                const key = `q-${i}`;
                 const val = gridData[0]?.values?.[i];
-                const isSelected = selectedCell === key;
+                const isSelected = masterSelection?.kind === 'quotient' && masterSelection.index === i;
                 return (
                   <button
                     key={i}
                     type="button"
                     disabled={isFinished}
-                    onClick={() => setSelectedCell(key)}
+                    onClick={() => setMasterSelection({ kind: 'quotient', index: i })}
                     className={`w-9 h-11 flex items-center justify-center relative rounded-lg border-2 border-dashed transition-all ${
                       isSelected ? 'border-red-400 bg-red-500/10 ring-2 ring-red-400 ring-inset' : 'border-amber-400/40 bg-amber-500/5 hover:bg-amber-500/10'
                     }`}
@@ -502,50 +581,50 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
             </div>
 
             <div className="relative">
-              {gridData.slice(2).map((row, idx) => {
+              {expectedRowMeta.map((meta, idx) => {
+                const rowKey = rowKeyOf(meta.type, meta.stepIndex);
                 const rowIdx = idx + 2;
-                const meta = expectedRowMeta[idx];
-                const key = meta ? `${meta.type === 'multiply' ? 'm' : 'r'}-${meta.stepIndex}` : '';
-                const isSelected = selectedCell === key;
+                const isMultiplyRow = meta.type === 'multiply';
+                const width = meta.value.length;
+                const startCol = meta.offset - width + 1;
+                const buf = masterCellBuffers[rowKey] ?? [];
                 return (
-                  <div key={idx} className="grid items-center text-center relative h-11" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
-                    {row.type === 'multiply' && <div className="absolute right-0 bottom-0 border-b border-red-500/30" style={{ left: divisorColPx }} />}
+                  <div key={rowKey} className="grid items-center text-center relative h-11" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
+                    {isMultiplyRow && <div className="absolute right-0 bottom-0 border-b border-red-500/30" style={{ left: divisorColPx }} />}
                     <div className="col-start-1 text-red-500/70 font-bold text-lg flex justify-end pr-2">
-                      {row.type === 'multiply' ? '×' : '-'}
+                      {isMultiplyRow ? '×' : '-'}
                     </div>
-                    <button
-                      type="button"
-                      disabled={isFinished}
-                      onClick={() => setSelectedCell(key)}
-                      className={`col-span-full row-start-1 absolute inset-0 rounded-xl border-2 border-dashed transition-all ${
-                        isSelected ? 'border-red-400 bg-red-500/5 ring-2 ring-red-400/40 ring-inset' : 'border-transparent hover:bg-slate-900/40'
-                      }`}
-                      style={{ gridColumn: `2 / span ${dividendStr.length}` }}
-                      title="タップして このマスを えらぶ"
-                    />
-                    {Array(dividendStr.length).fill(0).map((_, dividendIdx) => {
-                      const valStr = (row.value ?? '').toString();
-                      const offset = row.offset ?? 0;
-                      const digitsNeeded = valStr.length || 1;
-                      const startIdx = offset - digitsNeeded + 1;
-                      const char = dividendIdx >= startIdx && dividendIdx <= offset ? valStr[dividendIdx - startIdx] : '';
-                      if (isGraded) {
-                        const correctVal = getRowCorrectValue(rowIdx);
-                        const expectedDigitsNeeded = correctVal.length;
-                        const expectedStartIdx = offset - expectedDigitsNeeded + 1;
-                        const expectedChar = dividendIdx >= expectedStartIdx && dividendIdx <= offset ? correctVal[dividendIdx - expectedStartIdx] : '';
-                        const isCharCorrect = char === expectedChar;
-                        return (
-                          <div key={dividendIdx} className="w-9 h-11 flex justify-center items-center relative pointer-events-none">
-                            {char && <span className={isCharCorrect ? 'text-emerald-400 font-extrabold' : 'text-rose-400 font-extrabold bg-rose-950/60 px-1 rounded'}>{char}</span>}
-                          </div>
-                        );
+                    {Array(dividendStr.length).fill(0).map((_, col) => {
+                      const within = col >= startCol && col <= meta.offset;
+                      if (!within) return <div key={col} className="w-9 h-11" />;
+                      const localIdx = col - startCol; // 0=いちばん左(大きい位)
+                      const cellBuf = buf[localIdx] ?? '';
+                      const mainChar = cellBuf.slice(-1);
+                      const isSelected = masterSelection?.kind === 'column' && masterSelection.rowKey === rowKey && masterSelection.col === localIdx;
+                      const rightBuf = buf[localIdx + 1] ?? '';
+                      const carry = isMultiplyRow && rightBuf.length >= 2 ? rightBuf.slice(0, -1) : null;
+                      let display: React.ReactNode = mainChar;
+                      if (mainChar && isGraded) {
+                        const correct = mainChar === meta.value[localIdx];
+                        display = <span className={correct ? 'text-emerald-400 font-extrabold' : 'text-rose-400 font-extrabold bg-rose-950/60 px-1 rounded'}>{mainChar}</span>;
                       }
                       return (
-                        <div key={dividendIdx} className="w-9 h-11 flex justify-center items-center relative pointer-events-none">
-                          <span className="text-white">{char}</span>
-                          {isSelected && dividendIdx === offset && !char && <span className="text-red-800 animate-pulse">？</span>}
-                        </div>
+                        <button
+                          key={col}
+                          type="button"
+                          disabled={isFinished}
+                          onClick={() => setMasterSelection({ kind: 'column', rowKey, col: localIdx })}
+                          className={`w-9 h-11 flex items-center justify-center relative rounded-lg border-2 border-dashed transition-all ${
+                            isSelected ? 'border-red-400 bg-red-500/10 ring-2 ring-red-400 ring-inset' : 'border-transparent hover:bg-slate-900/40'
+                          }`}
+                        >
+                          {carry && (
+                            <span className="absolute -top-1 right-0.5 text-[11px] font-black text-amber-400 bg-amber-950/80 border border-amber-500/40 rounded px-1 leading-tight z-10">
+                              {carry}
+                            </span>
+                          )}
+                          <span className="text-white">{display || (!isGraded && isSelected && !mainChar && <span className="text-red-800 animate-pulse">？</span>)}</span>
+                        </button>
                       );
                     })}
                   </div>
@@ -755,20 +834,40 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
               );
             })}
 
+            {/* 現在の入力ゾーン(「かける」「ひく」): 位を選んでマスに入力する。
+                「かける」は2桁入力すると十の位が繰り上がりとして左のマスに小さく出る。 */}
             {!isFinished && (subStep === 'MULTIPLY' || subStep === 'SUBTRACT') && (
               <div className="grid items-center text-center relative h-11 bg-red-500/10 ring-2 ring-red-400/40 rounded-xl mx-1" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
                 <div className="col-start-1 text-red-400 font-bold text-lg flex justify-end pr-2">{subStep === 'MULTIPLY' ? '×' : '-'}</div>
                 {Array(dividendStr.length).fill(0).map((_, dividendIdx) => {
-                  const valStr = userInput;
+                  const digitsNeeded = cellBuffers.length || 1;
                   const offset = activeStep?.index ?? 0;
-                  const digitsNeeded = valStr.length || 1;
                   const startIdx = offset - digitsNeeded + 1;
                   const isTarget = dividendIdx >= startIdx && dividendIdx <= offset;
-                  const char = isTarget ? valStr[dividendIdx - startIdx] : '';
+                  const col = dividendIdx - startIdx;
+                  if (!isTarget) return <div key={dividendIdx} className="w-9 h-11" />;
+                  const buf = cellBuffers[col] ?? '';
+                  const char = buf.slice(-1);
+                  const isSelected = selectedCol === col;
+                  const rightBuf = col + 1 < cellBuffers.length ? (cellBuffers[col + 1] ?? '') : '';
+                  const carry = subStep === 'MULTIPLY' && rightBuf.length >= 2 ? rightBuf.slice(0, -1) : null;
                   return (
-                    <div key={dividendIdx} className={`w-9 h-11 flex justify-center items-center ${isTarget ? 'bg-slate-900 ring-2 ring-red-400 ring-inset rounded-lg' : ''}`}>
-                      <span className="text-red-300 font-black">{char}</span>
-                      {isTarget && !char && dividendIdx === startIdx && <span className="text-red-800 animate-pulse">？</span>}
+                    <div key={dividendIdx} className="w-9 h-11 flex justify-center items-center relative">
+                      <button
+                        type="button"
+                        onClick={() => handleCellTap(col)}
+                        className={`w-9 h-11 flex justify-center items-center rounded-lg transition-all ${
+                          isSelected ? 'bg-slate-900 ring-2 ring-red-400 ring-inset' : 'bg-red-500/5 ring-1 ring-red-500/20 hover:bg-red-500/10'
+                        }`}
+                      >
+                        <span className="text-red-300 font-black">{char}</span>
+                        {isSelected && !char && <span className="text-red-800 animate-pulse absolute">？</span>}
+                      </button>
+                      {carry && (
+                        <span className="absolute -top-1 right-0.5 text-[11px] font-black text-amber-400 bg-amber-950/80 border border-amber-500/40 rounded px-1 leading-tight z-10">
+                          {carry}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -797,7 +896,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                   : isTwoDigitDivisor
                     ? `${activeStep?.dividendPart} の中に ${divisor} はいくつあるかな？\n${divisor} を ${roundedDivisor} とみて見当をつけよう。`
                     : `${activeStep?.dividendPart} の中に ${divisor} はいくつあるかな？`)}
-                {subStep === 'MULTIPLY' && `${divisor} × ${trialQuotient ?? activeStep?.quotient} を けいさんしよう。`}
+                {subStep === 'MULTIPLY' && `${divisor} × ${trialQuotient ?? activeStep?.quotient} を、一の位から1けたずつ 計算しよう。2けたになったら 十の位は 左のマスに 小さく書くよ。`}
                 {subStep === 'SUBTRACT' && `${activeStep?.dividendPart} − ${divisor * (trialQuotient ?? activeStep?.quotient ?? 0)} は？`}
                 {subStep === 'BRING_DOWN' && 'つぎの かずを おろそう。'}
               </p>
@@ -828,9 +927,15 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
             </div>
             <button
               onClick={checkAnswer}
-              disabled={userInput === '' && subStep !== 'BRING_DOWN'}
+              disabled={
+                subStep === 'MULTIPLY' || subStep === 'SUBTRACT'
+                  ? !cellBuffers.some((c) => c !== '')
+                  : userInput === '' && subStep !== 'BRING_DOWN'
+              }
               className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${
-                userInput !== '' || subStep === 'BRING_DOWN' ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95' : 'bg-slate-900 text-red-900'
+                (subStep === 'MULTIPLY' || subStep === 'SUBTRACT' ? cellBuffers.some((c) => c !== '') : userInput !== '') || subStep === 'BRING_DOWN'
+                  ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95'
+                  : 'bg-slate-900 text-red-900'
               }`}
             >
               {subStep === 'BRING_DOWN' ? 'つぎへ' : 'チェック'}

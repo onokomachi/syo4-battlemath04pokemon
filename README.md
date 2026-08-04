@@ -121,28 +121,58 @@ Vercel を使う場合はリポジトリを接続し、環境変数(`VITE_FIREBA
 ## モンスターのイラスト生成
 
 図鑑の151体+進化44体+伝説9体+ボス14体+主人公+NPC+地形テクスチャ(合計280枚)は、
-**Pollinations.ai**(無料・APIキー不要)で生成し、
-自作の背景除去パイプラインで透過PNG化している。
+生成AIで作り、自作の背景除去パイプラインで透過PNG化している。
 
-モンスターは**必ず目が2つ**になるようプロンプトで固定し(`EXACTLY TWO EYES and no more`)、
-三つ目・複眼・左右非対称な目をネガティブプロンプトで除外している。
+生成器は2つあり、どちらも同じジョブ一覧(`scripts/sprite-manifest.json`)を読み、
+同じ背景除去と品質判定(`scripts/sprite-image.mjs`)を通す。
+
+| スクリプト | 使うもの | 備考 |
+| --- | --- | --- |
+| `gen-cf-sprites.mjs` | Cloudflare Workers AI (flux-1-schnell) | 現行。要APIキー |
+| `gen-sprites.mjs` | Pollinations.ai | 無料・キー不要。キャッシュの都合で作り直しに弱い |
+
+Cloudflare に移したのは、Pollinations が (プロンプト, seed) ではなく **seed でキャッシュ**
+していて、プロンプトを直して作り直しても同じ絵が返ってきていたため。
+モンスター全体を設計しなおすには、直した文がそのまま効く必要があった。
 
 ```bash
+# 認証情報は .env.local に置く(*.local は .gitignore 済み。リポジトリには入れない)
+#   CF_ACCOUNT_ID=...
+#   CF_API_TOKEN=...
 node scripts/build-sprite-manifest.mjs   # ゲームデータから生成ジョブ一覧を作る
-node scripts/gen-sprites.mjs             # 生成(既存ファイルはスキップ)
+node scripts/gen-cf-sprites.mjs          # 生成(既存ファイルはスキップ)
 node scripts/check-sprites.mjs --bad     # 抜け残り・抜きすぎ・複数キャラを機械的に検査
 node scripts/contact-sheet.mjs           # 一覧シートを作って目視で確認する
-node scripts/gen-sprites.mjs --force --only monsters/mon-055     # 1枚だけ作り直し
-node scripts/gen-sprites.mjs --force --list scripts/redo.txt     # まとめて作り直し
+node scripts/gen-cf-sprites.mjs --force --only monsters/mon-055   # 1枚だけ作り直し
+node scripts/gen-cf-sprites.mjs --force --list scripts/redo.txt   # まとめて作り直し
 ```
 
-- 画風は「フラットな2Dベクター/サンリオ風/大きな丸い目/グラデーション・毛並み・写実の排除」で統一。
-  難易度が上がるほど `baby → brave → knight → dragon` と、かっこいい方向へ寄せている
-- 背景は**必ずクロマグリーン**で生成させ、その色からの塗りつぶしで抜く。背景が緑でなければ
-  生成し直す(白背景だと白い服・白い体のキャラが背景ごと溶けるため)
-- 生成AIは指示を外すことがあるので、機械検査(緑の抜け残り・塗りつぶしすぎ・
-  体に空いた穴・1枚に複数キャラ)で落ちたものだけ `scripts/redo.txt` に集めて作り直す。
-  目の数など機械では判定できないものは、`contact-sheet.mjs` の一覧シートで目視確認する
+### プロンプトの組み立て(`scripts/spriteJobs.ts`)
+
+1体分のプロンプトは、次の順で組む。前に置いたものほど強く効く。
+
+1. **背景** — 必ずクロマグリーン(緑いろのキャラだけマゼンタ)。抜けないと使えないので最優先
+2. **モチーフ** — 「何の生きものか」を最初に言う。これがないと全部まるい獣になる
+3. **見た目属性** — タイプごとの色と気配(`ELEMENT_ART`)。同じ単元の子が一族に見えるための背骨
+4. **育ち具合** — `baby → brave → knight → dragon` で、体つき・立ち方・装飾だけを変える。
+   単元ボスはさらに一段上(冠・マント・金の装飾)
+5. **画風** — 杉森建風のポケモン公式イラスト。太い輪郭線・ベタ塗り・体色2〜3色・単純なシルエット
+6. **目** — 「左右に1つずつ、同じ大きさ」と肯定文で言いきる
+
+**否定文は書かない。** flux は否定を解さず、書いた語がそのまま効いてしまう。
+`no human` と書いた回に半裸の人型が出て、`no third eye` と書いた回に目が3つ出た。
+あってほしい状態だけを言いきるほうが確実だった。
+
+### 監査
+
+- 生成AIは指示を外すので、機械検査(緑の抜け残り・塗りつぶしすぎ・体に空いた穴・
+  1枚に複数キャラ・輪郭のぼろぼろ度・背景の板の残り・真っ黒画像)で落ちたものは
+  保存せずにその場で引き直す
+- 機械で判定できないもの(目の数、情景の焼きこみ、一族としての見え方)は
+  `contact-sheet.mjs` の一覧シートで目視する。シートの地色は**ゲーム内の草の色**にしてある。
+  白地に並べていたころは、キャラの下の明るい円盤や薄い情景が白にまぎれて見えなかった
+- 手で用意した絵は `scripts/manual-sprites.json` に登録され、`--force` でも上書きされず、
+  機械検査からも外れる
 - 生成物は `public/assets/adventure/` に入り、リポジトリにコミットしてある。
   再生成しなくてもそのまま動く
 

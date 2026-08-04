@@ -2,16 +2,26 @@
  * components/guided/MultiplicationColumnSimulator.tsx
  *
  * 2桁×2桁・3桁×3桁など、暗算では非現実的なかけ算の筆算専用エンジン。
- * かける数の各位ごとに部分積を1つずつ入力・採点し(位がずれる筆算のかたち
- * をそのままマスに反映)、最後にすべての部分積をたした答えを入力する。
- * マスターモードでは 手順を示さず、マスを自由に選んで入力→最後に一括採点する。
+ * かける数の各位ごとに部分積を求め、最後にすべての部分積をたした答えを入力する。
+ *
+ * 部分積の入力は、わる数のけた数によらず いつも1けたずつのマスに分けて行う
+ * (wari-hissann3 の DivisionSimulator/MasterDivisionBoard と同じ考え方)。
+ * 1マスに2けたまで入力でき、2けた目(十の位)は繰り上がりとして 左どなりの
+ * マスに 小さく表示される(連鎖して伝わる)。これにより「482×6」のような
+ * 部分積を、まるごと暗算してから入力する必要がなくなり、実際の筆記
+ * (一の位から1けたずつ・繰り上がりは小さく書く)に近い体験になる。
+ * すべての部分積をたす最後の一歩(合計)は、これまでどおり1つの答えとして
+ * まとめて入力する(足し合わせる部分積の数は2〜3個程度で、繰り上がりの
+ * 負担が部分積の計算ほど大きくないため)。
+ * マスターモードでは 手順を示さず、部分積のマスを自由な順番でタップして
+ * 入力し(合計だけは行ごと選択)、最後に一括採点する。
  *
  * エビデンスA: Sweller & Cooper (1985) のワークトイグザンプル効果、
  * および Brown & VanLehn (1980) の「手続き的バグ」理論
  * (位をそろえ間違える・くり上げを忘れる、といった典型的な誤りは
  * 各部分積を個別に確認できるほうが早期に気づける)。
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { GuidedMultiplicationData } from '../../types';
 
 interface Props {
@@ -24,6 +34,7 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   const bStr = b.toString();
   const digitsOfB = bStr.split('').reverse().map(Number); // [ones, tens, hundreds, ...]
   const partials = useMemo(() => digitsOfB.map((d) => a * d), [a, b]); // eslint-disable-line react-hooks/exhaustive-deps
+  const partialStrs = useMemo(() => partials.map((p) => p.toString()), [partials]);
   const finalAnswer = a * b;
   const needsSum = digitsOfB.length > 1;
   const totalWidth = Math.max(a.toString().length + bStr.length, finalAnswer.toString().length, ...partials.map((p) => p.toString().length));
@@ -32,47 +43,93 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   const CELL = 40;
 
   // --- 共通の採点判定 ---
-  const isPartialCorrect = (idx: number, val: string) => val !== '' && parseInt(val, 10) === partials[idx];
   const isSumCorrect = (val: string) => val !== '' && parseInt(val, 10) === finalAnswer;
 
   // ============ マスターモード: 自由選択入力 ============
-  const [masterAnswers, setMasterAnswers] = useState<Record<string, string>>({});
-  const [selectedKey, setSelectedKey] = useState<string | null>(needsSum ? 'p-0' : null);
+  // 部分積は1マスずつ(繰り上がり表示つき)、合計は1行まとめて入力する。
+  const [masterPartialBuffers, setMasterPartialBuffers] = useState<Record<string, string[]>>({});
+  const [masterSum, setMasterSum] = useState('');
+  type MasterSelection = { kind: 'partial'; idx: number; col: number } | { kind: 'sum' } | null;
+  const [masterSelection, setMasterSelection] = useState<MasterSelection>(null);
   const [isGraded, setIsGraded] = useState(false);
   const [hasMistakes, setHasMistakes] = useState(false);
   const [finished, setFinished] = useState(false);
 
+  const buildMasterPartialBuffers = (): Record<string, string[]> => {
+    const out: Record<string, string[]> = {};
+    partialStrs.forEach((s, idx) => { out[`p-${idx}`] = Array(s.length).fill(''); });
+    return out;
+  };
+
+  useEffect(() => {
+    if (!masterMode) return;
+    setMasterPartialBuffers(buildMasterPartialBuffers());
+    setMasterSum('');
+    setMasterSelection({ kind: 'partial', idx: 0, col: partialStrs[0].length - 1 });
+    setIsGraded(false);
+    setHasMistakes(false);
+    setFinished(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a, b, masterMode]);
+
   const handleMasterDigit = (d: string) => {
-    if (!selectedKey || finished) return;
-    setMasterAnswers((prev) => ({ ...prev, [selectedKey]: (prev[selectedKey] ?? '') + d }));
+    if (!masterSelection || finished) return;
+    if (masterSelection.kind === 'sum') {
+      if (masterSum.length < Math.max(finalAnswer.toString().length, 1)) setMasterSum((prev) => prev + d);
+      return;
+    }
+    const key = `p-${masterSelection.idx}`;
+    setMasterPartialBuffers((prev) => {
+      const cur = prev[key]?.[masterSelection.col] ?? '';
+      if (cur.length >= 2) return prev;
+      const cols = [...(prev[key] ?? [])];
+      cols[masterSelection.col] = cur + d;
+      return { ...prev, [key]: cols };
+    });
   };
   const handleMasterBackspace = () => {
-    if (!selectedKey || finished) return;
-    setMasterAnswers((prev) => ({ ...prev, [selectedKey]: (prev[selectedKey] ?? '').slice(0, -1) }));
+    if (!masterSelection || finished) return;
+    if (masterSelection.kind === 'sum') {
+      setMasterSum((prev) => prev.slice(0, -1));
+      return;
+    }
+    const key = `p-${masterSelection.idx}`;
+    setMasterPartialBuffers((prev) => {
+      const cols = [...(prev[key] ?? [])];
+      cols[masterSelection.col] = (cols[masterSelection.col] ?? '').slice(0, -1);
+      return { ...prev, [key]: cols };
+    });
   };
   const doMasterGrading = () => {
     let errors = false;
-    partials.forEach((p, idx) => {
-      if (!isPartialCorrect(idx, masterAnswers[`p-${idx}`] ?? '')) errors = true;
+    partialStrs.forEach((correct, idx) => {
+      const buf = masterPartialBuffers[`p-${idx}`] ?? [];
+      for (let c = 0; c < correct.length; c++) {
+        if ((buf[c] ?? '').slice(-1) !== correct[c]) errors = true;
+      }
     });
-    if (needsSum && !isSumCorrect(masterAnswers.sum ?? '')) errors = true;
+    if (needsSum && !isSumCorrect(masterSum)) errors = true;
     setIsGraded(true);
     setHasMistakes(errors);
     setFinished(!errors);
     onComplete(!errors);
   };
   const resetMaster = () => {
-    setMasterAnswers({});
+    setMasterPartialBuffers(buildMasterPartialBuffers());
+    setMasterSum('');
+    setMasterSelection({ kind: 'partial', idx: 0, col: partialStrs[0].length - 1 });
     setIsGraded(false);
     setHasMistakes(false);
     setFinished(false);
-    setSelectedKey(needsSum ? 'p-0' : null);
   };
 
   // ============ 通常モード: 部分積を1つずつ確認 → 最後に合計 ============
   const [stepIdx, setStepIdx] = useState(0); // 0..partials.length-1 は部分積、その後 'SUM'
   const [enteredPartials, setEnteredPartials] = useState<string[]>([]);
-  const [userInput, setUserInput] = useState('');
+  // 部分積の入力: 位を選んで1マスずつ入力する(2桁入力すると繰り上がりが左のマスに小さく出る)
+  const [cellBuffers, setCellBuffers] = useState<string[]>([]);
+  const [selectedCol, setSelectedCol] = useState<number | null>(null);
+  const [userInput, setUserInput] = useState(''); // 合計(SUMステップ)の入力
   const [mistakeCount, setMistakeCount] = useState(0);
   const [hintRevealed, setHintRevealed] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -82,13 +139,48 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   const isSumStep = stepIdx >= partials.length;
   const currentDigit = digitsOfB[stepIdx];
 
+  // 部分積のステップに入るたび、必要なマス数ぶんの入力バッファを用意し、
+  // いちばん右(一の位)のマスをはじめに選んでおく。
+  useEffect(() => {
+    if (isSumStep || masterMode) return;
+    const len = Math.max(1, partialStrs[stepIdx]?.length ?? 1);
+    setCellBuffers(Array(len).fill(''));
+    setSelectedCol(len - 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIdx, isSumStep, masterMode]);
+
+  const handleCellTap = (col: number) => {
+    if (normalFinished || isSumStep) return;
+    setSelectedCol(col);
+  };
+
   const handleKeypad = (d: string) => {
     if (normalFinished) return;
-    setUserInput((prev) => prev + d);
+    if (isSumStep) {
+      setUserInput((prev) => prev + d);
+      return;
+    }
+    if (selectedCol === null) return;
+    setCellBuffers((prev) => {
+      const cur = prev[selectedCol] ?? '';
+      if (cur.length >= 2) return prev;
+      const next = [...prev];
+      next[selectedCol] = cur + d;
+      return next;
+    });
   };
   const handleBackspace = () => {
     if (normalFinished) return;
-    setUserInput((prev) => prev.slice(0, -1));
+    if (isSumStep) {
+      setUserInput((prev) => prev.slice(0, -1));
+      return;
+    }
+    if (selectedCol === null) return;
+    setCellBuffers((prev) => {
+      const next = [...prev];
+      next[selectedCol] = (next[selectedCol] ?? '').slice(0, -1);
+      return next;
+    });
   };
 
   const shake = () => {
@@ -98,12 +190,14 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   };
 
   const checkStep = () => {
-    if (normalFinished || userInput === '') return;
+    if (normalFinished) return;
     if (!isSumStep) {
-      const digit = currentDigit;
-      if (parseInt(userInput, 10) === a * digit) {
-        setEnteredPartials((prev) => [...prev, userInput]);
-        setUserInput('');
+      const allFilled = cellBuffers.length > 0 && cellBuffers.every((c) => c !== '');
+      const combined = cellBuffers.map((c) => c.slice(-1)).join('');
+      if (allFilled && parseInt(combined, 10) === a * currentDigit) {
+        setEnteredPartials((prev) => [...prev, combined]);
+        setCellBuffers([]);
+        setSelectedCol(null);
         setHintRevealed(false);
         if (stepIdx + 1 >= partials.length && !needsSum) {
           setNormalFinished(true);
@@ -114,11 +208,12 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
       } else {
         setMistakeCount((prev) => prev + 1);
         setHintRevealed(true);
-        setFeedback(`${a} × ${digit} を もういちど 計算してみよう。`);
+        setFeedback(`${a} × ${currentDigit} を もういちど計算してみよう。`);
         shake();
-        setUserInput('');
+        setCellBuffers((prev) => prev.map(() => ''));
       }
     } else {
+      if (userInput === '') return;
       if (parseInt(userInput, 10) === finalAnswer) {
         setEnteredSum(userInput);
         setUserInput('');
@@ -147,7 +242,9 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
         <div className="bg-gradient-to-br from-indigo-950/40 to-amber-950/40 p-4 rounded-2xl border border-red-500/20">
           <h3 className="text-amber-300 font-black text-sm mb-1">👑 マスターモード</h3>
           <p className="text-red-200/80 font-bold text-xs leading-relaxed">
-            ヒントはなしだよ！部分積のマスをタップして、じぶんで じゅんばんを決めながら すべてうめてね。うめおわったら「答え合わせ」だよ。
+            ヒントはなしだよ！部分積のマスをタップして、じぶんで じゅんばんを決めながら すべてうめてね。
+            1マスに2けたまで入力すると、十の位が繰り上がりとして左のマスに小さく出るよ。
+            うめおわったら「答え合わせ」だよ。
           </p>
         </div>
 
@@ -157,23 +254,21 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
             <div className="relative">
               <Row label="×" valStr={bStr} shift={0} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} borderBottom />
             </div>
-            {partials.map((_, idx) => {
-              const key = `p-${idx}`;
-              const isSelected = selectedKey === key;
-              const val = masterAnswers[key] ?? '';
+            {partialStrs.map((correct, idx) => {
+              const buf = masterPartialBuffers[`p-${idx}`] ?? [];
               return (
-                <SelectableRow
-                  key={key}
-                  label={idx === 0 ? '' : ''}
-                  valStr={val}
+                <CellRow
+                  key={idx}
                   shift={idx}
                   totalWidth={totalWidth}
                   rightOffset={rightOffset}
                   cellW={CELL}
-                  isSelected={isSelected}
-                  onSelect={() => !finished && setSelectedKey(key)}
+                  width={correct.length}
+                  buffers={buf}
+                  selectedCol={masterSelection?.kind === 'partial' && masterSelection.idx === idx ? masterSelection.col : null}
+                  onSelectCol={(col) => !finished && setMasterSelection({ kind: 'partial', idx, col })}
                   isGraded={isGraded}
-                  correctVal={partials[idx].toString()}
+                  correctVal={correct}
                   disabled={finished}
                 />
               );
@@ -181,13 +276,13 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
             {needsSum && (
               <SelectableRow
                 label=""
-                valStr={masterAnswers.sum ?? ''}
+                valStr={masterSum}
                 shift={0}
                 totalWidth={totalWidth}
                 rightOffset={rightOffset}
                 cellW={CELL}
-                isSelected={selectedKey === 'sum'}
-                onSelect={() => !finished && setSelectedKey('sum')}
+                isSelected={masterSelection?.kind === 'sum'}
+                onSelect={() => !finished && setMasterSelection({ kind: 'sum' })}
                 isGraded={isGraded}
                 correctVal={finalAnswer.toString()}
                 disabled={finished}
@@ -278,8 +373,23 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
             <Row key={idx} label="" valStr={val} shift={idx} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} />
           ))}
 
+          {/* 現在の部分積の入力ゾーン: 位を選んでマスに入力する。
+              2桁入力すると十の位が繰り上がりとして左のマスに小さく出る。 */}
           {!isSumStep && !normalFinished && (
-            <Row label="" valStr={userInput || '？'} shift={stepIdx} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} highlight />
+            <CellRow
+              shift={stepIdx}
+              totalWidth={totalWidth}
+              rightOffset={rightOffset}
+              cellW={CELL}
+              width={cellBuffers.length || 1}
+              buffers={cellBuffers}
+              selectedCol={selectedCol}
+              onSelectCol={handleCellTap}
+              isGraded={false}
+              correctVal=""
+              disabled={false}
+              activeInput
+            />
           )}
 
           {needsSum && (enteredPartials.length === partials.length) && (
@@ -309,7 +419,7 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
               <h3 className="text-red-300 font-black text-sm mb-1">💡 ヒント</h3>
               <p className="text-red-100/80 font-medium text-xs leading-relaxed whitespace-pre-line">
                 {!isSumStep
-                  ? `${a} × ${currentDigit}(${placeDigitLabel[stepIdx] ?? ''}の位)を 計算しよう。`
+                  ? `${a} × ${currentDigit}(${placeDigitLabel[stepIdx] ?? ''}の位)を、一の位から1けたずつ 計算しよう。2けたになったら 十の位は 左のマスに 小さく書くよ。`
                   : `部分積を すべて たてに たそう。${partials.join(' + ')} = ${finalAnswer}`}
               </p>
             </div>
@@ -343,9 +453,11 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
             </div>
             <button
               onClick={checkStep}
-              disabled={userInput === ''}
+              disabled={isSumStep ? userInput === '' : !cellBuffers.some((c) => c !== '')}
               className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${
-                userInput !== '' ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95' : 'bg-slate-900 text-red-900'
+                (isSumStep ? userInput !== '' : cellBuffers.some((c) => c !== ''))
+                  ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95'
+                  : 'bg-slate-900 text-red-900'
               }`}
             >
               チェック
@@ -380,7 +492,7 @@ const Row: React.FC<{
   );
 };
 
-/** マスターモード用: 行全体をタップで選択できる版 */
+/** マスターモード用: 行全体をタップで選択できる版(合計の入力に使う) */
 const SelectableRow: React.FC<{
   label: string; valStr: string; shift: number; totalWidth: number; rightOffset: number; cellW: number;
   isSelected: boolean; onSelect: () => void; isGraded: boolean; correctVal: string; disabled?: boolean;
@@ -388,8 +500,6 @@ const SelectableRow: React.FC<{
 }> = ({ label, valStr, shift, totalWidth, rightOffset, cellW, isSelected, onSelect, isGraded, correctVal, disabled, borderTop }) => {
   const offset = rightOffset - shift;
   const startIdx = offset - valStr.length + 1;
-  const correctOffset = offset;
-  const correctStartIdx = correctOffset - correctVal.length + 1;
   const isCorrect = isGraded && valStr !== '' && parseInt(valStr, 10) === parseInt(correctVal, 10);
   return (
     <div className={`grid items-center text-center relative h-11 ${borderTop ? 'border-t-2 border-white mt-1' : ''}`} style={{ gridTemplateColumns: `28px repeat(${totalWidth}, ${cellW}px)` }}>
@@ -418,6 +528,60 @@ const SelectableRow: React.FC<{
           <div key={i} className="w-9 h-11 sm:w-10 flex items-center justify-center relative pointer-events-none">
             <span className="text-white">{char}</span>
             {isSelected && !char && i === offset && <span className="text-red-800 animate-pulse">？</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/**
+ * 部分積を1マスずつ入力する行。2けた入力すると、十の位が繰り上がりとして
+ * 左どなりのマスに小さく表示される(wari-hissann3 と同じ仕組み)。
+ * `activeInput` のときは通常モードの「いま計算中」の行として使う。
+ */
+const CellRow: React.FC<{
+  shift: number; totalWidth: number; rightOffset: number; cellW: number;
+  width: number; buffers: string[]; selectedCol: number | null; onSelectCol: (col: number) => void;
+  isGraded: boolean; correctVal: string; disabled?: boolean; activeInput?: boolean;
+}> = ({ shift, totalWidth, rightOffset, cellW, width, buffers, selectedCol, onSelectCol, isGraded, correctVal, disabled, activeInput }) => {
+  const offset = rightOffset - shift;
+  const startIdx = offset - width + 1;
+  return (
+    <div className={`grid items-center text-center relative h-11 ${activeInput ? 'bg-red-500/10 ring-2 ring-red-400/40 rounded-xl mx-1' : ''}`} style={{ gridTemplateColumns: `28px repeat(${totalWidth}, ${cellW}px)` }}>
+      <div className="text-red-400 font-black text-lg flex justify-end pr-1" />
+      {Array(totalWidth).fill(0).map((_, i) => {
+        const within = i >= startIdx && i <= offset;
+        if (!within) return <div key={i} className="w-9 h-11 sm:w-10" />;
+        const localIdx = i - startIdx; // 0=いちばん左(大きい位)
+        const cellBuf = buffers[localIdx] ?? '';
+        const mainChar = cellBuf.slice(-1);
+        const isSelected = selectedCol === localIdx;
+        const rightBuf = buffers[localIdx + 1] ?? '';
+        const carry = rightBuf.length >= 2 ? rightBuf.slice(0, -1) : null;
+        let display: React.ReactNode = mainChar;
+        if (mainChar && isGraded) {
+          const correct = mainChar === correctVal[localIdx];
+          display = <span className={correct ? 'text-emerald-400 font-extrabold' : 'text-rose-400 font-extrabold bg-rose-950/60 px-1 rounded'}>{mainChar}</span>;
+        }
+        return (
+          <div key={i} className="w-9 h-11 sm:w-10 flex items-center justify-center relative">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelectCol(localIdx)}
+              className={`w-9 h-11 sm:w-10 flex items-center justify-center rounded-lg transition-all ${
+                isSelected ? 'bg-slate-900 ring-2 ring-red-400 ring-inset' : 'bg-red-500/5 ring-1 ring-red-500/20 hover:bg-red-500/10'
+              }`}
+            >
+              <span className="text-white">{display}</span>
+              {isSelected && !mainChar && <span className="text-red-800 animate-pulse absolute">？</span>}
+            </button>
+            {carry && (
+              <span className="absolute -top-1 right-0.5 text-[11px] font-black text-amber-400 bg-amber-950/80 border border-amber-500/40 rounded px-1 leading-tight z-10">
+                {carry}
+              </span>
+            )}
           </div>
         );
       })}

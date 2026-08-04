@@ -1,0 +1,9 @@
+# まだ新デザインで作り直せていないスプライトの一覧。
+# Cloudflare の無料枠(10,000 neurons/日)が細かく切れるため、少しずつしか進まない。
+# 枠が回復したら、そのまま流せば続きから作れる。
+#
+#   node scripts/gen-cf-sprites.mjs --force --list scripts/regen-pending.txt
+#
+# 前回ここにあった53体は、ユーザーが用意した画像を
+# scripts/import-sprite.mjs で取りこんで完了した(scripts/manual-sprites.json に登録済み)。
+# 現在、残作業はなし。
