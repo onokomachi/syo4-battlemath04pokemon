@@ -4,60 +4,6 @@
 #
 #   node scripts/gen-cf-sprites.mjs --force --list scripts/regen-pending.txt
 #
-# 「輪郭が食われている」で3日連続失敗していた15体は、モチーフを直した
-# (体から離れた飾り・まき散らし・双頭・細長い胴を、体にくっついた表現に書きかえた)。
-# 次に流すときは、無駄なリトライが減っているはず。
-#
-monsters/evo-057
-monsters/evo-062
-monsters/evo-064
-monsters/evo-065
-monsters/evo-066
-monsters/evo-072
-monsters/evo-074
-monsters/evo-076
-monsters/evo-082
-monsters/evo-088
-monsters/evo-089
-monsters/evo-090
-monsters/evo-094
-monsters/evo-095
-monsters/evo-097
-monsters/evo-099
-monsters/evo-108
-monsters/evo-111
-monsters/evo-113
-monsters/evo-116
-monsters/evo-120
-monsters/evo-125
-monsters/evo-129
-monsters/evo-134
-monsters/evo-136
-monsters/evo-138
-monsters/evo-139
-monsters/evo-141
-monsters/evo-146
-monsters/legend-keisan
-monsters/legend-bunsu
-monsters/legend-graph
-monsters/legend-zukei
-monsters/mythical-zero
-monsters/mon-129
-monsters/mon-115
-monsters/mon-116
-monsters/mon-146
-monsters/mon-150
-monsters/mon-151
-monsters/boss-002
-monsters/boss-006
-monsters/boss-010
-monsters/evo-004
-monsters/evo-010
-monsters/evo-014
-monsters/evo-021
-monsters/evo-020
-monsters/evo-048
-monsters/evo-054
-monsters/evo-046
-monsters/evo-042
-monsters/evo-040
+# 前回ここにあった53体は、ユーザーが用意した画像を
+# scripts/import-sprite.mjs で取りこんで完了した(scripts/manual-sprites.json に登録済み)。
+# 現在、残作業はなし。

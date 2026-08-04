@@ -10,6 +10,9 @@
  *   node scripts/import-sprite.mjs <入力画像> <出力名>
  *   node scripts/import-sprite.mjs ~/dl/ice.png monsters/legend-shosu
  *
+ * 背景はグリーンバック・マゼンタバック・市松模様のどれでも自動判定する。
+ * 伝説級など、キャラを枠いっぱいに大きく収めたいときは --large を付ける。
+ *
  * 取りこんだ絵は scripts/manual-sprites.json に記録され、
  * gen-sprites.mjs が上書きしないようになる。
  */
@@ -22,9 +25,11 @@ const OUT_ROOT = path.join(root, 'public', 'assets', 'adventure');
 const MANUAL_LIST = path.join(root, 'scripts', 'manual-sprites.json');
 const SPRITE_SIZE = 256;
 
-const [input, outName] = process.argv.slice(2);
+const args = process.argv.slice(2).filter(a => a !== '--large');
+const large = process.argv.includes('--large');
+const [input, outName] = args;
 if (!input || !outName) {
-  console.error('使い方: node scripts/import-sprite.mjs <入力画像> <出力名>');
+  console.error('使い方: node scripts/import-sprite.mjs <入力画像> <出力名> [--large]');
   process.exit(1);
 }
 
@@ -115,17 +120,17 @@ function removeChecker(data, w, h) {
 }
 
 /**
- * 一色のクロマキー背景(グリーンバック)を落とす。
+ * 一色のクロマキー背景(グリーンバック or マゼンタバック)を落とす。
  *
  * 市松模様とちがい、こちらは色で見分けるだけでよい。JPEGだとふちに
- * 緑がにじむので、抜いたあとに残った緑かぶりも落としておく。
+ * 背景色がにじむので、抜いたあとに残ったにじみも落としておく。
  */
-function removeChroma(data, w, h, bg) {
+function removeChroma(data, w, h, bg, kind) {
   const at = (x, y) => (y * w + x) * 4;
-  const greenish = i => {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    return g - Math.max(r, b) > 45;
-  };
+  // green: 緑だけが強い。magenta: 赤と青がそろって強く、緑だけ弱い。
+  const isBg = kind === 'green'
+    ? i => data[i + 1] - Math.max(data[i], data[i + 2]) > 45
+    : i => Math.min(data[i], data[i + 2]) - data[i + 1] > 45;
 
   const visited = new Uint8Array(w * h);
   const stack = [];
@@ -138,7 +143,7 @@ function removeChroma(data, w, h, bg) {
     const p = y * w + x;
     if (visited[p]) continue;
     const i = p * 4;
-    if (!greenish(i)) continue;
+    if (!isBg(i)) continue;
     visited[p] = 1;
     data[i + 3] = 0;
     stack.push(x + 1, y); stack.push(x - 1, y);
@@ -146,18 +151,18 @@ function removeChroma(data, w, h, bg) {
   }
 
   // 翼と胴のあいだのように「キャラに囲まれた背景」は、ふちからの
-  // 塗りつぶしでは届かず、緑のまま残る。ここは色だけで判断して消す。
-  // (取りこむ絵に緑色のキャラがいないことが前提。いる場合は
-  //  グリーンバック以外で用意してもらう)
+  // 塗りつぶしでは届かず、背景色のまま残る。ここは色だけで判断して消す。
+  // (取りこむ絵に背景と同系色のキャラがいないことが前提。いる場合は
+  //  別のクロマキー色で用意してもらう)
   let enclosed = 0;
   for (let p = 0; p < w * h; p++) {
     const i = p * 4;
     if (data[i + 3] === 0) continue;
-    if (greenish(i)) { data[i + 3] = 0; enclosed++; }
+    if (isBg(i)) { data[i + 3] = 0; enclosed++; }
   }
-  if (enclosed) console.log(`  囲まれた緑 ${enclosed}画素も消した`);
+  if (enclosed) console.log(`  囲まれた背景色 ${enclosed}画素も消した`);
 
-  // ふちの緑かぶりを落とす(JPEGのにじみ対策で2周ぶん)
+  // ふちの背景色かぶりを落とす(JPEGのにじみ対策で2周ぶん)
   for (let pass = 0; pass < 2; pass++) {
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
@@ -168,16 +173,24 @@ function removeChroma(data, w, h, bg) {
           data[at(x, y + 1) + 3] === 0 || data[at(x, y - 1) + 3] === 0;
         if (!touches) continue;
         const r = data[i], g = data[i + 1], b = data[i + 2];
-        if (g > r && g > b) {
-          const cap = Math.round((r + b) / 2);
-          // 緑が強く残っている画素は、背景のにじみなので消してしまう
-          if (g - Math.max(r, b) > 30) { data[i + 3] = 0; continue; }
-          data[i + 1] = Math.max(cap, Math.round(g * 0.75));
+        if (kind === 'green') {
+          if (g > r && g > b) {
+            const cap = Math.round((r + b) / 2);
+            if (g - Math.max(r, b) > 30) { data[i + 3] = 0; continue; }
+            data[i + 1] = Math.max(cap, Math.round(g * 0.75));
+          }
+        } else {
+          if (r > g && b > g) {
+            const cap = Math.round((r + b) / 2 * 0.75);
+            if (Math.min(r, b) - g > 30) { data[i + 3] = 0; continue; }
+            data[i] = Math.min(r, cap);
+            data[i + 2] = Math.min(b, cap);
+          }
         }
       }
     }
   }
-  console.log(`  グリーンバック (${bg.r},${bg.g},${bg.b}) を抜いた`);
+  console.log(`  ${kind === 'green' ? 'グリーン' : 'マゼンタ'}バック (${bg.r},${bg.g},${bg.b}) を抜いた`);
 }
 
 /** いちばん大きなかたまりだけ残す(隅の透かしなどを落とすため) */
@@ -234,19 +247,25 @@ const src = sharp(input).ensureAlpha();
 const { data, info } = await src.raw().toBuffer({ resolveWithObject: true });
 console.log(`${input} → ${outName}`);
 
-// 背景が「一色の緑」なのか「市松模様」なのかを、ふちの色から見分ける
+// 背景が「一色の緑・マゼンタ」なのか「市松模様」なのかを、ふちの色の
+// 最頻値(いちばん多い色)から見分ける。中央値だとキャラが画像の端まで
+// はみ出しているときにずれることがあったので、頻度で見る。
 {
   const w = info.width, h = info.height;
   const at = (x, y) => (y * w + x) * 4;
-  const samples = [];
-  for (let x = 0; x < w; x += 4) { samples.push(at(x, 0), at(x, h - 1)); }
-  for (let y = 0; y < h; y += 4) { samples.push(at(0, y), at(w - 1, y)); }
-  const med = ch => {
-    const v = samples.map(i => data[i + ch]).sort((a, b) => a - b);
-    return v[Math.floor(v.length / 2)];
+  const counts = new Map();
+  const bump = (x, y) => {
+    const i = at(x, y);
+    const key = `${data[i] >> 3},${data[i + 1] >> 3},${data[i + 2] >> 3}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
   };
-  const bg = { r: med(0), g: med(1), b: med(2) };
-  if (bg.g - Math.max(bg.r, bg.b) > 60) removeChroma(data, w, h, bg);
+  for (let x = 0; x < w; x++) { bump(x, 0); bump(x, h - 1); }
+  for (let y = 0; y < h; y++) { bump(0, y); bump(w - 1, y); }
+  const [modeKey] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const [mr, mg, mb] = modeKey.split(',').map(v => (Number(v) << 3) + 4);
+  const bg = { r: mr, g: mg, b: mb };
+  if (bg.g - Math.max(bg.r, bg.b) > 45) removeChroma(data, w, h, bg, 'green');
+  else if (Math.min(bg.r, bg.b) - bg.g > 45) removeChroma(data, w, h, bg, 'magenta');
   else removeChecker(data, w, h);
 }
 keepLargestBlob(data, info.width, info.height);
@@ -266,7 +285,7 @@ const png = await sharp({
 })
   .composite([{
     input: await sharp(cropped)
-      .resize(SPRITE_SIZE - 12, SPRITE_SIZE - 12, { fit: 'inside', withoutEnlargement: false })
+      .resize(SPRITE_SIZE - (large ? 4 : 12), SPRITE_SIZE - (large ? 4 : 12), { fit: 'inside', withoutEnlargement: false })
       .toBuffer(),
     gravity: 'center',
   }])
