@@ -45,6 +45,10 @@ const TRACKS: Record<string, string> = {
   'わり算の筆算(÷2けた)': `${BASE}assets/adventure/audio/unit-division-2digit.mp3`,
   'がい数': `${BASE}assets/adventure/audio/unit-rounding.mp3`,
   '小数のかけ算とわり算': `${BASE}assets/adventure/audio/unit-decimals.mp3`,
+  '計算のきまり': `${BASE}assets/adventure/audio/unit-calc-rules.mp3`,
+  '直方体と立方体': `${BASE}assets/adventure/audio/unit-cuboid-cube.mp3`,
+  '倍の見方': `${BASE}assets/adventure/audio/unit-multiples.mp3`,
+  '面積': `${BASE}assets/adventure/audio/unit-area.mp3`,
 };
 
 let fieldEl: HTMLAudioElement | null = null;
