@@ -6,8 +6,13 @@
  * 最初は1つの要素を使い回していたが、それだと「バトルに入る→町の曲が止まる→
  * バトルが終わって町の曲を鳴らしなおす」の最後の一手が必ず頭出しになり、
  * バトルのたびに町の曲が最初から流れなおして煩わしい、という声があった。
- * フィールドの曲は鳴らしっぱなしにして、バトル中は音量を0にするだけにすれば、
- * バトルが終わったときに続きから聞こえる。
+ *
+ * バトル中のフィールド曲の無音化は、音量を0にするのではなく pause() でやる。
+ * iOS Safari(iPadのWebView含む)は HTMLMediaElement.volume の書きかえを無視し、
+ * 実機の音量ボタンにしか従わない仕様があり、volume=0 にしても実際には
+ * 無音にならず「バトル中もフィールドの曲が聞こえて二重に鳴る」形で
+ * 実際に報告があった。pause() は currentTime を巻きもどさないので、
+ * 再開すれば続きから聞こえる点は volume=0 方式と同じまま保てる。
  *
  * パフォーマンスへの配慮:
  *  - 起動時には何も読みこまない。音声ファイルを作るのは初めて鳴らすときだけ
@@ -67,8 +72,9 @@ const getBattleEl = (): HTMLAudioElement => {
 };
 
 /**
- * フィールドの曲を鳴らす。同じ曲がすでに鳴っている(バトルからの復帰など)
- * ときは頭出ししない。存在しない曲名(まだBGMが無い単元)は無音にする。
+ * フィールドの曲を鳴らす。同じ曲がすでに読みこまれている(バトルからの復帰など)
+ * ときは頭出ししない(pause で止まっていた場合、そこから再開するだけ)。
+ * 存在しない曲名(まだBGMが無い単元)は無音にする。
  */
 export const playFieldBgm = (track: string) => {
   const src = TRACKS[track];
@@ -83,14 +89,13 @@ export const playFieldBgm = (track: string) => {
     a.src = src;
     a.currentTime = 0;
   }
-  a.volume = FIELD_VOLUME;
   // 自動再生がブラウザにブロックされても例外を投げない
   void a.play().catch(() => {});
 };
 
-/** バトル中、フィールドの曲を無音にする(止めない。再生位置はそのまま進む)。 */
+/** バトル中、フィールドの曲を止める(currentTimeは巻きもどさないので、続きから聞こえる)。 */
 export const muteFieldBgm = () => {
-  if (fieldEl) fieldEl.volume = 0;
+  if (fieldEl) fieldEl.pause();
 };
 
 export const playBattleBgm = () => {
@@ -99,7 +104,6 @@ export const playBattleBgm = () => {
   const a = getBattleEl();
   a.src = src;
   a.currentTime = 0;
-  a.volume = BATTLE_VOLUME;
   void a.play().catch(() => {});
 };
 
