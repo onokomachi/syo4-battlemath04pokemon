@@ -12,6 +12,7 @@ import type {
 import type { ItemId } from '../../data/adventure/adventureTypes';
 import { TOWNS, SPAWN, BADGE_NAMES, getTown } from '../../data/adventure/towns';
 import { MONSTERS_BY_UNIT, getMonster, getMonsterSprite } from '../../data/adventure/monsters';
+import { ALL_PROBLEM_SETS } from '../../data';
 import { ELEMENTS } from '../../data/adventure/elements';
 import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure/people';
 import {
@@ -25,7 +26,7 @@ import {
   LEAGUE_TOWN, LEAGUE_SPAWN, buildLeagueNpcs, leagueCorridor,
 } from '../../data/adventure/league';
 import FieldScene, { type FieldControl } from './field/FieldScene';
-import { playFieldBgm, muteFieldBgm, stopAllBgm } from './audio/bgm';
+import { playFieldBgm, muteFieldBgm, stopAllBgm, isBgmMuted, setBgmMuted } from './audio/bgm';
 import { ActionButton, VirtualPad } from './ui/VirtualPad';
 import { DialogueBox } from './ui/DialogueBox';
 import BattleScreen from './BattleScreen';
@@ -64,6 +65,14 @@ const AdventureMode: React.FC<Props> = ({
   const store = useAdventureStore();
 
   const [overlay, setOverlay] = useState<Overlay>('none');
+  const [bgmMuted, setBgmMutedState] = useState(() => isBgmMuted());
+  const toggleBgmMuted = useCallback(() => {
+    setBgmMutedState(prev => {
+      const next = !prev;
+      setBgmMuted(next);
+      return next;
+    });
+  }, []);
   const [battle, setBattle] = useState<BattleSetup | null>(null);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
@@ -169,6 +178,20 @@ const AdventureMode: React.FC<Props> = ({
     if (!inputEnabled) { control.current.moveX = 0; control.current.moveY = 0; control.current.target = null; }
   }, [inputEnabled]);
 
+  // ---- 出題数の調整 ----
+  // 筆算シミュレーター(division-hissan / multiplication-hissan / decimal-addsub /
+  // decimal-muldiv)は1問あたりの操作数が多い(3けた×3けたなどは1問で30タップ近い)。
+  // 野生3〜5問・トレーナー戦3問という一律の出題数だと、この手の単元に当たった
+  // だけで1戦が極端に長くなり、子どもの根気を超えてしまう。単元の顔である
+  // マスター戦(ジムリーダー)はそのまま、野生・トレーナー戦だけ少なくする。
+  const SLOW_GUIDED_KINDS = new Set(['division-hissan', 'multiplication-hissan', 'decimal-addsub', 'decimal-muldiv']);
+  const isSlowGuidedSubtopic = useCallback((subtopic: string | undefined): boolean => {
+    if (!subtopic) return false;
+    const guidedKind = (ALL_PROBLEM_SETS[subtopic]?.[0]?.data as { guidedKind?: string } | undefined)?.guidedKind;
+    return !!guidedKind && SLOW_GUIDED_KINDS.has(guidedKind);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ---- 野生のエンカウント ----
   const handleEncounter = useCallback(() => {
     if (battle || dialogue) return;
@@ -179,11 +202,11 @@ const AdventureMode: React.FC<Props> = ({
     setBattle({
       kind: 'wild',
       opponents: [{ defId: def.id, level }],
-      questionsPerOpponent: 3 + Math.floor(Math.random() * 3),  // 3〜5問
+      questionsPerOpponent: isSlowGuidedSubtopic(def.subtopic) ? 2 : 3 + Math.floor(Math.random() * 3),  // 3〜5問(重い筆算単元は2問)
       catchable: true,
       townId: town.id,
     });
-  }, [battle, dialogue, town]);
+  }, [battle, dialogue, town, isSlowGuidedSubtopic]);
 
   // ---- NPCに話しかける ----
   const interact = useCallback(() => {
@@ -385,6 +408,9 @@ const AdventureMode: React.FC<Props> = ({
       });
       return;
     }
+    const trainerSubtopics = npc.subtopics
+      ?? (npc.party ?? []).map(o => getMonster(o.defId)?.subtopic).filter((s): s is string => Boolean(s));
+    const trainerHasSlowGuided = trainerSubtopics.some(isSlowGuidedSubtopic);
     setDialogue({
       speaker: npc.name, portrait, accent,
       lines: npc.lines,
@@ -397,7 +423,7 @@ const AdventureMode: React.FC<Props> = ({
           trainerAfterLines: npc.afterLines,
           opponents: npc.party ?? [],
           subtopics: npc.subtopics,
-          questionsPerOpponent: npc.kind === 'master' ? 4 : 3,
+          questionsPerOpponent: npc.kind === 'master' ? 4 : trainerHasSlowGuided ? 2 : 3,
           catchable: false,
           reward: npc.reward,
           townId: town.id,
@@ -405,7 +431,7 @@ const AdventureMode: React.FC<Props> = ({
         });
       },
     });
-  }, [inputEnabled, town, save.defeatedNpcs, store]);
+  }, [inputEnabled, town, save.defeatedNpcs, store, isSlowGuidedSubtopic]);
 
   /** テキトウ団の手持ち。担当単元のモンスターから決定的に選ぶ。 */
   const pickTeamParty = useCallback(
@@ -873,6 +899,12 @@ const AdventureMode: React.FC<Props> = ({
         </div>
 
         <div className="pointer-events-auto flex flex-wrap justify-end gap-1.5 sm:gap-2 max-w-[62%]">
+          <button
+            onClick={toggleBgmMuted}
+            className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/90 shadow-lg font-black text-slate-700 text-sm sm:text-base active:scale-95"
+          >
+            {bgmMuted ? '🔇 BGM' : '🔊 BGM'}
+          </button>
           {([
             ['💾 セーブ', () => setOverlay('save')],
             ['🗺 マップ', () => setOverlay('map')],
