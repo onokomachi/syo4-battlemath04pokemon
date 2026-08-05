@@ -22,6 +22,8 @@ import { getAllMastery } from '../services/learningLogService';
 import type { OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
 
 const KEY = 'bm_adventure_v1';
+const SLOTS_KEY = 'bm_adventure_slots_v1';
+export const SLOT_COUNT = 5;
 
 export interface AdventureSave {
   /** ゲームを始めたか */
@@ -95,6 +97,30 @@ const persist = (save: AdventureSave) => {
   try { localStorage.setItem(KEY, JSON.stringify(save)); } catch { /* 容量超過などは無視 */ }
 };
 
+/**
+ * セーブスロット(手動で5つまで)。
+ *
+ * ふだんの自動セーブ(KEY, bm_adventure_v1)とは別に持つ。「いまの進行」と
+ * 「手でここまでと決めて残した記録」を分けたいので、スロットは明示的に
+ * 保存ボタンを押したときだけ書きかわる。
+ */
+const loadSlots = (): (AdventureSave | null)[] => {
+  try {
+    const raw = localStorage.getItem(SLOTS_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return Array.from({ length: SLOT_COUNT }, (_, i) => arr[i] ?? null);
+      }
+    }
+  } catch { /* 壊れていたら空きスロットぶんとして扱う */ }
+  return Array.from({ length: SLOT_COUNT }, () => null);
+};
+
+const persistSlots = (slots: (AdventureSave | null)[]) => {
+  try { localStorage.setItem(SLOTS_KEY, JSON.stringify(slots)); } catch { /* 容量超過などは無視 */ }
+};
+
 /** プレイヤー自身のHP。手持ちのレベルが上がるほど伸びる。 */
 export const playerMaxHp = (save: AdventureSave): number => {
   const levels = save.party
@@ -110,10 +136,16 @@ const newUid = () => `o${Date.now().toString(36)}${(uidCounter++).toString(36)}`
 
 interface AdventureState {
   save: AdventureSave;
+  /** 手動セーブスロット(SLOT_COUNT個ぶん。空きは null) */
+  slots: (AdventureSave | null)[];
 
   // --- 進行 ---
   startGame: (name: string, appearance: 'boy' | 'girl', starterDefId: string) => void;
   resetGame: () => void;
+  /** いまの進行をスロットに書きこむ(上書き) */
+  saveToSlot: (index: number) => void;
+  /** スロットの記録を、いまの進行として読みこむ */
+  loadFromSlot: (index: number) => void;
   setTown: (townId: string) => void;
   markEvent: (id: string) => boolean;
   markNpcDefeated: (npcId: string) => void;
@@ -156,6 +188,24 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
 
   return {
     save: load(),
+    slots: loadSlots(),
+
+    saveToSlot: index => {
+      const { save, slots } = get();
+      const next = slots.slice();
+      next[index] = { ...save, updatedAt: Date.now() };
+      persistSlots(next);
+      set({ slots: next });
+    },
+
+    loadFromSlot: index => {
+      const { slots } = get();
+      const slot = slots[index];
+      if (!slot) return;
+      const next = { ...emptySave(), ...slot, updatedAt: Date.now() };
+      persist(next);
+      set({ save: next });
+    },
 
     startGame: (playerName, appearance, starterDefId) => {
       const starter: OwnedMonster = {

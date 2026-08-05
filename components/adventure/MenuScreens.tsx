@@ -20,7 +20,7 @@ import {
 import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { getPlayerSprite } from '../../data/adventure/people';
 
-const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
+export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
   title, onClose, children, accent = '#0ea5e9',
 }) => (
   <div className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm flex flex-col">

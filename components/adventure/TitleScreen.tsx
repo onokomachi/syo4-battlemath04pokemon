@@ -27,8 +27,10 @@ const HIRAGANA_ROWS = [
 const TitleScreen: React.FC<{
   onStart: (name: string, appearance: 'boy' | 'girl', starterDefId: string) => void;
   onExit: () => void;
+  /** セーブスロットの画面を開く(すでにある記録から続きを選べるように) */
+  onOpenSaveSlots: () => void;
   defaultName?: string;
-}> = ({ onStart, onExit, defaultName }) => {
+}> = ({ onStart, onExit, onOpenSaveSlots, defaultName }) => {
   const [step, setStep] = useState<'opening' | 'name' | 'look' | 'starter' | 'closing'>('opening');
   const [name, setName] = useState(defaultName ?? '');
   const [appearance, setAppearance] = useState<'boy' | 'girl'>('boy');
@@ -54,6 +56,12 @@ const TitleScreen: React.FC<{
           ]}
           onDone={() => setStep('name')}
         />
+        <button
+          onClick={onOpenSaveSlots}
+          className="absolute top-4 right-4 z-50 px-4 py-2.5 rounded-2xl bg-white/90 shadow-lg font-black text-slate-700 text-sm sm:text-base active:scale-95"
+        >
+          💾 セーブデータ
+        </button>
       </div>
     );
   }
