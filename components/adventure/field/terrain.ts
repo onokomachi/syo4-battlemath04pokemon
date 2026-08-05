@@ -52,8 +52,8 @@ const landmarkPoints = (size: number) => {
     { x: -size * 0.26, z: size * 0.05, r: 3 },  // トレーナーA
     { x: size * 0.28, z: -size * 0.16, r: 3 },  // トレーナーB
     { x: 0, z: -half + 9, r: 6.5 },             // 道場(いちばん大きい建物)
-    { x: half * 0.55, z: -half * 0.25, r: 4 },  // 祠(1体目)
-    { x: half * 0.55, z: -half * 0.05, r: 4 },  // 祠(2体目ぶんの余裕)
+    { x: half * 0.72, z: -half * 0.62, r: 4 },                // 祠(1体目)
+    { x: half * 0.72, z: -half * 0.62 + half * 0.12, r: 4 },  // 祠(2体目ぶんの余裕)
     { x: -half * 0.42, z: half * 0.30, r: 3 },  // テキトウ団
     { x: -half * 0.3, z: -half * 0.42, r: 3 },  // アジトの入口
   ];
