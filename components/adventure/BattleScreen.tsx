@@ -320,6 +320,46 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setPhase('result');
   }, [problem, userAnswer, showAnswer, isRetry, hintPenalty, ability, save.maxHp]);
 
+  /**
+   * 「わからない」— どうしても分からない問題を、その場であきらめる。
+   * 不正解あつかい(ふくしゅうモードに登録・ダメージを受ける)にはなるが、
+   * ヒントを出してもう一度…という手順を飛ばして、すぐに正解と解説を見せる。
+   * isRetry を true にしておくことで、以降は submit() の「まちがえたら
+   * もう一度」の分岐に入らず、そのまま次の問題に進む既存の流れをそのまま使う。
+   */
+  const giveUp = useCallback(() => {
+    if (!problem || showAnswer) return;
+    setWasCorrect(false);
+    setUserAnswer('');
+    setIsRetry(true);
+    setShowAnswer(true);
+
+    const timeSec = Math.round((Date.now() - startedAt.current) / 1000);
+    recordProblemLog({
+      mode: 'battle',
+      subTopic: problem.subTopic,
+      question: (problem.data as any)?.question ?? problem.subTopic,
+      userAnswer: '(わからない)',
+      correct: false,
+      timeSec,
+    });
+    recordAttempt(problem.subTopic, false);
+    streak.current = 0;
+    stats.current.incorrect += 1;
+    addIncorrectToSrs(
+      problem.subTopic,
+      (problem.data as any)?.question ?? problem.subTopic,
+      problem.answer,
+      problem.type,
+    );
+
+    const dmg = damageToPlayer();
+    setHp(v => Math.max(0, v - dmg));
+    setFlash('hurt');
+    window.setTimeout(() => setFlash('none'), 520);
+    setPhase('result');
+  }, [problem, showAnswer]);
+
   /** ガイド付き問題(筆算シミュレーターなど)は自分で正誤を返してくる */
   const handleGuidedComplete = (correct: boolean) => {
     if (showAnswer) return;
@@ -761,6 +801,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             ⚔ こうげき！
           </button>
         )}
+        {problem?.type !== 'guided' && (
+          <button
+            onClick={giveUp}
+            disabled={showAnswer}
+            title="正解と 解説を 見る(不正解あつかいになるよ)"
+            className="px-4 py-3 rounded-xl bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:text-slate-500 text-slate-100 font-black text-xs sm:text-sm shadow active:scale-95 shrink-0"
+          >
+            🤔 わからない
+          </button>
+        )}
       </div>
     </div>
   );
@@ -788,6 +838,13 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         {wasCorrect && typeMult !== 1 && (
           <p className={`mt-1 text-center text-base font-black ${typeMult > 1 ? 'text-emerald-600' : 'text-slate-500'}`}>
             {getTypeMatchupLabel(typeMult)}
+          </p>
+        )}
+        {wasCorrect && (isRetry || hintPenalty) && (
+          <p className="mt-1 text-center text-sm font-black text-amber-600">
+            {hintPenalty && !isRetry
+              ? '💡 ヒントを見たので、こうげきが 弱くなったよ。'
+              : '🔄 もういちどの ちょうせんなので、こうげきが 弱くなったよ。'}
           </p>
         )}
 

@@ -49,11 +49,20 @@ const TRACKS: Record<string, string> = {
   '直方体と立方体': `${BASE}assets/adventure/audio/unit-cuboid-cube.mp3`,
   '倍の見方': `${BASE}assets/adventure/audio/unit-multiples.mp3`,
   '面積': `${BASE}assets/adventure/audio/unit-area.mp3`,
+  '分数': `${BASE}assets/adventure/audio/unit-fractions.mp3`,
+};
+
+const MUTE_KEY = 'bm_bgm_muted';
+const loadMuted = (): boolean => {
+  try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; }
 };
 
 let fieldEl: HTMLAudioElement | null = null;
 let fieldTrack: string | null = null;
 let battleEl: HTMLAudioElement | null = null;
+let muted = loadMuted();
+/** いまバトル曲を鳴らすべき区間か(ミュート解除時に何を再開すべきかの判断に使う) */
+let battleActive = false;
 
 const getFieldEl = (): HTMLAudioElement => {
   if (!fieldEl) {
@@ -93,8 +102,8 @@ export const playFieldBgm = (track: string) => {
     a.src = src;
     a.currentTime = 0;
   }
-  // 自動再生がブラウザにブロックされても例外を投げない
-  void a.play().catch(() => {});
+  // 自動再生がブラウザにブロックされても例外を投げない。ミュート中は鳴らさない。
+  if (!muted) void a.play().catch(() => {});
 };
 
 /** バトル中、フィールドの曲を止める(currentTimeは巻きもどさないので、続きから聞こえる)。 */
@@ -103,15 +112,17 @@ export const muteFieldBgm = () => {
 };
 
 export const playBattleBgm = () => {
+  battleActive = true;
   const src = TRACKS.battle;
   if (!src) return;
   const a = getBattleEl();
   a.src = src;
   a.currentTime = 0;
-  void a.play().catch(() => {});
+  if (!muted) void a.play().catch(() => {});
 };
 
 export const stopBattleBgm = () => {
+  battleActive = false;
   if (!battleEl) return;
   battleEl.pause();
   battleEl.currentTime = 0;
@@ -119,7 +130,37 @@ export const stopBattleBgm = () => {
 
 /** アドベンチャーそのものを抜けるときに、フィールド・バトルどちらも完全に止める。 */
 export const stopAllBgm = () => {
+  battleActive = false;
   if (fieldEl) { fieldEl.pause(); fieldEl.currentTime = 0; }
   if (battleEl) { battleEl.pause(); battleEl.currentTime = 0; }
   fieldTrack = null;
+};
+
+// ============================================================
+// ミュート切りかえ(画面のスイッチから呼ぶ)
+// ============================================================
+
+export const isBgmMuted = (): boolean => muted;
+
+/**
+ * BGMのオン/オフを切りかえる。ここも volume ではなく pause()/play() で行う
+ * (iOS Safari が volume の書きかえを無視する問題への対処。ファイル冒頭の
+ * コメント参照)。次回起動時も覚えているよう localStorage に残す。
+ */
+export const setBgmMuted = (next: boolean) => {
+  muted = next;
+  try { localStorage.setItem(MUTE_KEY, next ? '1' : '0'); } catch { /* 容量超過などは無視 */ }
+  if (muted) {
+    fieldEl?.pause();
+    battleEl?.pause();
+    return;
+  }
+  // 解除: いまバトル中なら バトル曲だけを再開する
+  // (フィールド曲は「バトル中は鳴らさない」という前提を崩さないため触らない)。
+  // バトル中でなければ、読みこみずみのフィールド曲を再開する。
+  if (battleActive) {
+    if (battleEl) void battleEl.play().catch(() => {});
+  } else if (fieldTrack && fieldEl) {
+    void fieldEl.play().catch(() => {});
+  }
 };

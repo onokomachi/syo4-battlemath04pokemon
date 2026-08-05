@@ -162,7 +162,7 @@ const groupedDigits = (n: number): string => {
 const kuraiBase: Problem[] = [
   t('1429400000000 の いちばん左の「1」は 何の位ですか。', '一兆の位', {
     options: ['一兆の位', '千億の位', '一億の位', '百億の位'],
-    hint: ['右から 4けたずつ「万・億・兆」と 区切ってみよう。', '1 4294 0000 0000 → 1は 兆の部屋の 一の位、つまり 一兆の位だね。'],
+    hint: ['右から 4けたずつ「万・億・兆」と 区切ってみよう。', '1 4294 0000 0000 → 1は 兆の部屋の 一の位に あるね。'],
   }),
   t('1429400000000 の「2」は 何の位ですか。', '百億の位', {
     options: ['百億の位', '十億の位', '千億の位', '一億の位'],
@@ -170,11 +170,11 @@ const kuraiBase: Problem[] = [
   }),
   t('79 2000 0000 の「9」は、何が 9こ あることを 表していますか。', '1000万', {
     options: ['1000万', '100万', '1億', '10億'],
-    hint: ['9は 千万の位に あるね。', '1000万が 9こで 9000万だよ。'],
+    hint: ['9は 千万の位に あるね。', '千万の位は どれくらいの 大きさを 表すか、考えよう。'],
   }),
   t('35 9480 0000 0000 の「3」は、何が 3こ あることを 表していますか。', '10兆', {
     options: ['10兆', '1兆', '1000億', '100億'],
-    hint: ['3は 十兆の位に あるよ。10兆が 3こ分だね。'],
+    hint: ['3は 十兆の位に あるよ。十兆の位は どれくらいの 大きさを 表すか、考えよう。'],
   }),
   t('9876543210 の「8」は 何の位ですか。', '億の位', {
     options: ['億の位', '十億の位', '千万の位', '百万の位'],
@@ -234,19 +234,19 @@ const kurai: Problem[] = [...kuraiBase, ...kuraiExtra];
 // ---- いろいろな見方 ----
 const mikataBase: Problem[] = [
   t('17兆2000億は、100億を 何こ 集めた数ですか。', '1720', {
-    hint: ['17兆2000億 = 17 2000 0000 0000。', '100億 = 100 0000 0000。0を 10こ とって くらべると 1720こ分だね。'],
+    hint: ['17兆2000億 = 17 2000 0000 0000。', '100億 = 100 0000 0000。0を 10こ とって くらべると 何こ分かな。'],
   }),
   t('17兆2000億は、10兆を 1こ、1兆を 7こ、1000億を 何こ あわせた数ですか。', '2', {
-    hint: ['10兆 + 7兆 = 17兆。のこりは 2000億。', '1000億が 2こで 2000億だね。'],
+    hint: ['10兆 + 7兆 = 17兆。のこりは 2000億。', '1000億が 何こで 2000億に なるか 考えよう。'],
   }),
   t('17兆2000億は、1720億を 何倍した数ですか。', '100', {
-    hint: ['1720億 → 17兆2000億 は 0が 2こ ふえているよ。', '10倍の10倍 = 100倍だね。'],
+    hint: ['1720億 → 17兆2000億 は 0が 2こ ふえているよ。', '0が 2こ ふえるのは 何倍の ときか、考えてみよう。'],
   }),
   t('3000億は、100億を 何こ 集めた数ですか。', '30', {
-    hint: ['100億の 10こ分が 1000億。', '1000億が 3つ分だから 30こだね。'],
+    hint: ['100億の 10こ分が 1000億。', '1000億が 3つ分だと、100億の 何こ分に なるかな。'],
   }),
   t('5兆は、1000億を 何こ 集めた数ですか。', '50', {
-    hint: ['1000億が 10こで 1兆。', '1兆が 5こなら 10×5 = 50こだね。'],
+    hint: ['1000億が 10こで 1兆。', '1兆が 5こなら、10×5で 何こに なるかな。'],
   }),
   t('26億は、1億を 何こ 集めた数ですか。', '26', {
     hint: ['「○億」は 1億が ○こ という意味だよ。'],
@@ -262,7 +262,7 @@ const mikataPairs: [number, number][] = [
 const mikataExtra: Problem[] = mikataPairs.map(([v, b]) => {
   const ans = v / b;
   return t(`${formatMixedJP(v)}は、${formatMixedJP(b)}を 何こ 集めた数ですか。`, String(ans), {
-    hint: ['大きい数どうしの わり算と 同じように 考えよう。', `${formatMixedJP(v)} ÷ ${formatMixedJP(b)} = ${ans}こ だね。`],
+    hint: ['大きい数どうしの わり算と 同じように 考えよう。', `${formatMixedJP(v)} ÷ ${formatMixedJP(b)} を 計算しよう。`],
   });
 });
 const mikataArr: Problem[] = [...mikataBase, ...mikataExtra];
@@ -271,11 +271,11 @@ const mikataArr: Problem[] = [...mikataBase, ...mikataExtra];
 const suuchokusenBase: Problem[] = [
   t('数直線の ↓の目もりが 表す数を 書きましょう。', '700億', {
     svg: labeledNumberLineSvg(11, { 0: '0', 1: '100億', 10: '1000億' }, 7),
-    hint: ['1目もりは 100億だね。', '0から 7目もり分で 700億だよ。'],
+    hint: ['1目もりは 100億だね。', '0から 7目もり分で いくつに なるか 数えよう。'],
   }),
   t('数直線の ↓の目もりが 表す数を 書きましょう。', '1兆4000億', {
     svg: labeledNumberLineSvg(11, { 0: '5000億', 5: '1兆' }, 9),
-    hint: ['5000億から 1兆までが 5目もりだから、1目もりは 1000億。', '1兆から 4目もり右で 1兆4000億だね。'],
+    hint: ['5000億から 1兆までが 5目もりだから、1目もりは 1000億。', '1兆から 4目もり右で いくつに なるか 数えよう。'],
   }),
   t('数直線の ↓の目もりが 表す数を 書きましょう。', '300億', {
     svg: labeledNumberLineSvg(11, { 0: '0', 5: '500億', 10: '1000億' }, 3),
@@ -283,11 +283,11 @@ const suuchokusenBase: Problem[] = [
   }),
   t('数直線の ↓の目もりが 表す数を 書きましょう。', '2兆5000億', {
     svg: labeledNumberLineSvg(11, { 0: '2兆', 10: '3兆' }, 5),
-    hint: ['2兆から 3兆までが 10目もりだから、1目もりは 1000億。', 'まん中は 2兆5000億だね。'],
+    hint: ['2兆から 3兆までが 10目もりだから、1目もりは 1000億。', 'ちょうど まん中の 目もりは いくつに なるかな。'],
   }),
   t('数直線の ↓の目もりが 表す数を 書きましょう。', '8000万', {
     svg: labeledNumberLineSvg(11, { 0: '0', 10: '1億' }, 8),
-    hint: ['0から 1億までが 10目もり。1目もりは 1000万だね。', '8目もり分で 8000万。'],
+    hint: ['0から 1億までが 10目もり。1目もりは 1000万だね。', '8目もり分で いくつに なるか 数えよう。'],
   }),
 ];
 // 追加15問: (1目もりの大きさ, 目もりの数, ↓の位置)
@@ -301,7 +301,7 @@ const suuchokusenExtra: Problem[] = lineSpecs.map(([unit, ticks, point]) => {
   const ans = formatMixedJP(unit * point);
   return t('数直線の ↓の目もりが 表す数を 書きましょう。', ans, {
     svg: labeledNumberLineSvg(ticks + 1, { 0: '0', [ticks]: total }, point),
-    hint: [`0から ${total}までが ${ticks}目もり。1目もりは ${formatMixedJP(unit)}だね。`, `0から ${point}目もり分で ${ans}だよ。`],
+    hint: [`0から ${total}までが ${ticks}目もり。1目もりは ${formatMixedJP(unit)}だね。`, `0から ${point}目もり分で いくつに なるか 数えよう。`],
   });
 });
 const suuchokusen: Problem[] = [...suuchokusenBase, ...suuchokusenExtra];
@@ -321,7 +321,7 @@ const juubaiBase: [string, string][] = [
 const juubaiExtra: [string, string][] = scaleBases.map((base) => [formatMixedJP(base), formatMixedJP(base * 10)]);
 const juubai: Problem[] = [...juubaiBase, ...juubaiExtra].map(([from, to]) =>
   t(`${from} を 10倍した数を 書きましょう。`, to, {
-    hint: ['10倍すると 位が 1つ 上がるよ(0が 1こ ふえる)。', `${from} → ${to} だね。`],
+    hint: ['10倍すると 位が 1つ 上がるよ(0が 1こ ふえる)。', `${from} の 位を 1つ 上げると どうなるかな。`],
   }),
 );
 
@@ -331,7 +331,7 @@ const juubunnoichiBase: [string, string][] = [
 const juubunnoichiExtra: [string, string][] = scaleBases.map((base) => [formatMixedJP(base * 10), formatMixedJP(base)]);
 const juubunnoichi: Problem[] = [...juubunnoichiBase, ...juubunnoichiExtra].map(([from, to]) =>
   t(`${from} を 10分の1(1/10)にした数を 書きましょう。`, to, {
-    hint: ['10分の1に すると 位が 1つ 下がるよ(0が 1こ へる)。', `${from} → ${to} だね。`],
+    hint: ['10分の1に すると 位が 1つ 下がるよ(0が 1こ へる)。', `${from} の 位を 1つ 下げると どうなるかな。`],
   }),
 );
 
@@ -358,7 +358,7 @@ const matsubi0: Problem[] = matsubi0Pairs.map(([a, b]) => {
   return t(`くふうして 計算しましょう。 ${a} × ${b} =`, String(a * b), {
     hint: [
       `終わりの 0を とって ${ca} × ${cb} を 先に 計算しよう。`,
-      `${ca} × ${cb} = ${ca * cb}。とった 0を ${za + zb}こ つけもどして ${a * b} だね。`,
+      `${ca} × ${cb} を 計算したら、とった 0を ${za + zb}こ つけもどそう。`,
     ],
   });
 });
