@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { GameState, DailyQuestDef } from '../types';
 import type { User } from 'firebase/auth';
+import DataBackupModal from './DataBackupModal';
 
 interface MainMenuProps {
   onSelectMode: (mode: GameState) => void;
@@ -163,6 +164,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
   dailyQuestDefs, dailyQuestProgress, dailyQuestDone,
   onOpenClassBattle, hasStudentProfile, srsReviewCount, onOpenWeakness, onOpenItemShop, equippedTitleName,
 }) => {
+  const [showBackup, setShowBackup] = useState(false);
   return (
     <div className="w-full h-full flex flex-col items-center justify-start sm:justify-center p-4 pt-20 sm:pt-4 text-white relative overflow-y-auto">
       <PlayerStatus
@@ -211,6 +213,12 @@ const MainMenu: React.FC<MainMenuProps> = ({
             学校対抗
           </button>
         )}
+        <button
+          onClick={() => setShowBackup(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold border border-sky-500/30 text-sky-400 hover:bg-sky-900/20 transition-colors"
+        >
+          💾 バックアップ
+        </button>
         {onOpenGameMaster && (
           <button
             onClick={onOpenGameMaster}
@@ -334,6 +342,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
       <div className="absolute bottom-3 right-4 text-[10px] text-gray-500 font-mono tracking-wider opacity-60">
         presented by onokomachi
       </div>
+
+      {showBackup && <DataBackupModal onClose={() => setShowBackup(false)} />}
     </div>
   );
 };
