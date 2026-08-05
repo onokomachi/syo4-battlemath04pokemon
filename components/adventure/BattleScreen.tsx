@@ -32,7 +32,7 @@ import ProblemAnswerPad from '../ProblemAnswerPad';
 import ProblemResultDisplay from '../ProblemResultDisplay';
 import FractionText from '../FractionText';
 import { DialogueBox } from './ui/DialogueBox';
-import { playBgm, stopBgm } from './audio/bgm';
+import { playBgm } from './audio/bgm';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -103,12 +103,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
 
-  // バトル開始でBGMを鳴らし、バトル画面が消えるとき(勝敗・にげる問わず)止める。
-  // BattleScreen は対戦相手が変わっても同じインスタンスのまま(oppIndexが動くだけ)
-  // なので、mount/unmountの1回ずつで済む。
+  // バトル開始でBGMを鳴らす。止める側は AdventureMode 側の「町のBGM」effect が
+  // battle の有無を見て担当している(ここで stopBgm すると、町ぶんの
+  // playBgm と実行順が競合して無音のまま戻ってしまうことがあるため)。
   useEffect(() => {
     playBgm('battle');
-    return () => stopBgm();
   }, []);
 
   // ---- 相手 ----
