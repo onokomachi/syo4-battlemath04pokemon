@@ -790,6 +790,13 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             {getTypeMatchupLabel(typeMult)}
           </p>
         )}
+        {wasCorrect && (isRetry || hintPenalty) && (
+          <p className="mt-1 text-center text-sm font-black text-amber-600">
+            {hintPenalty && !isRetry
+              ? '💡 ヒントを見たので、こうげきが 弱くなったよ。'
+              : '🔄 もういちどの ちょうせんなので、こうげきが 弱くなったよ。'}
+          </p>
+        )}
 
         {/* 練習モードと同じ、正解・自分の解答・解説の一覧 */}
         <div className="mt-4 max-h-[45vh] overflow-y-auto rounded-2xl bg-slate-900 p-2">

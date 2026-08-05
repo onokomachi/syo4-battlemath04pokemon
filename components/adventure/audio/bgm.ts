@@ -49,6 +49,7 @@ const TRACKS: Record<string, string> = {
   '直方体と立方体': `${BASE}assets/adventure/audio/unit-cuboid-cube.mp3`,
   '倍の見方': `${BASE}assets/adventure/audio/unit-multiples.mp3`,
   '面積': `${BASE}assets/adventure/audio/unit-area.mp3`,
+  '分数': `${BASE}assets/adventure/audio/unit-fractions.mp3`,
 };
 
 let fieldEl: HTMLAudioElement | null = null;
