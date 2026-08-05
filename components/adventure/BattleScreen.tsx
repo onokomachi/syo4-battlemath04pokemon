@@ -320,6 +320,46 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setPhase('result');
   }, [problem, userAnswer, showAnswer, isRetry, hintPenalty, ability, save.maxHp]);
 
+  /**
+   * 「わからない」— どうしても分からない問題を、その場であきらめる。
+   * 不正解あつかい(ふくしゅうモードに登録・ダメージを受ける)にはなるが、
+   * ヒントを出してもう一度…という手順を飛ばして、すぐに正解と解説を見せる。
+   * isRetry を true にしておくことで、以降は submit() の「まちがえたら
+   * もう一度」の分岐に入らず、そのまま次の問題に進む既存の流れをそのまま使う。
+   */
+  const giveUp = useCallback(() => {
+    if (!problem || showAnswer) return;
+    setWasCorrect(false);
+    setUserAnswer('');
+    setIsRetry(true);
+    setShowAnswer(true);
+
+    const timeSec = Math.round((Date.now() - startedAt.current) / 1000);
+    recordProblemLog({
+      mode: 'battle',
+      subTopic: problem.subTopic,
+      question: (problem.data as any)?.question ?? problem.subTopic,
+      userAnswer: '(わからない)',
+      correct: false,
+      timeSec,
+    });
+    recordAttempt(problem.subTopic, false);
+    streak.current = 0;
+    stats.current.incorrect += 1;
+    addIncorrectToSrs(
+      problem.subTopic,
+      (problem.data as any)?.question ?? problem.subTopic,
+      problem.answer,
+      problem.type,
+    );
+
+    const dmg = damageToPlayer();
+    setHp(v => Math.max(0, v - dmg));
+    setFlash('hurt');
+    window.setTimeout(() => setFlash('none'), 520);
+    setPhase('result');
+  }, [problem, showAnswer]);
+
   /** ガイド付き問題(筆算シミュレーターなど)は自分で正誤を返してくる */
   const handleGuidedComplete = (correct: boolean) => {
     if (showAnswer) return;
@@ -759,6 +799,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             className="flex-1 py-3 sm:py-4 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:bg-slate-600 disabled:text-slate-400 text-white font-black text-xl sm:text-2xl shadow-lg active:scale-95 transition"
           >
             ⚔ こうげき！
+          </button>
+        )}
+        {problem?.type !== 'guided' && (
+          <button
+            onClick={giveUp}
+            disabled={showAnswer}
+            title="正解と 解説を 見る(不正解あつかいになるよ)"
+            className="px-4 py-3 rounded-xl bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:text-slate-500 text-slate-100 font-black text-xs sm:text-sm shadow active:scale-95 shrink-0"
+          >
+            🤔 わからない
           </button>
         )}
       </div>
