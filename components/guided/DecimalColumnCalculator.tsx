@@ -91,6 +91,8 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
   const [mistakes, setMistakes] = useState(0);
   const [hint, setHint] = useState<string | null>(null);
   const [isGraded, setIsGraded] = useState(false);
+  /** マスターモード: いま数字を入力しようとしているマス(位、または小数点の位置候補) */
+  const [masterSelection, setMasterSelection] = useState<number | null>(null);
 
   const activePlace = useMemo(() => {
     if (addSubModel) {
@@ -161,9 +163,9 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
     }
   };
 
-  const handleMasterDigit = (place: number, d: string) => {
-    if (finished) return;
-    setAnswers((prev) => ({ ...prev, [place]: d }));
+  const handleMasterDigit = (d: string) => {
+    if (finished || masterSelection === null) return;
+    setAnswers((prev) => ({ ...prev, [masterSelection]: d }));
   };
 
   const doGrading = () => {
@@ -185,7 +187,35 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
     setMistakes(0);
     setHint(null);
     setIsGraded(false);
+    setMasterSelection(null);
   };
+
+  /** マスターモード共通の数字キーパッド。選ばれているマスに入力する。 */
+  const MasterKeypad = (
+    <div className="flex flex-col gap-2">
+      <p className="text-center text-xs text-red-300/70 font-bold">
+        マス(位)を タップして えらび、数字を 入力しよう。すべて うめたら 答え合わせだよ。
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => (
+          <button
+            key={n}
+            onClick={() => handleMasterDigit(String(n))}
+            disabled={masterSelection === null}
+            className="h-12 bg-slate-900/60 hover:bg-red-900/40 disabled:opacity-40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all"
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={doGrading}
+        className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
+      >
+        答え合わせをする
+      </button>
+    </div>
+  );
 
   const CELL = 40;
   const OP_W = 32;
@@ -205,11 +235,12 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
                 const cell = answer.find((c) => c.place === p);
                 const val = masterMode ? answers[p] : cell?.active ? answers[p] : undefined;
                 const isActive = !masterMode && activePlace === p;
+                const isSelected = masterMode && masterSelection === p;
                 return (
-                  <div key={p} className={`h-10 flex items-center justify-center relative font-black text-lg ${isActive ? 'bg-red-500/10 ring-2 ring-red-400 rounded-lg' : ''}`}>
+                  <div key={p} className={`h-10 flex items-center justify-center relative font-black text-lg ${isActive || isSelected ? 'bg-red-500/10 ring-2 ring-red-400 rounded-lg' : ''}`}>
                     {p === -1 && places.includes(0) && <span className="absolute -left-2 text-red-400">.</span>}
                     {masterMode && cell?.active !== false ? (
-                      <button onClick={() => { const d = prompt('数字を入力(0-9)'); if (d && /^[0-9]$/.test(d)) handleMasterDigit(p, d); }} className="text-white">
+                      <button onClick={() => setMasterSelection(p)} className="w-full h-full text-white">
                         {val ?? (cell?.active ? '？' : '')}
                       </button>
                     ) : (
@@ -239,14 +270,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
           </div>
         )}
 
-        {!finished && masterMode && !isGraded && (
-          <div className="flex flex-col gap-2">
-            <p className="text-center text-xs text-red-300/70 font-bold">マスかん(位)を タップして数字を入力し、すべて うめたら 答え合わせしよう。</p>
-            <button onClick={doGrading} className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]">
-              答え合わせをする
-            </button>
-          </div>
-        )}
+        {!finished && masterMode && !isGraded && MasterKeypad}
 
         {finished && (
           <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 && !isGraded ? 'bg-emerald-950/40 border-emerald-500/30' : isGraded && mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-red-950/30 border-red-500/20'}`}>
@@ -269,23 +293,32 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
           {model.answer.map((c, idx) => {
             const val = answers[c.place];
             const isActive = !masterMode && activePlace === c.place;
+            const isSelected = masterMode && masterSelection === c.place;
             return (
-              <span key={c.place} className={`inline-flex w-9 h-11 items-center justify-center mx-0.5 rounded-lg ${isActive ? 'bg-red-500/10 ring-2 ring-red-400' : ''}`}>
-                {masterMode
-                  ? val ?? '？'
-                  : isGraded
-                    ? <span className={val === c.expected ? 'text-emerald-400' : 'text-rose-400'}>{val ?? '?'}</span>
-                    : (val ?? (isActive ? <span className="text-red-400 animate-pulse">？</span> : ''))}
+              <span key={c.place} className={`inline-flex w-9 h-11 items-center justify-center mx-0.5 rounded-lg ${isActive || isSelected ? 'bg-red-500/10 ring-2 ring-red-400' : ''}`}>
+                {masterMode ? (
+                  <button onClick={() => setMasterSelection(c.place)} className="w-full h-full text-white">
+                    {val ?? '？'}
+                  </button>
+                ) : isGraded ? (
+                  <span className={val === c.expected ? 'text-emerald-400' : 'text-rose-400'}>{val ?? '?'}</span>
+                ) : (
+                  val ?? (isActive ? <span className="text-red-400 animate-pulse">？</span> : '')
+                )}
               </span>
             );
           })}
         </div>
-        {needsDotPlacement && allDigitsDone && (
+        {needsDotPlacement && (masterMode || allDigitsDone) && (
           <div className="mt-4">
             <p className="text-amber-300 text-xs font-black mb-2">小数点は どこにうつかな？(右から{model.decimalPlaces}けた)</p>
             <div className="flex justify-center gap-1">
               {Array.from({ length: model.intStr.length + 1 }, (_, i) => model.intStr.length - i).map((idx) => (
-                <button key={idx} onClick={() => handleDotPlace(idx)} className={`px-2 py-2 rounded-lg text-sm font-black ${dotPlaced === idx ? 'bg-red-600 text-white' : 'bg-slate-900/60 border border-red-900/50 text-red-300 hover:bg-red-900/30'}`}>
+                <button
+                  key={idx}
+                  onClick={() => (masterMode ? setDotPlaced(idx) : handleDotPlace(idx))}
+                  className={`px-2 py-2 rounded-lg text-sm font-black ${dotPlaced === idx ? 'bg-red-600 text-white' : 'bg-slate-900/60 border border-red-900/50 text-red-300 hover:bg-red-900/30'}`}
+                >
                   ｜{idx}
                 </button>
               ))}
@@ -301,13 +334,15 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
         </div>
       )}
 
-      {!finished && !allDigitsDone && (
+      {!finished && !masterMode && !allDigitsDone && (
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => (
             <button key={n} onClick={() => handleDigit(String(n))} className="h-12 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all">{n}</button>
           ))}
         </div>
       )}
+
+      {!finished && masterMode && !isGraded && MasterKeypad}
 
       {finished && (
         <div className="flex flex-col items-center p-5 rounded-2xl text-center gap-2 border bg-emerald-950/40 border-emerald-500/30">
