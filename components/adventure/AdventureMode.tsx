@@ -651,20 +651,14 @@ const AdventureMode: React.FC<Props> = ({
     store.addItem(item, 1);
   };
 
-  // ---- ゲームを始めていないとき ----
-  if (!save.started) {
-    return (
-      <TitleScreen
-        defaultName={defaultName}
-        onExit={onExit}
-        onStart={(name, appearance, starterDefId) => {
-          store.startGame(name, appearance, starterDefId);
-        }}
-      />
-    );
-  }
-
   // 町の常設NPCに、その時点だけ現れるもの(祠・テキトウ団)を足す
+  //
+  // この useMemo は、以前は「ゲームを始めていないとき」の早期returnより
+  // 後ろにあった。すると、タイトル画面(save.started=false)の描画では
+  // この行が呼ばれず、ゲームを始めた瞬間(save.started=true)に呼ばれる数が
+  // 増えてしまい、「Rendered more hooks than during the previous render」で
+  // 落ちていた(実際に起きた)。フックは常に同じ回数・同じ順番で呼ぶ必要があるため、
+  // 早期returnより前に置く。
   const fieldNpcs = useMemo<FieldNpcDef[]>(() => {
     // リーグの回廊には、四天王とチャンピオンしかいない
     if (inLeague) return buildLeagueNpcs(save.leagueProgress);
@@ -728,6 +722,20 @@ const AdventureMode: React.FC<Props> = ({
   const rival = RIVALS[save.appearance];
   const gym = gymProgress(save, town);
   const hasBadge = save.badges.includes(town.id);
+
+  // ---- ゲームを始めていないとき ----
+  // (フックをすべて呼び終えたあとで分岐する。上の fieldNpcs のコメント参照)
+  if (!save.started) {
+    return (
+      <TitleScreen
+        defaultName={defaultName}
+        onExit={onExit}
+        onStart={(name, appearance, starterDefId) => {
+          store.startGame(name, appearance, starterDefId);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-30 bg-black overflow-hidden select-none">

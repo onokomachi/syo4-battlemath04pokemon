@@ -59,5 +59,7 @@
   "monsters/mythical-zero",
   "npc/master-14",
   "player/boy-back",
-  "player/boy-side"
+  "player/boy-side",
+  "player/girl-back",
+  "player/girl-side"
 ]

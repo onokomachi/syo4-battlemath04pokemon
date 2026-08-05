@@ -14,6 +14,10 @@
 ぼうけんモードの設計は **[docs/ADVENTURE.md](docs/ADVENTURE.md)**、
 ゲーム要素の追加検討とエビデンス評定は **[docs/GAME_ELEMENTS_PROPOSAL.md](docs/GAME_ELEMENTS_PROPOSAL.md)** を参照してください。
 
+問題を足す・直すときは **[docs/PROBLEM_QA.md](docs/PROBLEM_QA.md)**(過去に出たバグの型と機械監査の使い方)、
+モンスターの絵を作り直すときは **[docs/SPRITE_PIPELINE.md](docs/SPRITE_PIPELINE.md)**(生成AIの使い方と失敗の記録)を
+先に読んでください。開発全体の申し送りは **[CLAUDE.md](CLAUDE.md)** にあります。
+
 ## モード
 
 | モード | 内容 |

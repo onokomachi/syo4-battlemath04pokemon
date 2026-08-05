@@ -28,6 +28,40 @@ export const makeRng = (seed: number) => {
 };
 
 /**
+ * NPC・建物・祠がいつも立つ「決まった場所」。すべて size だけから決まる
+ * (towns.ts の layout() / AdventureMode.tsx の祠・テキトウ団の位置と同じ式。
+ * 一箇所で計算を変えたら、もう片方も直すこと)。
+ *
+ * かいふく所・ショップ・道場や祠は、当たり判定つきの大きな土台を持つ。
+ * 地形の高さは土台の「中心1点」でしか合わせていなかったため、なだらかな
+ * 起伏でも土台のふちでは地形とずれ、「浮く」「めりこむ」が実際に起きていた
+ * (実測: 建物の高さ3.2に対して最大0.31、約1割)。
+ * r は「ここまでは完全に平らにする」半径。建物・祠は実際の土台の大きさに合わせ、
+ * NPC単体の場所は、影がめりこまない程度の小さめの値にしてある。
+ */
+const landmarkCache = new Map<number, Array<{ x: number; z: number; r: number }>>();
+const landmarkPoints = (size: number) => {
+  const cached = landmarkCache.get(size);
+  if (cached) return cached;
+  const half = size / 2;
+  const pts = [
+    { x: 0, z: half - 5, r: 3 },                // スポーン地点
+    { x: -7, z: half - 10, r: 6 },              // かいふく所(建物)
+    { x: 7, z: half - 10, r: 6 },               // ショップ(建物)
+    { x: 0, z: half - 15, r: 3 },               // 村のひと
+    { x: -size * 0.26, z: size * 0.05, r: 3 },  // トレーナーA
+    { x: size * 0.28, z: -size * 0.16, r: 3 },  // トレーナーB
+    { x: 0, z: -half + 9, r: 6.5 },             // 道場(いちばん大きい建物)
+    { x: half * 0.55, z: -half * 0.25, r: 4 },  // 祠(1体目)
+    { x: half * 0.55, z: -half * 0.05, r: 4 },  // 祠(2体目ぶんの余裕)
+    { x: -half * 0.42, z: half * 0.30, r: 3 },  // テキトウ団
+    { x: -half * 0.3, z: -half * 0.42, r: 3 },  // アジトの入口
+  ];
+  landmarkCache.set(size, pts);
+  return pts;
+};
+
+/**
  * 地形の高さ。なだらかな起伏だけにして、小4がつまずかないようにしている。
  * 町の中心(スポーン地点〜道場)は平らに近くなるよう、中心からの距離で弱める。
  */
@@ -39,7 +73,16 @@ export const heightAt = (x: number, z: number, seed: number, size: number): numb
     Math.cos((x * 0.19 - z * 0.15) + s * 0.7) * 0.22;
   // 南北にのびる「道」の部分を平らにする(移動でつまずかないように)
   const road = Math.exp(-(x * x) / 70);
-  return h * (1 - road * 0.85);
+  // 建物・NPC・祠の定位置も平らにする(土台が地形からずれないように)
+  let landmark = 0;
+  for (const p of landmarkPoints(size)) {
+    const d = Math.hypot(x - p.x, z - p.z);
+    // r の中は完全に平ら、そこから r*0.8 ぶんかけてなだらかに元の地形へ戻す
+    const f = d <= p.r ? 1 : Math.max(0, 1 - (d - p.r) / (p.r * 0.8));
+    if (f > landmark) landmark = f;
+  }
+  const flatten = Math.max(road * 0.85, landmark * 0.96);
+  return h * (1 - flatten);
 };
 
 export interface PropInstance {
