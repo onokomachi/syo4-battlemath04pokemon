@@ -32,6 +32,7 @@ import ProblemAnswerPad from '../ProblemAnswerPad';
 import ProblemResultDisplay from '../ProblemResultDisplay';
 import FractionText from '../FractionText';
 import { DialogueBox } from './ui/DialogueBox';
+import { playBgm, stopBgm } from './audio/bgm';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -102,6 +103,14 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
 
+  // バトル開始でBGMを鳴らし、バトル画面が消えるとき(勝敗・にげる問わず)止める。
+  // BattleScreen は対戦相手が変わっても同じインスタンスのまま(oppIndexが動くだけ)
+  // なので、mount/unmountの1回ずつで済む。
+  useEffect(() => {
+    playBgm('battle');
+    return () => stopBgm();
+  }, []);
+
   // ---- 相手 ----
   const [oppIndex, setOppIndex] = useState(0);
   const opponents = setup.opponents;
@@ -131,6 +140,10 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const [hintPenalty, setHintPenalty] = useState(false);
   const [flash, setFlash] = useState<'none' | 'hit' | 'hurt'>('none');
   const [shakeOpp, setShakeOpp] = useState(false);
+  // 「にげる/こうさんする」は誤タップで即バトルを抜けると悔しいので、
+  // window.confirm() ではなくアプリ内モーダルでいちど確認する
+  // (window.confirm はスマホ・WebViewで無言失敗することがあるため使わない)。
+  const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
   const problemViewRef = useRef<ProblemViewRef | null>(null);
   const startedAt = useRef(Date.now());
 
@@ -623,14 +636,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         </span>
       </button>
       <button
-        onClick={flee}
-        disabled={setup.kind !== 'wild'}
-        className="rounded-2xl bg-slate-500 hover:bg-slate-400 disabled:bg-slate-300 disabled:text-slate-500 active:scale-95 transition text-white font-black text-xl sm:text-2xl py-4 shadow-lg border-4 border-white/70"
+        onClick={() => setConfirmingGiveUp(true)}
+        className="rounded-2xl bg-slate-500 hover:bg-slate-400 active:scale-95 transition text-white font-black text-xl sm:text-2xl py-4 shadow-lg border-4 border-white/70"
       >
-        🏃 にげる
-        <span className="block text-xs font-bold opacity-90 mt-1">
-          {setup.kind === 'wild' ? 'フィールドに もどる' : 'しょうぶからは にげられない'}
-        </span>
+        {setup.kind === 'wild' ? '🏃 にげる' : '🏳 こうさんする'}
+        <span className="block text-xs font-bold opacity-90 mt-1">フィールドに もどる</span>
       </button>
     </div>
   );
@@ -894,6 +904,42 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             <button className="mt-5 w-full py-3 rounded-2xl bg-amber-400 text-amber-950 font-black text-xl">
               とじる
             </button>
+          </div>
+        </div>
+      )}
+
+      {confirmingGiveUp && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setConfirmingGiveUp(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white border-8 border-slate-400 p-6 shadow-2xl text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-2xl mb-2">
+              {setup.kind === 'wild' ? '🏃' : '🏳'}
+            </p>
+            <h3 className="text-xl font-black text-slate-800 mb-2">
+              {setup.kind === 'wild' ? 'にげますか？' : 'こうさんしますか？'}
+            </h3>
+            <p className="text-sm font-bold text-slate-500 mb-5">
+              ごほうびは もらえないけど、いつでも また ちょうせんできるよ。
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setConfirmingGiveUp(false)}
+                className="py-3 rounded-2xl bg-slate-200 text-slate-700 font-black text-lg active:scale-95 transition"
+              >
+                もどる
+              </button>
+              <button
+                onClick={() => { setConfirmingGiveUp(false); flee(); }}
+                className="py-3 rounded-2xl bg-rose-500 text-white font-black text-lg active:scale-95 transition"
+              >
+                {setup.kind === 'wild' ? 'にげる' : 'こうさんする'}
+              </button>
+            </div>
           </div>
         </div>
       )}
