@@ -330,53 +330,197 @@ export const crossingLinesSvg = (givenDeg: number, askAdjacent: boolean): string
 };
 
 /**
- * 三角じょうぎ2まいを 組み合わせた／かさねた角を示す図。
- * mode 'add': 0°→a° と a°→(a+b)° を隣どうしに並べ、合計の「あ」の角を外側に示す。
- * mode 'sub': 0°→b°(大きいほう)の上に 0°→a°(小さいほう)を重ね、のこりの a°→b° を「あ」として示す。
+ * 三角じょうぎ(30°-60°-90°の細長いほう「long」/ 45°-45°-90°の直角二等辺のほう「iso」)。
+ * 数値のテキストラベルはいっさい置かない(問題文と同じく、角度を読みとって考える対象にするため)。
+ * 頂点座標を直接計算して実物に近い三角形の輪郭を描く(円弧のおうぎ形ではなく本物の三角形)。
  */
-export const sankakuJougiSvg = (a: number, b: number, mode: 'add' | 'sub'): string => {
+export type JougiKind = 'long' | 'iso';
+export type JougiCorner = 30 | 45 | 60 | 90;
+
+interface Pt { x: number; y: number; }
+
+/** 短いほうの辺(iso型は等辺)の長さ。1:√3:2 / 1:1:√2 の比で実物に近い形にする */
+const JOUGI_S = 58;
+
+const jougiDir = (px: number, py: number, ang: number, r: number): Pt => ({
+  x: px + r * Math.cos((-ang * Math.PI) / 180),
+  y: py + r * Math.sin((-ang * Math.PI) / 180),
+});
+
+/**
+ * 三角じょうぎ1まいを、指定した頂点(corner)を (px,py) に置いて配置する。
+ * edgeDir: (px,py)からのびる「基準辺」の向き(度)。sweepは +1で反時計回り、-1で時計回りに もう1辺をひらく。
+ * 直角の頂点(rightAngle)とその両どなり(rightN1/rightN2)も返し、直角マークや2まい目の位置合わせに使う。
+ */
+const placeJougi = (kind: JougiKind, corner: JougiCorner, px: number, py: number, edgeDir: number, sweep: 1 | -1) => {
+  const pivot: Pt = { x: px, y: py };
+  const at = (ang: number, r: number) => jougiDir(px, py, ang, r);
+  if (kind === 'long') {
+    const long = JOUGI_S * Math.sqrt(3);
+    const hyp = JOUGI_S * 2;
+    if (corner === 30) {
+      const p90 = at(edgeDir, long);
+      const p60 = at(edgeDir + sweep * 30, hyp);
+      return { pivot, o1: p90, o2: p60, rightAngle: p90, rightN1: pivot, rightN2: p60 };
+    }
+    if (corner === 60) {
+      const p90 = at(edgeDir, JOUGI_S);
+      const p30 = at(edgeDir + sweep * 60, hyp);
+      return { pivot, o1: p90, o2: p30, rightAngle: p90, rightN1: pivot, rightN2: p30 };
+    }
+    // corner === 90
+    const p30 = at(edgeDir, long);
+    const p60 = at(edgeDir + sweep * 90, JOUGI_S);
+    return { pivot, o1: p30, o2: p60, rightAngle: pivot, rightN1: p30, rightN2: p60 };
+  }
+  // kind === 'iso'
+  const hyp = JOUGI_S * Math.SQRT2;
+  if (corner === 45) {
+    const p90 = at(edgeDir, JOUGI_S);
+    const other = at(edgeDir + sweep * 45, hyp);
+    return { pivot, o1: p90, o2: other, rightAngle: p90, rightN1: pivot, rightN2: other };
+  }
+  // corner === 90
+  const a = at(edgeDir, JOUGI_S);
+  const b = at(edgeDir + sweep * 90, JOUGI_S);
+  return { pivot, o1: a, o2: b, rightAngle: pivot, rightN1: a, rightN2: b };
+};
+
+const jougiPath = (pts: [Pt, Pt, Pt], fill: string, dashed?: boolean): string =>
+  `<path d="M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y} L ${pts[2].x} ${pts[2].y} Z" fill="${fill}" stroke="${AXIS}" stroke-width="1.8"${dashed ? ' stroke-dasharray="5 3"' : ''}/>`;
+
+/** 直角の頂点に かどマーク(小さい四角)を描く */
+const rightAngleMark = (r: Pt, n1: Pt, n2: Pt, size = 13): string => {
+  const unit = (n: Pt) => {
+    const dx = n.x - r.x, dy = n.y - r.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  };
+  const u1 = unit(n1), u2 = unit(n2);
+  const p1 = { x: r.x + u1.x * size, y: r.y + u1.y * size };
+  const p2 = { x: p1.x + u2.x * size, y: p1.y + u2.y * size };
+  const p3 = { x: r.x + u2.x * size, y: r.y + u2.y * size };
+  return `<path d="M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} L ${p3.x} ${p3.y}" fill="none" stroke="${AXIS}" stroke-width="1.6"/>`;
+};
+
+/** 頂点rの n1向き→n2向きの間(内角側、180°未満)に弧と文字ラベルを描く。数値は書かない */
+const jougiArcLabel = (r: Pt, n1: Pt, n2: Pt, radius: number, color: string, label?: string): string => {
+  const dir = (n: Pt) => (-Math.atan2(n.y - r.y, n.x - r.x) * 180) / Math.PI;
+  let from = dir(n1);
+  let to = dir(n2);
+  let diff = to - from;
+  while (diff > 180) diff -= 360;
+  while (diff < -180) diff += 360;
+  if (diff < 0) { [from, to] = [to, from]; diff = -diff; }
+  to = from + diff;
+  const arcPt = (ang: number) => `${r.x + radius * Math.cos((-ang * Math.PI) / 180)} ${r.y + radius * Math.sin((-ang * Math.PI) / 180)}`;
+  let out = `<path d="M ${arcPt(from)} A ${radius} ${radius} 0 0 0 ${arcPt(to)}" fill="none" stroke="${color}" stroke-width="2.2"/>`;
+  if (label) {
+    const mid = from + diff / 2;
+    const lx = r.x + (radius + 18) * Math.cos((-mid * Math.PI) / 180);
+    const ly = r.y + (radius + 18) * Math.sin((-mid * Math.PI) / 180);
+    out += `<text x="${lx}" y="${ly}" fill="${color}" font-size="16" text-anchor="middle" font-weight="bold">${esc(label)}</text>`;
+  }
+  return out;
+};
+
+/**
+ * 頂点rに、fromDeg→toDeg(度、fromDeg<toDegで渡すこと)の弧と文字ラベルを描く。数値は書かない。
+ * 組み合わせ・重ね合わせ・一直線の「あ」は 角度がすでに数値でわかっている場面なので、
+ * 頂点どうしの向きから逆算する jougiArcLabel ではなく こちらを使う
+ * (ちょうど180°になる組み合わせ(90°+90°など)で、逆算だと どちら向きに弧を描くか
+ *  あいまいになり、まちがった側(のこりが実際は無い側)に弧が出てしまうのを ふせぐため)。
+ */
+const jougiArcByAngle = (r: Pt, fromDeg: number, toDeg: number, radius: number, color: string, label?: string): string => {
+  const arcPt = (ang: number) => `${r.x + radius * Math.cos((-ang * Math.PI) / 180)} ${r.y + radius * Math.sin((-ang * Math.PI) / 180)}`;
+  let out = `<path d="M ${arcPt(fromDeg)} A ${radius} ${radius} 0 0 0 ${arcPt(toDeg)}" fill="none" stroke="${color}" stroke-width="2.2"/>`;
+  if (label) {
+    const mid = (fromDeg + toDeg) / 2;
+    const lx = r.x + (radius + 18) * Math.cos((-mid * Math.PI) / 180);
+    const ly = r.y + (radius + 18) * Math.sin((-mid * Math.PI) / 180);
+    out += `<text x="${lx}" y="${ly}" fill="${color}" font-size="16" text-anchor="middle" font-weight="bold">${esc(label)}</text>`;
+  }
+  return out;
+};
+
+const JOUGI_FILL_1 = 'rgba(56,189,248,0.3)';   // 1まい目(または単体)
+const JOUGI_FILL_2 = 'rgba(244,114,182,0.32)'; // 2まい目
+const JOUGI_FILL_OVERLAY = 'rgba(226,232,240,0.55)'; // 上に重ねる半透明のほう
+
+/**
+ * 三角じょうぎ1まいだけを基本の姿勢(直角を左下)で表示する。
+ * corner を指定すると その頂点に「あ」の弧を付ける(数値は書かない)。
+ * corner を省略すると 形だけを示す(3つの角の和を問う問題などに使う)。
+ */
+export const sankakuJougiSingleSvg = (kind: JougiKind, corner?: JougiCorner): string => {
   const W = 300;
   const H = 220;
-  const cx = 150;
-  const cy = 190;
-  const r = 120;
-  const rad = (d: number) => (-d * Math.PI) / 180;
-  const pt = (d: number, rr = r) => `${cx + rr * Math.cos(rad(d))} ${cy + rr * Math.sin(rad(d))}`;
-  const wedge = (from: number, to: number, rr: number, fill: string): string => {
-    const large = Math.abs(to - from) > 180 ? 1 : 0;
-    return `<path d="M ${cx} ${cy} L ${pt(from, rr)} A ${rr} ${rr} 0 ${large} 0 ${pt(to, rr)} Z" fill="${fill}" stroke="${AXIS}" stroke-width="1.5"/>`;
-  };
-  const arcLabel = (from: number, to: number, rr: number, text: string, color: string): string => {
-    const large = Math.abs(to - from) > 180 ? 1 : 0;
-    const mid = (from + to) / 2;
-    const lp = pt(mid, rr + 20).split(' ');
-    return `<path d="M ${pt(from, rr)} A ${rr} ${rr} 0 ${large} 0 ${pt(to, rr)}" fill="none" stroke="${color}" stroke-width="2.2"/>`
-      + `<text x="${lp[0]}" y="${lp[1]}" fill="${color}" font-size="16" text-anchor="middle" font-weight="bold">${esc(text)}</text>`;
-  };
+  const tri = placeJougi(kind, 90, 76, 172, 0, 1); // 直角を(76,172)に置いた基本姿勢
   const el: string[] = [];
-  // 台となる水平の半直線(0°)
-  el.push(`<line x1="${cx}" y1="${cy}" x2="${cx + r + 10}" y2="${cy}" stroke="${AXIS}" stroke-width="2"/>`);
-
-  if (mode === 'add') {
-    // 隣どうしに並べる: 0→a(三角定規1) と a→a+b(三角定規2)
-    el.push(wedge(0, a, r, 'rgba(56,189,248,0.28)'));
-    el.push(wedge(a, a + b, r, 'rgba(244,114,182,0.28)'));
-    el.push(`<line x1="${cx}" y1="${cy}" x2="${pt(a).replace(' ', '" y2="')}" stroke="${AXIS}" stroke-width="2"/>`);
-    el.push(`<line x1="${cx}" y1="${cy}" x2="${pt(a + b).replace(' ', '" y2="')}" stroke="${AXIS}" stroke-width="2"/>`);
-    el.push(arcLabel(0, a, 30, `${a}°`, LINE));
-    el.push(arcLabel(a, a + b, 30, `${b}°`, '#f472b6'));
-    el.push(arcLabel(0, a + b, 62, 'あ', POINT));
-  } else {
-    // 重ねる: 大きいほう(b)の上に 小さいほう(a)を重ねる。のこり(a→b)が「あ」
-    el.push(wedge(0, b, r, 'rgba(56,189,248,0.22)'));
-    el.push(wedge(0, a, r * 0.82, 'rgba(244,114,182,0.4)'));
-    el.push(`<line x1="${cx}" y1="${cy}" x2="${pt(a).replace(' ', '" y2="')}" stroke="${AXIS}" stroke-width="2" stroke-dasharray="4 3"/>`);
-    el.push(`<line x1="${cx}" y1="${cy}" x2="${pt(b).replace(' ', '" y2="')}" stroke="${AXIS}" stroke-width="2"/>`);
-    el.push(arcLabel(0, a, 26, `${a}°`, '#f472b6'));
-    el.push(arcLabel(0, b, 46, `${b}°`, LINE));
-    el.push(arcLabel(a, b, 68, 'あ', POINT));
+  el.push(jougiPath([tri.pivot, tri.o1, tri.o2], JOUGI_FILL_1));
+  el.push(rightAngleMark(tri.rightAngle, tri.rightN1, tri.rightN2));
+  if (corner === 90) {
+    el.push(jougiArcLabel(tri.pivot, tri.o1, tri.o2, 24, POINT, 'あ'));
+  } else if (corner === 30 || corner === 45) {
+    el.push(jougiArcLabel(tri.o1, tri.pivot, tri.o2, 24, POINT, 'あ'));
+  } else if (corner === 60) {
+    el.push(jougiArcLabel(tri.o2, tri.pivot, tri.o1, 24, POINT, 'あ'));
   }
-  el.push(`<circle cx="${cx}" cy="${cy}" r="3" fill="${AXIS}"/>`);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="${Math.min(W, 300)}">${el.join('')}</svg>`;
+};
+
+/** 三角じょうぎ2まいを となりどうしに並べ、2つの角を あわせた「あ」を外側の弧で示す */
+export const sankakuJougiAddSvg = (kind1: JougiKind, corner1: JougiCorner, kind2: JougiKind, corner2: JougiCorner): string => {
+  const W = 300;
+  const H = 220;
+  const px = 145;
+  const py = 185;
+  const tri1 = placeJougi(kind1, corner1, px, py, 0, 1);
+  const tri2 = placeJougi(kind2, corner2, px, py, corner1, 1);
+  const el: string[] = [];
+  el.push(jougiPath([tri1.pivot, tri1.o1, tri1.o2], JOUGI_FILL_1));
+  el.push(jougiPath([tri2.pivot, tri2.o1, tri2.o2], JOUGI_FILL_2));
+  el.push(rightAngleMark(tri1.rightAngle, tri1.rightN1, tri1.rightN2));
+  el.push(rightAngleMark(tri2.rightAngle, tri2.rightN1, tri2.rightN2));
+  el.push(jougiArcByAngle(tri1.pivot, 0, corner1 + corner2, 120, POINT, 'あ'));
+  el.push(`<circle cx="${px}" cy="${py}" r="3" fill="${AXIS}"/>`);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="${Math.min(W, 300)}">${el.join('')}</svg>`;
+};
+
+/**
+ * 三角じょうぎ2まいを かさねる。大きいほう(bigCorner)の上に 小さいほう(smallCorner)を
+ * 半透明にして重ね、のこった「あ」の部分を弧で示す。
+ */
+export const sankakuJougiSubSvg = (bigKind: JougiKind, bigCorner: JougiCorner, smallKind: JougiKind, smallCorner: JougiCorner): string => {
+  const W = 300;
+  const H = 220;
+  const px = 150;
+  const py = 190;
+  const big = placeJougi(bigKind, bigCorner, px, py, 0, 1);
+  const small = placeJougi(smallKind, smallCorner, px, py, 0, 1);
+  const el: string[] = [];
+  el.push(jougiPath([big.pivot, big.o1, big.o2], JOUGI_FILL_1));
+  el.push(rightAngleMark(big.rightAngle, big.rightN1, big.rightN2));
+  el.push(jougiPath([small.pivot, small.o1, small.o2], JOUGI_FILL_OVERLAY, true));
+  el.push(rightAngleMark(small.rightAngle, small.rightN1, small.rightN2));
+  el.push(jougiArcByAngle(big.pivot, smallCorner, bigCorner, 60, POINT, 'あ'));
+  el.push(`<circle cx="${px}" cy="${py}" r="3" fill="${AXIS}"/>`);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="${Math.min(W, 300)}">${el.join('')}</svg>`;
+};
+
+/** 三角じょうぎの1つの角を、一直線(180°)の上に置く。のこりの「あ」の角を弧で示す */
+export const sankakuJougiOnLineSvg = (kind: JougiKind, corner: JougiCorner): string => {
+  const W = 300;
+  const H = 220;
+  const px = 150;
+  const py = 150;
+  const el: string[] = [];
+  el.push(`<line x1="20" y1="${py}" x2="280" y2="${py}" stroke="${AXIS}" stroke-width="2.4"/>`);
+  const tri = placeJougi(kind, corner, px, py, 180, -1);
+  el.push(jougiPath([tri.pivot, tri.o1, tri.o2], JOUGI_FILL_1));
+  el.push(rightAngleMark(tri.rightAngle, tri.rightN1, tri.rightN2));
+  el.push(jougiArcByAngle(tri.pivot, 0, 180 - corner, 100, POINT, 'あ'));
+  el.push(`<circle cx="${px}" cy="${py}" r="3" fill="${AXIS}"/>`);
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="${Math.min(W, 300)}">${el.join('')}</svg>`;
 };
 
