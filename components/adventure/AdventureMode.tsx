@@ -31,6 +31,7 @@ import { DialogueBox } from './ui/DialogueBox';
 import BattleScreen from './BattleScreen';
 import TitleScreen from './TitleScreen';
 import { DexScreen, MapScreen, PartyScreen, ShopScreen, TrainerCardScreen } from './MenuScreens';
+import SaveSlotsModal from './SaveSlotsModal';
 
 interface Props {
   onExit: () => void;
@@ -46,7 +47,7 @@ interface Props {
   uid?: string | null;
 }
 
-type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card';
+type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save';
 
 interface Dialogue {
   speaker?: string;
@@ -740,13 +741,17 @@ const AdventureMode: React.FC<Props> = ({
   // (フックをすべて呼び終えたあとで分岐する。上の fieldNpcs のコメント参照)
   if (!save.started) {
     return (
-      <TitleScreen
-        defaultName={defaultName}
-        onExit={onExit}
-        onStart={(name, appearance, starterDefId) => {
-          store.startGame(name, appearance, starterDefId);
-        }}
-      />
+      <>
+        <TitleScreen
+          defaultName={defaultName}
+          onExit={onExit}
+          onStart={(name, appearance, starterDefId) => {
+            store.startGame(name, appearance, starterDefId);
+          }}
+          onOpenSaveSlots={() => setOverlay('save')}
+        />
+        {overlay === 'save' && <SaveSlotsModal onClose={() => setOverlay('none')} />}
+      </>
     );
   }
 
@@ -864,6 +869,7 @@ const AdventureMode: React.FC<Props> = ({
 
         <div className="pointer-events-auto flex flex-wrap justify-end gap-1.5 sm:gap-2 max-w-[62%]">
           {([
+            ['💾 セーブ', () => setOverlay('save')],
             ['🗺 マップ', () => setOverlay('map')],
             ['📕 ずかん', () => setOverlay('dex')],
             ['🐾 てもち', () => setOverlay('party')],
@@ -965,6 +971,7 @@ const AdventureMode: React.FC<Props> = ({
           lockedUnits={lockedUnits}
         />
       )}
+      {overlay === 'save' && <SaveSlotsModal onClose={() => setOverlay('none')} />}
 
       {/* バトル */}
       {battle && <BattleScreen setup={battle} onFinish={handleBattleFinish} />}
