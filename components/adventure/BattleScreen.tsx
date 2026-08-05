@@ -32,7 +32,8 @@ import ProblemAnswerPad from '../ProblemAnswerPad';
 import ProblemResultDisplay from '../ProblemResultDisplay';
 import FractionText from '../FractionText';
 import { DialogueBox } from './ui/DialogueBox';
-import { playBgm } from './audio/bgm';
+import { playBattleBgm, stopBattleBgm } from './audio/bgm';
+import { playHitSfx, playWinSfx, playLevelUpSfx } from './audio/sfx';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -103,11 +104,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
 
-  // バトル開始でBGMを鳴らす。止める側は AdventureMode 側の「町のBGM」effect が
-  // battle の有無を見て担当している(ここで stopBgm すると、町ぶんの
-  // playBgm と実行順が競合して無音のまま戻ってしまうことがあるため)。
+  // バトル用の <audio> は町のBGMとは別の要素なので、ここで自分の
+  // 開始/終了をそのまま面倒みてよい(町のBGM側と競合しない)。
   useEffect(() => {
-    playBgm('battle');
+    playBattleBgm();
+    return () => stopBattleBgm();
   }, []);
 
   // ---- 相手 ----
@@ -291,6 +292,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       // ヒントも こうげきを弱くする(ノーヒントで挑む理由を残すため)。
       const dmg = damageToOpponent(isRetry || hintPenalty);
       setOppHp(v => Math.max(0, v - dmg));
+      playHitSfx();
       setFlash('hit');
       setShakeOpp(true);
       window.setTimeout(() => { setFlash('none'); setShakeOpp(false); }, 520);
@@ -339,6 +341,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         stats.current.correct += 1;
         const dmg = damageToOpponent(false);
         setOppHp(v => Math.max(0, v - dmg));
+        playHitSfx();
         setFlash('hit'); setShakeOpp(true);
         window.setTimeout(() => { setFlash('none'); setShakeOpp(false); }, 520);
       } else {
@@ -389,10 +392,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     const gained = Math.round(12 + oppLevel * 3.5 + (oppDef?.difficulty ?? 2) * 4);
     stats.current.exp += gained;
     stats.current.mp += Math.round(8 + oppLevel * 1.5);
+    const leveledBefore = leveled.current.length;
     for (const p of party) {
       const r = store.addExp(p.owned.uid, Math.round(gained / Math.max(1, party.length)));
       if (r.leveled) leveled.current.push(p.owned.uid);
     }
+    if (leveled.current.length > leveledBefore) playLevelUpSfx();
     setMessage([
       `${oppDef?.name ?? 'あいて'} を たおした！`,
       `けいけんちを ${gained} もらった！`,
@@ -424,6 +429,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     if (reward?.mp) lines.push(`MPを ${reward.mp} もらった！`);
     if (reward?.balls) lines.push(`サンスウボールを ${reward.balls}こ もらった！`);
     setMessage(lines.length ? lines : ['バトルに かった！']);
+    playWinSfx();
     setPhase('win');
   };
 
@@ -451,6 +457,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           `やった！ ${oppDef.name} を つかまえた！`,
           `${oppDef.name} は 「${oppDef.subtopic}」の モンスターだ。`,
         ]);
+        playWinSfx();
         setPhase('win');
       } else {
         setMessage([`ああっ！ ${oppDef.name} が でてきてしまった！`]);

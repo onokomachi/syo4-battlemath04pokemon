@@ -25,7 +25,7 @@ import {
   LEAGUE_TOWN, LEAGUE_SPAWN, buildLeagueNpcs, leagueCorridor,
 } from '../../data/adventure/league';
 import FieldScene, { type FieldControl } from './field/FieldScene';
-import { playBgm, stopBgm } from './audio/bgm';
+import { playFieldBgm, muteFieldBgm, stopAllBgm } from './audio/bgm';
 import { ActionButton, VirtualPad } from './ui/VirtualPad';
 import { DialogueBox } from './ui/DialogueBox';
 import BattleScreen from './BattleScreen';
@@ -91,17 +91,18 @@ const AdventureMode: React.FC<Props> = ({
   );
   const inLeague = town.id === LEAGUE_TOWN.id;
 
-  // 町のBGM。バトル中は BattleScreen 側が鳴らすのでここでは触らず、
-  // バトルが終わったとき(battle が null に戻ったとき)にこの effect が
-  // 動いて町の曲に戻す(曲が無い町なら無音に戻す)。
+  // 町のBGM。バトル中は鳴らしっぱなしのまま無音にするだけにして、バトルが
+  // 終わったとき(battle が null に戻ったとき)に音量をもとに戻す。
+  // これで、バトルのたびに町の曲が頭出しされることがなくなる。
   useEffect(() => {
-    if (!save.started || battle) return;
-    playBgm(town.unit);
+    if (!save.started) return;
+    if (battle) { muteFieldBgm(); return; }
+    playFieldBgm(town.unit);
   }, [town.unit, battle, save.started]);
 
   // アドベンチャーそのものを抜けるとき(メインメニューに戻るとき)は、
   // 町の曲・バトル曲を問わず必ず止める。
-  useEffect(() => () => stopBgm(), []);
+  useEffect(() => () => stopAllBgm(), []);
 
   /** リーグの回廊のかたち(扉の開き具合)。町にいるときは undefined。 */
   const corridor = useMemo(
@@ -680,15 +681,19 @@ const AdventureMode: React.FC<Props> = ({
     const extra: FieldNpcDef[] = [];
     const half = town.size / 2;
 
-    // 祠 — 町の東側の少し奥に置く
+    // 祠 — 町の東側の、いちばん奥まった角に置く。
+    // 以前は x: half*0.55, z: -half*0.25 + i*10 だったが、これはトレーナーB
+    // (towns.ts の layout(): x: size*0.28, z: -size*0.16 ≒ half*0.56, -half*0.32)
+    // とほぼ同じ位置になってしまい、祠の輪の中にトレーナーが立っている
+    // ように見える不具合になっていた(実際に報告があった)。
     shrinesInTown(save, town.id).forEach((st, i) => {
       extra.push({
         id: `shrine-${st.legend.id}`,
         kind: 'shrine',
         name: `${st.legend.name}の祠`,
         sprite: '',
-        x: half * 0.55,
-        z: -half * 0.25 + i * 10,
+        x: half * 0.72,
+        z: -half * 0.62 + i * (half * 0.12),
         lines: st.legend.legendText,
         // FieldScene に状態を渡すための小さな約束(見た目の切りかえに使う)
         afterLines: [st.taken ? 'taken' : st.ready ? 'ready' : 'locked'],
