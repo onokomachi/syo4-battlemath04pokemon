@@ -25,6 +25,7 @@ import {
   LEAGUE_TOWN, LEAGUE_SPAWN, buildLeagueNpcs, leagueCorridor,
 } from '../../data/adventure/league';
 import FieldScene, { type FieldControl } from './field/FieldScene';
+import { playBgm, stopBgm } from './audio/bgm';
 import { ActionButton, VirtualPad } from './ui/VirtualPad';
 import { DialogueBox } from './ui/DialogueBox';
 import BattleScreen from './BattleScreen';
@@ -88,6 +89,18 @@ const AdventureMode: React.FC<Props> = ({
     [save.townId],
   );
   const inLeague = town.id === LEAGUE_TOWN.id;
+
+  // 町のBGM。バトル中は BattleScreen 側が鳴らすのでここでは触らず、
+  // バトルが終わったとき(battle が null に戻ったとき)にこの effect が
+  // 動いて町の曲に戻す(曲が無い町なら無音に戻す)。
+  useEffect(() => {
+    if (!save.started || battle) return;
+    playBgm(town.unit);
+  }, [town.unit, battle, save.started]);
+
+  // アドベンチャーそのものを抜けるとき(メインメニューに戻るとき)は、
+  // 町の曲・バトル曲を問わず必ず止める。
+  useEffect(() => () => stopBgm(), []);
 
   /** リーグの回廊のかたち(扉の開き具合)。町にいるときは undefined。 */
   const corridor = useMemo(

@@ -13,14 +13,26 @@
  *
  * 曲を増やすとき:
  *  TRACKS に 1行足して `playBgm('その名前')` を呼ぶだけでよい。
- *  フィールドごとのBGMを足すときは、町の biome をキーにすればそのまま使える
- *  (例: playBgm(town.biome))。今は battle 用の1曲だけ配線ずみ。
+ *  フィールドごとのBGMは、町の unit (data/adventure/towns.ts の unit 文字列)
+ *  をそのままキーにしている(例: playBgm(town.unit))。まだ曲が無い単元は
+ *  TRACKS にキーが無いだけでよく、playBgm 側が自動で無音にする。
+ *  「小数のしくみ」と「小数のかけ算とわり算」のように、単元が違っても
+ *  同じ曲を使いたいときは、同じパスを2つのキーに割り当てればよい。
  */
 
 const BASE = (import.meta as any).env?.BASE_URL ?? '/';
 
 const TRACKS: Record<string, string> = {
   battle: `${BASE}assets/adventure/audio/battle.mp3`,
+
+  // --- フィールドBGM(町の unit をキーにする) ---
+  '大きい数のしくみ': `${BASE}assets/adventure/audio/unit-big-numbers.mp3`,
+  'わり算の筆算(÷1けた)': `${BASE}assets/adventure/audio/unit-division-1digit.mp3`,
+  '角の大きさ': `${BASE}assets/adventure/audio/unit-angles.mp3`,
+  '小数のしくみ': `${BASE}assets/adventure/audio/unit-decimals.mp3`,
+  'わり算の筆算(÷2けた)': `${BASE}assets/adventure/audio/unit-division-2digit.mp3`,
+  'がい数': `${BASE}assets/adventure/audio/unit-rounding.mp3`,
+  '小数のかけ算とわり算': `${BASE}assets/adventure/audio/unit-decimals.mp3`,
 };
 
 let el: HTMLAudioElement | null = null;
@@ -36,10 +48,17 @@ const getEl = (): HTMLAudioElement => {
   return el;
 };
 
-/** 曲を鳴らす。存在しない曲名は何もしない(まだBGMが無いフィールド用)。 */
+/**
+ * 曲を鳴らす。存在しない曲名は無音にする(まだBGMが無いフィールド用)。
+ * ここで「止める」まで面倒を見るのは、曲つきの町から曲なしの町へ移ったときに
+ * 前の町の曲が鳴りっぱなしにならないようにするため。
+ */
 export const playBgm = (track: string) => {
   const src = TRACKS[track];
-  if (!src) return;
+  if (!src) {
+    stopBgm();
+    return;
+  }
   const a = getEl();
   if (currentTrack !== track) {
     currentTrack = track;
