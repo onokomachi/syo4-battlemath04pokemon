@@ -75,15 +75,25 @@ const hintOf = (p: Problem | null): string | string[] | null => {
 
 // ------------------------------------------------------------
 
-const HpBar: React.FC<{ hp: number; max: number; label: string; level?: number; small?: boolean }> = ({
-  hp, max, label, level, small,
+const HpBar: React.FC<{ hp: number; max: number; label: string; level?: number; small?: boolean; caught?: boolean }> = ({
+  hp, max, label, level, small, caught,
 }) => {
   const pct = Math.max(0, Math.min(100, (hp / Math.max(1, max)) * 100));
   const color = pct > 50 ? 'bg-emerald-400' : pct > 20 ? 'bg-amber-400' : 'bg-rose-500';
   return (
     <div className={`rounded-2xl bg-white/95 shadow-lg border-4 border-slate-800/10 ${small ? 'px-3 py-1.5' : 'px-4 py-2.5'}`}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className={`font-black text-slate-800 ${small ? 'text-sm' : 'text-lg'}`}>{label}</span>
+        <span className={`font-black text-slate-800 flex items-center gap-1 ${small ? 'text-sm' : 'text-lg'}`}>
+          {label}
+          {caught && (
+            <span
+              title="すでに つかまえた モンスター"
+              className={`shrink-0 rounded-full bg-emerald-100 text-emerald-700 font-black leading-none ${small ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5'}`}
+            >
+              ⚪ ゲットずみ
+            </span>
+          )}
+        </span>
         {level !== undefined && (
           <span className={`font-bold text-slate-500 ${small ? 'text-[11px]' : 'text-sm'}`}>Lv.{level}</span>
         )}
@@ -118,6 +128,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const oppLevel = opponents[oppIndex]?.level ?? 5;
   const oppStats = oppDef ? statsAtLevel(oppDef, oppLevel) : { maxHp: 30, atk: 8 };
   const [oppHp, setOppHp] = useState(oppStats.maxHp);
+  // 一度でも捕まえたことがあるモンスターかどうか(再会したときに一目でわかるように)
+  const oppCaught = oppDef ? save.dexCaught.includes(oppDef.id) : false;
 
   // ---- こちら ----
   const party = getPartyMonsters(save);
@@ -561,6 +573,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         max={oppStats.maxHp}
         label={oppDef?.name ?? 'あいて'}
         level={oppLevel}
+        caught={oppCaught}
         small
       />
       <div className="flex items-center gap-2">
@@ -703,8 +716,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-white font-black text-sm sm:text-base truncate">
-            {oppDef?.name} が もんだいを だしてきた！
+          <p className="text-white font-black text-sm sm:text-base truncate flex items-center gap-1.5">
+            <span className="truncate">{oppDef?.name} が もんだいを だしてきた！</span>
+            {oppCaught && (
+              <span
+                title="すでに つかまえた モンスター"
+                className="shrink-0 rounded-full bg-emerald-400 text-emerald-950 text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 leading-none"
+              >
+                ⚪ ゲットずみ
+              </span>
+            )}
           </p>
           <p className="text-white/60 text-[11px] sm:text-xs truncate">
             {problem?.subTopic}
