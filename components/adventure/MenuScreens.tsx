@@ -49,7 +49,9 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [unit, setUnit] = useState<string>('all');
   const [selected, setSelected] = useState<string | null>(null);
 
-  const caughtIds = useMemo(() => new Set(save.owned.map(o => o.defId)), [save.owned]);
+  // save.owned(いま手持ちにいる個体)ではなく save.dexCaught(捕獲履歴・永続)を見る。
+  // でないと、テキトウ団に さらわれた/リリースした だけで図鑑のマークが消えてしまう。
+  const caughtIds = useMemo(() => new Set(save.dexCaught), [save.dexCaught]);
   const seenIds = useMemo(() => new Set(save.seen), [save.seen]);
   /** すでに進化させた図鑑ID(セーブは個体uidで持っているので、defIdに直す) */
   const evolvedIds = useMemo(

@@ -18,10 +18,14 @@ import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure
 import {
   useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles,
   shrinesInTown, pendingTeamChapter, canEnterHideout, evolvableInParty,
+  ambushCondition, kidnappedInTown, pickKidnapCandidate,
 } from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
 import { getLegend } from '../../data/adventure/legends';
-import { TEAM_MEMBERS, TEAM_HIDEOUT, TEAM_CHAPTERS } from '../../data/adventure/team';
+import {
+  TEAM_MEMBERS, TEAM_HIDEOUT, TEAM_CHAPTERS,
+  AMBUSH_LINES, rescueLines, HIDEOUT_SKIP_SHARD_COST, HIDEOUT_SKIP_LINES,
+} from '../../data/adventure/team';
 import {
   LEAGUE_TOWN, LEAGUE_SPAWN, buildLeagueNpcs, leagueCorridor,
 } from '../../data/adventure/league';
@@ -76,6 +80,8 @@ const AdventureMode: React.FC<Props> = ({
   const [battle, setBattle] = useState<BattleSetup | null>(null);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
+  /** テキトウ団の下っ端。フィールドに1体だけ、時間経過でランダムに現れて追ってくる。 */
+  const [ambush, setAmbush] = useState<{ id: string; sprite: string; x: number; z: number } | null>(null);
   /** 直前に持っていた称号ID。増えたぶんだけ「もらった」と知らせる。 */
   const knownTitles = useRef<Set<string> | null>(null);
   const [titleToast, setTitleToast] = useState<{ icon: string; name: string } | null>(null);
@@ -177,6 +183,83 @@ const AdventureMode: React.FC<Props> = ({
     control.current.enabled = inputEnabled;
     if (!inputEnabled) { control.current.moveX = 0; control.current.moveY = 0; control.current.target = null; }
   }, [inputEnabled]);
+
+  // ---- テキトウ団の下っ端(待ち伏せ) ----
+  // 町を移動したら、いた下っ端はリセットする(前の町を追ってこない)
+  useEffect(() => { setAmbush(null); }, [town.id]);
+
+  // タイマーのコールバックは古い save/town を掴んだままにならないよう、
+  // 直近の値は ref 経由で読む(store の書きこみのたびにタイマーを作りなおさないため)。
+  const ambushDeps = useRef({ save, town, battle, dialogue, overlay, ambush });
+  useEffect(() => {
+    ambushDeps.current = { save, town, battle, dialogue, overlay, ambush };
+  });
+  useEffect(() => {
+    if (!save.started || inLeague) return;
+    const timer = window.setInterval(() => {
+      const d = ambushDeps.current;
+      if (d.battle || d.dialogue || d.overlay !== 'none' || d.ambush) return;
+      if (!ambushCondition(d.save, d.town)) return;
+      if (Math.random() > 0.3) return;
+      const half = d.town.size / 2;
+      const px = control.current.pos.x, pz = control.current.pos.z;
+      let x = 0, z = 0;
+      for (let i = 0; i < 8; i++) {
+        x = (Math.random() * 2 - 1) * (half - 2);
+        z = (Math.random() * 2 - 1) * (half - 2);
+        if (Math.hypot(x - px, z - pz) > 12) break;
+      }
+      const id = `ambush-${Date.now()}`;
+      setAmbush({ id, sprite: TEAM_MEMBERS.grunt.sprite, x, z });
+      // 追いつけないまま長居はさせない(あきらめて立ち去ったことにする)
+      window.setTimeout(() => setAmbush(cur => (cur?.id === id ? null : cur)), 50000);
+    }, 15000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save.started, inLeague, town.id]);
+
+  // 自動テストから、待ち伏せの出現を待たずに強制できるようにしておく口。
+  // __adv / __advTeleport と同じく、開発ビルドにしか生えない。
+  useEffect(() => {
+    if (!(import.meta as any).env?.DEV) return;
+    (window as any).__advForceAmbush = (dx = 6, dz = 0) => {
+      const px = control.current.pos.x, pz = control.current.pos.z;
+      setAmbush({ id: `ambush-test-${Date.now()}`, sprite: TEAM_MEMBERS.grunt.sprite, x: px + dx, z: pz + dz });
+    };
+    (window as any).__advState = () => ({
+      ambush, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
+      party: save.party, owned: save.owned, townId: save.townId,
+    });
+  });
+
+  /** 下っ端がプレイヤーに追いついたとき(近づいて調べなくても自動で起きる) */
+  const handleAmbushCatch = useCallback(() => {
+    const grunt = ambush;
+    if (!grunt || battle || dialogue) return;
+    setAmbush(null);
+    const pool = MONSTERS_BY_UNIT[town.unit] ?? [];
+    const level = Math.max(3, town.wildLevel + 4);
+    setDialogue({
+      speaker: TEAM_MEMBERS.grunt.name, portrait: getNpcSprite(grunt.sprite), accent: '#f97316',
+      lines: AMBUSH_LINES.encounter,
+      onDone: () => {
+        setDialogue(null);
+        setBattle({
+          kind: 'ambush',
+          trainerName: TEAM_MEMBERS.grunt.name,
+          trainerSprite: grunt.sprite,
+          trainerAfterLines: AMBUSH_LINES.win,
+          opponents: pool.length
+            ? [{ defId: pool[Math.floor(Math.random() * pool.length)].id, level }]
+            : [],
+          questionsPerOpponent: 3,
+          catchable: false,
+          reward: { mp: 80 + level * 4 },
+          townId: town.id,
+        });
+      },
+    });
+  }, [ambush, battle, dialogue, town]);
 
   // ---- 出題数の調整 ----
   // 筆算シミュレーター(division-hissan / multiplication-hissan / decimal-addsub /
@@ -297,6 +380,37 @@ const AdventureMode: React.FC<Props> = ({
     if (npc.kind === 'team' && npc.teamChapterId) {
       if (npc.teamChapterId === 'hideout') {
         startHideout();
+        return;
+      }
+      // --- 下っ端の かくれ家(奪還戦) ---
+      if (npc.teamChapterId.startsWith('rescue-')) {
+        const rescueTownId = npc.teamChapterId.slice('rescue-'.length);
+        const stolenNames = kidnappedInTown(save, rescueTownId)
+          .map(k => getMonster(k.mon.defId)?.name ?? '???');
+        const rescue = rescueLines(stolenNames);
+        const pool = MONSTERS_BY_UNIT[town.unit] ?? [];
+        const level = Math.max(5, town.wildLevel + 10);
+        setDialogue({
+          speaker: npc.name, portrait, accent: '#f97316',
+          lines: rescue.intro,
+          onDone: () => {
+            setDialogue(null);
+            setBattle({
+              kind: 'ambush',
+              isRescue: true,
+              trainerName: npc.name,
+              trainerSprite: npc.sprite,
+              trainerAfterLines: rescue.win,
+              opponents: Array.from({ length: 2 }, () => pool[Math.floor(Math.random() * pool.length)])
+                .filter((m): m is NonNullable<typeof m> => Boolean(m))
+                .map(m => ({ defId: m.id, level })),
+              questionsPerOpponent: 3,
+              catchable: false,
+              reward: { mp: 200 },
+              townId: rescueTownId,
+            });
+          },
+        });
         return;
       }
       const chapter = TEAM_CHAPTERS.find(c => c.id === npc.teamChapterId);
@@ -496,12 +610,27 @@ const AdventureMode: React.FC<Props> = ({
 
   const startHideout = useCallback(() => {
     hideoutStage.current = 0;
+    // かけらを15個貯めていれば、幹部3人との連戦をとばして直接ボスへ挑める
+    // (=下っ端との日常的な小競り合いが、ボス戦を有利にする)
+    if ((save.items.teamshard ?? 0) >= HIDEOUT_SKIP_SHARD_COST) {
+      store.addItem('teamshard', -HIDEOUT_SKIP_SHARD_COST);
+      setDialogue({
+        accent: '#f97316',
+        lines: [...TEAM_HIDEOUT.enterLines, ...HIDEOUT_SKIP_LINES],
+        onDone: () => {
+          setDialogue(null);
+          hideoutStage.current = TEAM_HIDEOUT.guards.length;
+          startHideoutBattle(TEAM_HIDEOUT.guards.length);
+        },
+      });
+      return;
+    }
     setDialogue({
       accent: '#f97316',
       lines: TEAM_HIDEOUT.enterLines,
       onDone: () => { setDialogue(null); startHideoutBattle(0); },
     });
-  }, [startHideoutBattle]);
+  }, [startHideoutBattle, save.items.teamshard, store]);
 
   // ---- バトル終了 ----
   const handleBattleFinish = (result: BattleResultSummary) => {
@@ -530,6 +659,39 @@ const AdventureMode: React.FC<Props> = ({
           lines: [
             `${legend.name}は、しずかに 祠へ もどっていった……`,
             'また いつでも、ちょうせんできる。',
+          ],
+          onDone: () => setDialogue(null),
+        });
+      }
+    }
+
+    // --- テキトウ団の下っ端(待ち伏せ・奪還) ---
+    if (setup.kind === 'ambush' && result.won) {
+      store.addItem('teamshard', setup.isRescue ? 2 : 1);
+      if (setup.isRescue && setup.townId) {
+        const names = kidnappedInTown(save, setup.townId).map(k => getMonster(k.mon.defId)?.name ?? '???');
+        store.rescueMonsters(setup.townId);
+        if (names.length > 0) {
+          after.push({
+            accent: '#22c55e',
+            lines: [`${names.join('、')} を 取り返した！`, 'てもとに もどってきたよ。'],
+            onDone: () => setDialogue(null),
+          });
+        }
+      }
+    }
+    if (setup.kind === 'ambush' && !setup.isRescue && !result.won && !result.fled && setup.townId) {
+      const kidnapUid = pickKidnapCandidate(save, setup.townId);
+      if (kidnapUid) {
+        const mon = save.owned.find(o => o.uid === kidnapUid);
+        const name = mon ? (getMonster(mon.defId)?.name ?? '???') : '???';
+        const stolenTownId = setup.townId;
+        store.kidnapMonster(kidnapUid, stolenTownId);
+        after.push({
+          accent: '#ef4444',
+          lines: [
+            `テキトウだんいんは、そのすきに ${name} を さらって 逃げていった……！`,
+            `${BADGE_NAMES[stolenTownId] ?? 'この町'} の バッジを 取れば、取り返しに 行けるはずだ。`,
           ],
           onDone: () => setDialogue(null),
         });
@@ -760,6 +922,25 @@ const AdventureMode: React.FC<Props> = ({
       });
     }
 
+    // 下っ端の かくれ家 — この町のバッジを持っていて、さらわれたままの子がいれば、
+    // ここで奪還戦に挑める(バッジ14個・最終章まで待たせないため)
+    if (save.badges.includes(town.id)) {
+      const stolen = kidnappedInTown(save, town.id);
+      if (stolen.length > 0) {
+        const names = stolen.map(k => getMonster(k.mon.defId)?.name ?? '???');
+        extra.push({
+          id: `rescue-${town.id}`,
+          kind: 'team',
+          name: 'テキトウ団 見はり番',
+          sprite: TEAM_MEMBERS.watcher.sprite,
+          x: -half * 0.55,
+          z: half * 0.68,
+          lines: rescueLines(names).intro,
+          teamChapterId: `rescue-${town.id}`,
+        });
+      }
+    }
+
     return [...town.npcs, ...extra];
   }, [town, save, inLeague]);
 
@@ -800,6 +981,8 @@ const AdventureMode: React.FC<Props> = ({
         onNearNpcChange={setNearNpc}
         startAt={startAt}
         corridor={corridor}
+        ambush={ambush}
+        onAmbushCatch={handleAmbushCatch}
       />
 
       {/* 上部のHUD */}
@@ -811,6 +994,9 @@ const AdventureMode: React.FC<Props> = ({
             <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/14</span>
             <span className="text-xs font-black text-slate-600">⚪ {save.items.ball ?? 0}</span>
             <span className="text-xs font-black text-amber-600">MP {mathPoints}</span>
+            {(save.items.teamshard ?? 0) > 0 && (
+              <span className="text-xs font-black text-orange-600">🔶 {save.items.teamshard}</span>
+            )}
           </div>
           <div className="mt-1 w-full h-2 rounded-full bg-slate-200 overflow-hidden">
             <div

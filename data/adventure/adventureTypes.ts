@@ -87,6 +87,16 @@ export interface OwnedMonster {
   caughtAt: number;
 }
 
+/**
+ * テキトウ団の下っ端に さらわれた個体。
+ * 手持ち(owned/party)からは抜けるが、個体データそのものは失われない。
+ * さらわれた町のバッジを取れば、その町で奪還戦に挑めるようになる。
+ */
+export interface KidnappedRecord {
+  mon: OwnedMonster;
+  townId: string;
+}
+
 // ============================================================
 // フィールド(町・ルート)
 // ============================================================
@@ -138,7 +148,10 @@ export interface FieldNpcDef {
   kind: 'villager' | 'trainer' | 'master' | 'rival' | 'nurse' | 'shop' | 'elite' | 'champion'
     // 祠(伝説のモンスター)と、テキトウ団のイベント。どちらも
     // 「近づいて しらべる」という同じ操作で扱えるよう、NPCとして表す。
-    | 'shrine' | 'team';
+    | 'shrine' | 'team'
+    // テキトウ団の下っ端の待ち伏せ。フィールドを ゆっくり徘徊し、近づくと
+    // 話しかけなくても自動でバトルになる(FieldScene が npcs とは別に扱う)。
+    | 'ambush';
   name: string;
   /** スプライトのファイル名(assets/adventure/npc/<sprite>.png) */
   sprite: string;
@@ -197,7 +210,8 @@ export interface TownDef {
 export type BattleKind =
   | 'wild' | 'trainer' | 'master' | 'rival' | 'elite' | 'champion'
   | 'legend'   // 伝説・幻(勝つと必ず仲間になる)
-  | 'team';    // テキトウ団
+  | 'team'     // テキトウ団(本筋: 5章+アジト戦)
+  | 'ambush';  // テキトウ団の下っ端(日常的な待ち伏せ・奪還戦)
 
 export interface BattleOpponentMonster {
   defId: string;
@@ -225,6 +239,8 @@ export interface BattleSetup {
   legendId?: string;
   /** kind:'team' のとき、クリア扱いにする章ID */
   teamChapterId?: string;
+  /** kind:'ambush' のとき、奪還戦(下っ端のかくれ家)かどうか。false/省略なら日常の待ち伏せ */
+  isRescue?: boolean;
 }
 
 export interface BattleResultSummary {
@@ -236,13 +252,15 @@ export interface BattleResultSummary {
   expGained: number;
   /** レベルが上がった手持ちの uid */
   leveledUp: string[];
+  /** 「にげる/こうさんする」で自分から退いたか(HP0の敗北と区別する) */
+  fled: boolean;
 }
 
 // ============================================================
 // アイテム
 // ============================================================
 
-export type ItemId = 'ball' | 'greatball' | 'potion' | 'hintbook';
+export type ItemId = 'ball' | 'greatball' | 'potion' | 'hintbook' | 'teamshard';
 
 export interface ItemDef {
   id: ItemId;
@@ -284,5 +302,12 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     description: 'バトル中に1回、ヒントをタダで見られる。',
     icon: '🔖',
     price: 50,
+  },
+  teamshard: {
+    id: 'teamshard',
+    name: 'テキトウ団のバッジのかけら',
+    description: 'テキトウ団の下っ端をたおすと手に入る。ショップでは売っていない。たくさん集めると、アジトのボス戦で使える特別な交換ができる。',
+    icon: '🔶',
+    price: 0,
   },
 };
