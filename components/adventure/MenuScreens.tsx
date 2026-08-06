@@ -244,33 +244,102 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const save = useAdventureStore(s => s.save);
   const setParty = useAdventureStore(s => s.setParty);
   const party = getPartyMonsters(save);
+  // いま「いれかえる」対象として選んでいる手持ちのマス(0〜2)。null なら未選択。
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
 
-  const toggle = (uid: string) => {
-    if (save.party.includes(uid)) {
-      // 手持ちが0になると戦えなくなるので、1体は必ず残す
-      if (save.party.length <= 1) return;
-      setParty(save.party.filter(p => p !== uid));
+  /** 手持ちの2マス(どちらも埋まっているマス)を入れかえる */
+  const swapSlots = (i: number, j: number) => {
+    if (i === j) return;
+    const next = save.party.slice();
+    if (i < 0 || j < 0 || i >= next.length || j >= next.length) return;
+    const tmp = next[i];
+    next[i] = next[j];
+    next[j] = tmp;
+    setParty(next);
+  };
+
+  /** ◀▶ボタン: 左右のマスと順番を入れかえる(せんとうに出す子を選ぶときに使う) */
+  const moveSlot = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= save.party.length) return;
+    swapSlots(i, j);
+  };
+
+  const selectSlot = (i: number) => {
+    setSelectedSlot(cur => (cur === i ? null : i));
+  };
+
+  /** 箱(つかまえたモンスター全部)をタップしたときの処理 */
+  const pickFromBox = (uid: string) => {
+    if (selectedSlot === null) {
+      // 選択中でなければ、いままでどおり タップで手持ちに出し入れ
+      if (save.party.includes(uid)) {
+        // 手持ちが0になると戦えなくなるので、1体は必ず残す
+        if (save.party.length <= 1) return;
+        setParty(save.party.filter(p => p !== uid));
+      } else if (save.party.length < 3) {
+        setParty([...save.party, uid]);
+      }
+      return;
+    }
+
+    const existingIndex = save.party.indexOf(uid);
+    if (existingIndex !== -1) {
+      // すでに手持ちにいる子を選んだ場合は、選んだマスと順番を入れかえる
+      // (選んでいたのが「あき」マスなら、もう手持ちにいる子なので何もしない)
+      if (selectedSlot < save.party.length) swapSlots(selectedSlot, existingIndex);
+    } else if (selectedSlot < save.party.length) {
+      // マスが埋まっている: その子と入れかえる(外れた子は箱に戻るだけ)
+      const next = save.party.slice();
+      next[selectedSlot] = uid;
+      setParty(next);
     } else if (save.party.length < 3) {
+      // 「あき」のマスを選んでいた: そのまま追加する
       setParty([...save.party, uid]);
     }
+    setSelectedSlot(null);
   };
 
   const box = save.owned;
 
   return (
     <Panel title={`てもち  ${save.party.length} / 3`} onClose={onClose} accent="#0284c7">
-      <p className="text-white/90 font-bold mb-3 text-sm sm:text-base">
+      <p className="text-white/90 font-bold mb-1 text-sm sm:text-base">
         せんとうに 出るのは いちばん左の1体。タイプ相性は その子で 決まるよ。
       </p>
+      <p className="text-white/70 font-bold mb-3 text-xs sm:text-sm">
+        ◀▶ で 順番を いれかえられるよ。マスを タップしてから 下の「つかまえた モンスター」を
+        タップすると、その子と いれかわるよ。
+      </p>
+      {selectedSlot !== null && (
+        <div className="mb-3 flex items-center gap-2 rounded-2xl bg-amber-400/90 px-4 py-2">
+          <p className="text-amber-950 font-black text-sm sm:text-base flex-1">
+            {selectedSlot + 1}ばんめと いれかえる子を、下から タップしてね。
+          </p>
+          <button
+            onClick={() => setSelectedSlot(null)}
+            className="px-3 py-1.5 rounded-xl bg-white text-amber-900 font-black text-xs sm:text-sm active:scale-95"
+          >
+            やめる
+          </button>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-3 mb-6">
         {[0, 1, 2].map(i => {
           const p = party[i];
+          const selected = selectedSlot === i;
           if (!p) {
             return (
-              <div key={i} className="rounded-3xl border-4 border-dashed border-white/40 h-40 flex items-center justify-center text-white/60 font-black">
-                あき
-              </div>
+              <button
+                key={i}
+                onClick={() => selectSlot(i)}
+                className={`rounded-3xl border-4 border-dashed h-40 flex items-center justify-center font-black transition active:scale-95 ${
+                  selected ? 'border-amber-400 bg-amber-400/10 text-amber-200' : 'border-white/40 text-white/60'
+                }`}
+              >
+                あき{selected && '(ここに いれる)'}
+              </button>
             );
           }
           const el = ELEMENTS[p.def.type];
@@ -278,9 +347,27 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           return (
             <div
               key={p.owned.uid}
-              className="rounded-3xl bg-white p-3 border-4 shadow-lg"
-              style={{ borderColor: el.color }}
+              onClick={() => selectSlot(i)}
+              className={`rounded-3xl bg-white p-3 border-4 shadow-lg cursor-pointer transition ${selected ? 'ring-4 ring-amber-400' : ''}`}
+              style={{ borderColor: selected ? '#f59e0b' : el.color }}
             >
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <button
+                  onClick={e => { e.stopPropagation(); moveSlot(i, -1); }}
+                  disabled={i === 0}
+                  className="px-2 py-1 rounded-lg bg-slate-100 disabled:opacity-30 text-slate-700 font-black text-sm active:scale-95"
+                >
+                  ◀
+                </button>
+                <span className="text-[10px] font-black text-slate-400">{i + 1}ばんめ</span>
+                <button
+                  onClick={e => { e.stopPropagation(); moveSlot(i, 1); }}
+                  disabled={i === party.length - 1}
+                  className="px-2 py-1 rounded-lg bg-slate-100 disabled:opacity-30 text-slate-700 font-black text-sm active:scale-95"
+                >
+                  ▶
+                </button>
+              </div>
               <div className="flex gap-2 items-center">
                 <img
                   src={getMonsterSprite(spriteIdFor(save, p.owned))}
@@ -332,8 +419,10 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           return (
             <button
               key={o.uid}
-              onClick={() => toggle(o.uid)}
-              className={`rounded-2xl p-2 border-4 transition active:scale-95 ${inParty ? 'bg-sky-100' : 'bg-white'}`}
+              onClick={() => pickFromBox(o.uid)}
+              className={`rounded-2xl p-2 border-4 transition active:scale-95 ${inParty ? 'bg-sky-100' : 'bg-white'} ${
+                selectedSlot !== null ? 'ring-2 ring-amber-300' : ''
+              }`}
               style={{ borderColor: inParty ? '#0284c7' : el.color }}
             >
               <img
