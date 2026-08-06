@@ -33,6 +33,11 @@ export const TEAM_MEMBERS: Record<string, TeamMemberDef> = {
     id: 'grunt', name: 'テキトウだんいん', role: 'したっぱ',
     sprite: 'team-grunt', units: ['大きい数のしくみ'], level: 8, partySize: 1,
   },
+  watcher: {
+    id: 'watcher', name: 'テキトウ団 見はり番', role: 'したっぱ',
+    // 専用の絵は用意していないので、下っ端と同じ見た目を使う(名前とセリフで見分ける)。
+    sprite: 'team-grunt', units: ['大きい数のしくみ'], level: 16, partySize: 2,
+  },
   zatsu: {
     id: 'zatsu', name: 'ザツ', role: 'テキトウ団 かんぶ',
     sprite: 'team-zatsu', units: ['わり算の筆算(÷1けた)'], level: 16, partySize: 2,
@@ -260,6 +265,46 @@ export const TEAM_HIDEOUT = {
   ],
   reward: { mp: 3000, balls: 10 },
 };
+
+// ============================================================
+// 下っ端の待ち伏せ(日常的な小競り合い)
+// ============================================================
+//
+// 上のTEAM_CHAPTERS(本筋・がい数まわりの物語)とは別物として並走させる。
+// こちらは14町どこでも、その町を一定やりこんだ子の前にランダムに現れ、
+// 負けると手持ちを1体さらっていく。町のバッジを取れば、その町の中で
+// 奪還戦に挑めるようになる(バッジ14個・最終章まで待たせないため)。
+
+/** 手持ちがさらわれるまでの間、フィールドをゆっくり追ってくる速さ(m/秒) */
+export const AMBUSH_SPEED = 1.3;
+/** これより近づくと自動でバトルになる距離 */
+export const AMBUSH_CAPTURE_RANGE = 2.3;
+
+export const AMBUSH_LINES = {
+  encounter: [
+    'だれかが、そっと 近づいてくる 気配……',
+    'テキトウだんいん「へへっ、また 会ったな！」',
+    'テキトウだんいん「その手持ち、もらっていくぜ！」',
+  ],
+  win: ['テキトウだんいん「く、くそ〜！ 今日のところは 退散だ！」'],
+};
+
+export const rescueLines = (names: string[]) => ({
+  intro: [
+    'すみっこに、テキトウ団の 見はり番が いる ――',
+    `テキトウ団 見はり番「ここには ${names.join('、')} を あずかってるぜ。」`,
+    'テキトウ団 見はり番「取り返したいなら、しょうぶだ！」',
+  ],
+  win: ['テキトウ団 見はり番「わ、わかったよ……もっていきな。」'],
+});
+
+/** かけらを何個貯めると、アジト戦で幹部3人との連戦を とばせるか */
+export const HIDEOUT_SKIP_SHARD_COST = 15;
+
+export const HIDEOUT_SKIP_LINES = [
+  `テキトウ団のかけらを ${HIDEOUT_SKIP_SHARD_COST}こ 使って、幹部たちを とばした！`,
+  'まっすぐ ボスの部屋へ 向かう。',
+];
 
 /** いま発生すべき章を返す(バッジ数と、その町にいるかで判定) */
 export const pendingChapter = (

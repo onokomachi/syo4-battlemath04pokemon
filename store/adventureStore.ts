@@ -19,7 +19,7 @@ import { ADVENTURE_TITLES, rankPoints, trainerRank, type AdventureTitleDef, type
 import { ALL_LEGENDS, legendsInTown, type LegendDef } from '../data/adventure/legends';
 import { TEAM_CHAPTERS, TEAM_HIDEOUT } from '../data/adventure/team';
 import { getAllMastery } from '../services/learningLogService';
-import type { OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
+import type { KidnappedRecord, OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
 
 const KEY = 'bm_adventure_v1';
 const SLOTS_KEY = 'bm_adventure_slots_v1';
@@ -36,6 +36,14 @@ export interface AdventureSave {
   party: string[];
   /** 所有しているモンスター */
   owned: OwnedMonster[];
+  /**
+   * 一度でも捕まえたモンスターの defId(図鑑の「捕まえた」欄)。
+   * owned とはあえて別に持つ: リリースや誘拐で owned から抜けても、
+   * 図鑑の達成度やジムの挑戦条件が巻きもどらないようにするため。
+   */
+  dexCaught: string[];
+  /** テキトウ団の下っ端に さらわれた個体(手持ちからは抜けている) */
+  kidnapped: KidnappedRecord[];
   /** 一度でも出会ったモンスターの defId(図鑑の「見た」欄) */
   seen: string[];
   /** 取得したバッジ(町ID) */
@@ -69,6 +77,8 @@ const emptySave = (): AdventureSave => ({
   townId: TOWNS[0].id,
   party: [],
   owned: [],
+  dexCaught: [],
+  kidnapped: [],
   seen: [],
   badges: [],
   defeatedNpcs: [],
@@ -85,10 +95,27 @@ const emptySave = (): AdventureSave => ({
   updatedAt: 0,
 });
 
+/**
+ * 保存データを最新の形に補う。
+ *
+ * dexCaught はあとから足したフィールドなので、それより前に作られたセーブには
+ * 存在しない。空のまま扱うと「もう捕まえたはずのモンスターが図鑑未達成に
+ * 巻きもどる」ことになるので、そのときは owned から一度だけ埋めなおす
+ * (リリースずみの分までは復元できないが、いま持っている分だけでも
+ * 失わないほうがよい)。
+ */
+const hydrateSave = (partial: Partial<AdventureSave> | null | undefined): AdventureSave => {
+  const merged: AdventureSave = { ...emptySave(), ...(partial ?? {}) };
+  if (!merged.dexCaught || merged.dexCaught.length === 0) {
+    merged.dexCaught = Array.from(new Set(merged.owned.map(o => o.defId)));
+  }
+  return merged;
+};
+
 const load = (): AdventureSave => {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...emptySave(), ...JSON.parse(raw) };
+    if (raw) return hydrateSave(JSON.parse(raw));
   } catch { /* 壊れていたら初期状態から始める */ }
   return emptySave();
 };
@@ -161,6 +188,10 @@ interface AdventureState {
   seeMonster: (defId: string) => void;
   catchMonster: (defId: string, level: number) => OwnedMonster;
   releaseMonster: (uid: string) => void;
+  /** テキトウ団の下っ端に負けたとき、手持ちの1体をさらわれた記録にする */
+  kidnapMonster: (uid: string, townId: string) => void;
+  /** その町の奪還戦に勝ったとき、さらわれていた個体をすべて手持ちに戻す */
+  rescueMonsters: (townId: string) => void;
   addExp: (uid: string, exp: number) => { leveled: boolean; newLevel: number };
   setParty: (uids: string[]) => void;
 
@@ -202,7 +233,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       const { slots } = get();
       const slot = slots[index];
       if (!slot) return;
-      const next = { ...emptySave(), ...slot, updatedAt: Date.now() };
+      const next = { ...hydrateSave(slot), updatedAt: Date.now() };
       persist(next);
       set({ save: next });
     },
@@ -220,6 +251,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         owned: [starter],
         party: [starter.uid],
         seen: [starterDefId],
+        dexCaught: [starterDefId],
       };
       next.maxHp = playerMaxHp(next);
       next.hp = next.maxHp;
@@ -276,7 +308,8 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       update(s => {
         const party = s.party.length < 3 ? [...s.party, mon.uid] : s.party;
         const seen = s.seen.includes(defId) ? s.seen : [...s.seen, defId];
-        return { ...s, owned: [...s.owned, mon], party, seen };
+        const dexCaught = s.dexCaught.includes(defId) ? s.dexCaught : [...s.dexCaught, defId];
+        return { ...s, owned: [...s.owned, mon], party, seen, dexCaught };
       });
       return mon;
     },
@@ -287,6 +320,30 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         owned: s.owned.filter(o => o.uid !== uid),
         party: s.party.filter(p => p !== uid),
       })),
+
+    kidnapMonster: (uid, townId) =>
+      update(s => {
+        const mon = s.owned.find(o => o.uid === uid);
+        if (!mon) return s;
+        return {
+          ...s,
+          owned: s.owned.filter(o => o.uid !== uid),
+          party: s.party.filter(p => p !== uid),
+          kidnapped: [...s.kidnapped, { mon, townId }],
+        };
+      }),
+
+    rescueMonsters: townId =>
+      update(s => {
+        const back = s.kidnapped.filter(k => k.townId === townId);
+        if (back.length === 0) return s;
+        const kidnapped = s.kidnapped.filter(k => k.townId !== townId);
+        let party = s.party;
+        for (const k of back) {
+          if (party.length < 3) party = [...party, k.mon.uid];
+        }
+        return { ...s, owned: [...s.owned, ...back.map(k => k.mon)], party, kidnapped };
+      }),
 
     addExp: (uid, exp) => {
       let leveled = false;
@@ -348,7 +405,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         const local = get().save;
         // 新しい方を採用する(端末をまたいでも進行が巻きもどらない)
         if ((remote.updatedAt ?? 0) > (local.updatedAt ?? 0)) {
-          const merged = { ...emptySave(), ...remote };
+          const merged = hydrateSave(remote);
           persist(merged);
           set({ save: merged });
         }
@@ -380,7 +437,7 @@ export const partyAttack = (save: AdventureSave): number => {
 
 /** 図鑑の達成率(ゲットした数 / 全151体) */
 export const dexProgress = (save: AdventureSave) => {
-  const caught = new Set(save.owned.map(o => o.defId));
+  const caught = new Set(save.dexCaught);
   const total = MONSTER_DEX.length;
   return {
     caught: MONSTER_DEX.filter(m => caught.has(m.id)).length,
@@ -417,9 +474,7 @@ export const gymProgress = (save: AdventureSave, town: TownDef): GymProgress => 
   const trainersBeaten = req.trainerIds.filter(id => save.defeatedNpcs.includes(id)).length;
 
   const unitDefIds = new Set((MONSTERS_BY_UNIT[town.unit] ?? []).map(m => m.id));
-  const caught = new Set(
-    save.owned.filter(o => unitDefIds.has(o.defId)).map(o => o.defId),
-  ).size;
+  const caught = save.dexCaught.filter(id => unitDefIds.has(id)).length;
 
   const mastery = getAllMastery();
   const correct = (MONSTERS_BY_UNIT[town.unit] ?? []).reduce(
@@ -467,7 +522,7 @@ export const adventureStats = (save: AdventureSave): AdventureStats => {
     (sum, m) => sum + (mastery[m.subtopic]?.corrects ?? 0),
     0,
   );
-  const caught = new Set(save.owned.map(o => o.defId));
+  const caught = new Set(save.dexCaught);
   const visited = new Set(
     save.seenEvents.filter(e => e.startsWith('intro:')).map(e => e.slice(6)),
   );
@@ -595,7 +650,7 @@ export const shrineState = (save: AdventureSave, legend: LegendDef): ShrineState
       missing.push(`${town.name}の バッジを 取る`);
     }
     const pool = MONSTERS_BY_UNIT[unit] ?? [];
-    const caughtIds = new Set(save.owned.map(o => o.defId));
+    const caughtIds = new Set(save.dexCaught);
     const caught = pool.filter(m => caughtIds.has(m.id)).length;
     const need = Math.ceil(pool.length * 0.8);
     if (caught < need) {
@@ -639,3 +694,40 @@ export const legendProgress = (save: AdventureSave) => ({
   taken: save.legends.length,
   total: ALL_LEGENDS.length,
 });
+
+// ============================================================
+// テキトウ団の下っ端(待ち伏せ・奪還)
+// ============================================================
+
+/**
+ * その町で下っ端が待ち伏せしはじめる条件。
+ * 「その町のモンスターを3体捕まえた」か「その町のサブトピックを1つ熟達した」の
+ * どちらか一方で成立する(捕獲派・練習派、どちらの遊び方でも起きるように)。
+ */
+export const ambushCondition = (save: AdventureSave, town: TownDef): boolean => {
+  const pool = MONSTERS_BY_UNIT[town.unit] ?? [];
+  const unitIds = new Set(pool.map(m => m.id));
+  const caught = save.dexCaught.filter(id => unitIds.has(id)).length;
+  if (caught >= 3) return true;
+  const mastery = getAllMastery();
+  return pool.some(m => mastery[m.subtopic]?.mastered);
+};
+
+/** その町でさらわれたままの個体一覧 */
+export const kidnappedInTown = (save: AdventureSave, townId: string): KidnappedRecord[] =>
+  save.kidnapped.filter(k => k.townId === townId);
+
+/**
+ * 下っ端に負けたとき、手持ちからさらう1体を選ぶ。
+ * その町のモンスターを優先し、手持ちが1体だけなら詰まないよう何もさらわない。
+ */
+export const pickKidnapCandidate = (save: AdventureSave, townId: string): string | null => {
+  if (save.party.length <= 1) return null;
+  const town = getTown(townId);
+  const unitIds = new Set((town ? MONSTERS_BY_UNIT[town.unit] : undefined)?.map(m => m.id) ?? []);
+  const inUnit = save.party.filter(uid => {
+    const o = save.owned.find(x => x.uid === uid);
+    return o && unitIds.has(o.defId);
+  });
+  return inUnit[0] ?? save.party[Math.floor(Math.random() * save.party.length)] ?? null;
+};

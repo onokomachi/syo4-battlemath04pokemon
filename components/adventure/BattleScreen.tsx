@@ -535,6 +535,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       mpGained: fled ? 0 : stats.current.mp,
       expGained: stats.current.exp,
       leveledUp: leveled.current,
+      fled,
     });
   };
 

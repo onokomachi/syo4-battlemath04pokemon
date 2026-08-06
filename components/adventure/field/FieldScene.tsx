@@ -13,6 +13,7 @@ import { BIOME_STYLES } from '../../../data/adventure/biomes';
 import { ELEMENTS } from '../../../data/adventure/elements';
 import { getPlayerSprite, getNpcSprite } from '../../../data/adventure/people';
 import type { LeagueCorridorSpec } from '../../../data/adventure/league';
+import { AMBUSH_SPEED, AMBUSH_CAPTURE_RANGE } from '../../../data/adventure/team';
 import { Clouds, GrassPatches, Ground, Sky, Water } from './Scenery';
 import { FieldProps } from './Props';
 import { Building, Shrine, SpriteActor } from './Actors';
@@ -52,11 +53,19 @@ interface SceneProps {
   startAt: { x: number; z: number };
   /** リーグの回廊のときだけ渡す。渡すと屋内の一本道になる。 */
   corridor?: LeagueCorridorSpec;
+  /**
+   * テキトウ団の下っ端の待ち伏せ。npcs とは別に持つ理由は、こちらだけ
+   * 毎フレーム位置が動く(プレイヤーを追ってくる)ため。npcs は
+   * save から決定的に組み立てる静的な一覧なので混ぜたくない。
+   */
+  ambush?: { id: string; sprite: string; x: number; z: number } | null;
+  /** 下っ端がプレイヤーに追いついたとき(近づいて調べなくても自動で起きる) */
+  onAmbushCatch?: () => void;
 }
 
 const World: React.FC<SceneProps> = ({
   town, appearance, control, npcs, defeatedNpcs,
-  onEncounter, onNearNpcChange, startAt, corridor,
+  onEncounter, onNearNpcChange, startAt, corridor, ambush, onAmbushCatch,
 }) => {
   const style = BIOME_STYLES[town.biome];
   const seed = useMemo(() => seedOf(town.id), [town.id]);
@@ -106,6 +115,15 @@ const World: React.FC<SceneProps> = ({
   });
   const playerGroup = useRef<THREE.Group>(null);
   const lastNear = useRef<string | null>(null);
+
+  // テキトウ団の下っ端。プレイヤーと同じく毎フレーム位置を動かすので ref で持つ。
+  const ambushLive = useRef<{ x: number; z: number } | null>(null);
+  const ambushGroup = useRef<THREE.Group>(null);
+  const ambushTriggered = useRef(false);
+  useEffect(() => {
+    ambushLive.current = ambush ? { x: ambush.x, z: ambush.z } : null;
+    ambushTriggered.current = false;
+  }, [ambush?.id]);
   const { camera } = useThree();
   // 向きが変わったときだけ再描画する(毎フレームの setState は避ける)
   const [facing, setFacing] = React.useState<'front' | 'back' | 'side'>('front');
@@ -244,6 +262,28 @@ const World: React.FC<SceneProps> = ({
     camera.position.lerp(desired, 1 - Math.pow(0.0015, dt));
     camera.lookAt(camTarget);
 
+    // --- テキトウ団の下っ端(いれば、少しずつプレイヤーを追う) ---
+    // 会話中・バトル中・メニュー中(c.enabled === false)は動かさない。
+    // そのあいだに追いつかれて詰む、ということが起きないようにするため。
+    if (c.enabled && ambush && ambushLive.current) {
+      const a = ambushLive.current;
+      const dx = p.x - a.x, dz = p.z - a.z;
+      const d = Math.hypot(dx, dz);
+      if (d < AMBUSH_CAPTURE_RANGE) {
+        if (!ambushTriggered.current) {
+          ambushTriggered.current = true;
+          onAmbushCatch?.();
+        }
+      } else {
+        const step = Math.min(d, AMBUSH_SPEED * dt);
+        a.x += (dx / d) * step;
+        a.z += (dz / d) * step;
+      }
+      if (ambushGroup.current) {
+        ambushGroup.current.position.set(a.x, groundY(a.x, a.z), a.z);
+      }
+    }
+
     // --- 近くのNPC ---
     let near: FieldNpcDef | null = null;
     let bestD = NPC_TALK_RANGE;
@@ -353,6 +393,23 @@ const World: React.FC<SceneProps> = ({
           />
         );
       })}
+
+      {/* テキトウ団の下っ端(徘徊してプレイヤーを追ってくる) */}
+      {ambush && (
+        <group
+          ref={ambushGroup}
+          position={[ambushLive.current?.x ?? ambush.x, 0, ambushLive.current?.z ?? ambush.z]}
+        >
+          <SpriteActor
+            url={getNpcSprite(ambush.sprite)}
+            x={0} y={0} z={0}
+            height={2.15}
+            phase={2.4}
+            tint="#f97316"
+            marker="battle"
+          />
+        </group>
+      )}
 
       {/* プレイヤー */}
       <group ref={playerGroup}>
