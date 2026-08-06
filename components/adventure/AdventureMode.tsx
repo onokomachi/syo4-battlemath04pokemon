@@ -94,6 +94,50 @@ const AdventureMode: React.FC<Props> = ({
     pos: { x: 0, z: 0 }, nearNpc: null, enabled: true,
   });
 
+  // 矢印キーでの移動(バーチャルパッドと同じ control.moveX/moveY を更新する)。
+  // 斜め入力(例: ↑+→)はパッドと同じく合成ベクトルの長さを1に正規化し、
+  // 斜め移動だけ速くなってしまわないようにする。
+  useEffect(() => {
+    const ARROW_KEYS: Record<string, true> = {
+      ArrowUp: true, ArrowDown: true, ArrowLeft: true, ArrowRight: true,
+    };
+    const pressed = new Set<string>();
+    const applyKeys = () => {
+      if (!control.current.enabled) return;
+      let dx = (pressed.has('ArrowRight') ? 1 : 0) - (pressed.has('ArrowLeft') ? 1 : 0);
+      let dy = (pressed.has('ArrowDown') ? 1 : 0) - (pressed.has('ArrowUp') ? 1 : 0);
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.hypot(dx, dy);
+        dx /= len; dy /= len;
+        control.current.target = null;
+      }
+      control.current.moveX = dx;
+      control.current.moveY = dy;
+    };
+    const isTypingTarget = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!ARROW_KEYS[e.key] || isTypingTarget(e.target)) return;
+      e.preventDefault();
+      pressed.add(e.key);
+      applyKeys();
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!ARROW_KEYS[e.key]) return;
+      pressed.delete(e.key);
+      applyKeys();
+    };
+    const onBlur = () => { pressed.clear(); applyKeys(); };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
+
   // 起動時に、Firebaseが設定されていれば新しい方のセーブを取りこむ
   useEffect(() => {
     if (uid) void store.loadFromCloud(uid);
