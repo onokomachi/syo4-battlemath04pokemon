@@ -67,6 +67,12 @@ export interface AdventureSave {
   teamChapters: string[];
   /** テキトウ団アジトを制覇したか */
   teamCleared: boolean;
+  /**
+   * フィールドにまれに現れる伝説の「おためし」遭遇で、HPを半分以上けずって
+   * みとめられた回数(legendId → 回数)。3回たまると、本来の条件を満たして
+   * いなくても祠に挑めるようになる(=野生での実績が本番の近道になる)。
+   */
+  wildLegendRecognized: Record<string, number>;
   updatedAt: number;
 }
 
@@ -92,6 +98,7 @@ const emptySave = (): AdventureSave => ({
   legends: [],
   teamChapters: [],
   teamCleared: false,
+  wildLegendRecognized: {},
   updatedAt: 0,
 });
 
@@ -149,13 +156,31 @@ const persistSlots = (slots: (AdventureSave | null)[]) => {
 };
 
 /** プレイヤー自身のHP。手持ちのレベルが上がるほど伸びる。 */
-export const playerMaxHp = (save: AdventureSave): number => {
+/** 手持ちの平均レベル(いなければ1)。 */
+export const partyAverageLevel = (save: AdventureSave): number => {
   const levels = save.party
     .map(uid => save.owned.find(o => o.uid === uid))
     .filter(Boolean)
     .map(o => (o as OwnedMonster).level);
-  const avg = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 1;
-  return Math.round(50 + avg * 4);
+  return levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 1;
+};
+
+export const playerMaxHp = (save: AdventureSave): number =>
+  Math.round(50 + partyAverageLevel(save) * 4);
+
+/**
+ * 野生・NPCのレベルを、手持ちの育ちぐあいに応じて少しだけ引き上げる。
+ *
+ * 町ごとのレベルは固定(単元の並び順で決まる)なので、14の町をどこから
+ * 回ってもいい設計だと、先にレベルを上げてから「まだ弱い」町へ戻ると
+ * 何もかもワンパンで終わってしまう。かといって町の基準どおりに完全一致
+ * させると「育てた意味」が消えるので、育っている分の一部だけを追い上げる
+ * (下方修正はしない。基準より弱いときは町の値のまま)。
+ */
+export const scaledOpponentLevel = (save: AdventureSave, baseLevel: number): number => {
+  const over = partyAverageLevel(save) - baseLevel;
+  if (over <= 0) return baseLevel;
+  return baseLevel + Math.min(15, Math.round(over * 0.35));
 };
 
 let uidCounter = 0;
@@ -183,6 +208,8 @@ interface AdventureState {
   addLegend: (legendId: string) => void;
   clearTeamChapter: (chapterId: string) => void;
   clearTeamHideout: () => void;
+  /** 野生の伝説に「みとめられた」ときに1回ぶん記録する */
+  recognizeLegend: (legendId: string) => void;
 
   // --- モンスター ---
   seeMonster: (defId: string) => void;
@@ -299,6 +326,15 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       ),
 
     clearTeamHideout: () => update(s => ({ ...s, teamCleared: true })),
+
+    recognizeLegend: legendId =>
+      update(s => ({
+        ...s,
+        wildLegendRecognized: {
+          ...s.wildLegendRecognized,
+          [legendId]: (s.wildLegendRecognized[legendId] ?? 0) + 1,
+        },
+      })),
 
     seeMonster: defId =>
       update(s => (s.seen.includes(defId) ? s : { ...s, seen: [...s.seen, defId] })),
@@ -640,6 +676,11 @@ export const shrineState = (save: AdventureSave, legend: LegendDef): ShrineState
       if (legendCount < 7) missing.push(`7体の 伝説を 仲間にする (${legendCount} / 7)`);
     }
     return { legend, taken, ready: missing.length === 0, missing };
+  }
+
+  // 野生の「おためし」遭遇で3回みとめられていれば、本来の条件を待たず挑める
+  if ((save.wildLegendRecognized[legend.id] ?? 0) >= 3) {
+    return { legend, taken, ready: true, missing: [] };
   }
 
   // 伝説はそのタイプの全単元を「制覇」していること
