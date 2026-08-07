@@ -67,6 +67,12 @@ export interface AdventureSave {
   teamChapters: string[];
   /** テキトウ団アジトを制覇したか */
   teamCleared: boolean;
+  /**
+   * フィールドにまれに現れる伝説の「おためし」遭遇で、HPを半分以上けずって
+   * みとめられた回数(legendId → 回数)。3回たまると、本来の条件を満たして
+   * いなくても祠に挑めるようになる(=野生での実績が本番の近道になる)。
+   */
+  wildLegendRecognized: Record<string, number>;
   updatedAt: number;
 }
 
@@ -92,6 +98,7 @@ const emptySave = (): AdventureSave => ({
   legends: [],
   teamChapters: [],
   teamCleared: false,
+  wildLegendRecognized: {},
   updatedAt: 0,
 });
 
@@ -183,6 +190,8 @@ interface AdventureState {
   addLegend: (legendId: string) => void;
   clearTeamChapter: (chapterId: string) => void;
   clearTeamHideout: () => void;
+  /** 野生の伝説に「みとめられた」ときに1回ぶん記録する */
+  recognizeLegend: (legendId: string) => void;
 
   // --- モンスター ---
   seeMonster: (defId: string) => void;
@@ -299,6 +308,15 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       ),
 
     clearTeamHideout: () => update(s => ({ ...s, teamCleared: true })),
+
+    recognizeLegend: legendId =>
+      update(s => ({
+        ...s,
+        wildLegendRecognized: {
+          ...s.wildLegendRecognized,
+          [legendId]: (s.wildLegendRecognized[legendId] ?? 0) + 1,
+        },
+      })),
 
     seeMonster: defId =>
       update(s => (s.seen.includes(defId) ? s : { ...s, seen: [...s.seen, defId] })),
@@ -640,6 +658,11 @@ export const shrineState = (save: AdventureSave, legend: LegendDef): ShrineState
       if (legendCount < 7) missing.push(`7体の 伝説を 仲間にする (${legendCount} / 7)`);
     }
     return { legend, taken, ready: missing.length === 0, missing };
+  }
+
+  // 野生の「おためし」遭遇で3回みとめられていれば、本来の条件を待たず挑める
+  if ((save.wildLegendRecognized[legend.id] ?? 0) >= 3) {
+    return { legend, taken, ready: true, missing: [] };
   }
 
   // 伝説はそのタイプの全単元を「制覇」していること

@@ -209,9 +209,10 @@ export interface TownDef {
 
 export type BattleKind =
   | 'wild' | 'trainer' | 'master' | 'rival' | 'elite' | 'champion'
-  | 'legend'   // 伝説・幻(勝つと必ず仲間になる)
-  | 'team'     // テキトウ団(本筋: 5章+アジト戦)
-  | 'ambush';  // テキトウ団の下っ端(日常的な待ち伏せ・奪還戦)
+  | 'legend'      // 伝説・幻(祠。勝つと必ず仲間になる)
+  | 'legend-wild' // 伝説がフィールドにまれに現れる「おためし」の遭遇(仲間にはならない)
+  | 'team'        // テキトウ団(本筋: 5章+アジト戦)
+  | 'ambush';     // テキトウ団の下っ端(日常的な待ち伏せ・奪還戦)
 
 export interface BattleOpponentMonster {
   defId: string;
@@ -254,6 +255,8 @@ export interface BattleResultSummary {
   leveledUp: string[];
   /** 「にげる/こうさんする」で自分から退いたか(HP0の敗北と区別する) */
   fled: boolean;
+  /** kind:'legend-wild' で、HPを半分以上けずって「みとめられた」か */
+  recognized: boolean;
 }
 
 // ============================================================

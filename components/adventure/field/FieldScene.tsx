@@ -12,8 +12,10 @@ import type { FieldNpcDef, TownDef } from '../../../data/adventure/adventureType
 import { BIOME_STYLES } from '../../../data/adventure/biomes';
 import { ELEMENTS } from '../../../data/adventure/elements';
 import { getPlayerSprite, getNpcSprite } from '../../../data/adventure/people';
+import { getMonsterSprite } from '../../../data/adventure/monsters';
 import type { LeagueCorridorSpec } from '../../../data/adventure/league';
 import { AMBUSH_SPEED, AMBUSH_CAPTURE_RANGE } from '../../../data/adventure/team';
+import { LEGEND_WANDER_SPEED, LEGEND_WANDER_CAPTURE_RANGE } from '../../../data/adventure/legends';
 import { Clouds, GrassPatches, Ground, Sky, Water } from './Scenery';
 import { FieldProps } from './Props';
 import { Building, Shrine, SpriteActor } from './Actors';
@@ -61,11 +63,19 @@ interface SceneProps {
   ambush?: { id: string; sprite: string; x: number; z: number } | null;
   /** 下っ端がプレイヤーに追いついたとき(近づいて調べなくても自動で起きる) */
   onAmbushCatch?: () => void;
+  /**
+   * フィールドにまれに現れる、巨大な伝説モンスターの「おためし」遭遇。
+   * ambush と同じ理由(毎フレーム位置が動く)で npcs とは別に持つ。
+   */
+  legendWander?: { id: string; defId: string; color: string; x: number; z: number } | null;
+  /** 伝説にプレイヤーが追いついたとき */
+  onLegendCatch?: () => void;
 }
 
 const World: React.FC<SceneProps> = ({
   town, appearance, control, npcs, defeatedNpcs,
   onEncounter, onNearNpcChange, startAt, corridor, ambush, onAmbushCatch,
+  legendWander, onLegendCatch,
 }) => {
   const style = BIOME_STYLES[town.biome];
   const seed = useMemo(() => seedOf(town.id), [town.id]);
@@ -124,6 +134,16 @@ const World: React.FC<SceneProps> = ({
     ambushLive.current = ambush ? { x: ambush.x, z: ambush.z } : null;
     ambushTriggered.current = false;
   }, [ambush?.id]);
+
+  // 野生の伝説。こちらも同じ理由で ref で毎フレーム動かす。
+  const legendLive = useRef<{ x: number; z: number } | null>(null);
+  const legendGroup = useRef<THREE.Group>(null);
+  const legendTriggered = useRef(false);
+  useEffect(() => {
+    legendLive.current = legendWander ? { x: legendWander.x, z: legendWander.z } : null;
+    legendTriggered.current = false;
+  }, [legendWander?.id]);
+
   const { camera } = useThree();
   // 向きが変わったときだけ再描画する(毎フレームの setState は避ける)
   const [facing, setFacing] = React.useState<'front' | 'back' | 'side'>('front');
@@ -284,6 +304,26 @@ const World: React.FC<SceneProps> = ({
       }
     }
 
+    // --- 野生の伝説(いれば、少しずつプレイヤーを追う) ---
+    if (c.enabled && legendWander && legendLive.current) {
+      const l = legendLive.current;
+      const dx = p.x - l.x, dz = p.z - l.z;
+      const d = Math.hypot(dx, dz);
+      if (d < LEGEND_WANDER_CAPTURE_RANGE) {
+        if (!legendTriggered.current) {
+          legendTriggered.current = true;
+          onLegendCatch?.();
+        }
+      } else {
+        const step = Math.min(d, LEGEND_WANDER_SPEED * dt);
+        l.x += (dx / d) * step;
+        l.z += (dz / d) * step;
+      }
+      if (legendGroup.current) {
+        legendGroup.current.position.set(l.x, groundY(l.x, l.z), l.z);
+      }
+    }
+
     // --- 近くのNPC ---
     let near: FieldNpcDef | null = null;
     let bestD = NPC_TALK_RANGE;
@@ -407,6 +447,23 @@ const World: React.FC<SceneProps> = ({
             phase={2.4}
             tint="#f97316"
             marker="battle"
+          />
+        </group>
+      )}
+
+      {/* 野生の伝説(巨大なので、ふつうのモンスターより一回りも二回りも大きく描く) */}
+      {legendWander && (
+        <group
+          ref={legendGroup}
+          position={[legendLive.current?.x ?? legendWander.x, 0, legendLive.current?.z ?? legendWander.z]}
+        >
+          <SpriteActor
+            url={getMonsterSprite(legendWander.defId)}
+            x={0} y={0} z={0}
+            height={6.5}
+            phase={0.6}
+            tint={legendWander.color}
+            marker="legend"
           />
         </group>
       )}

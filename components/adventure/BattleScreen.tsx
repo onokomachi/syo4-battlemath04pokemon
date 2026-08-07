@@ -32,7 +32,7 @@ import ProblemAnswerPad from '../ProblemAnswerPad';
 import ProblemResultDisplay from '../ProblemResultDisplay';
 import FractionText from '../FractionText';
 import { DialogueBox } from './ui/DialogueBox';
-import { playBattleBgm, stopBattleBgm } from './audio/bgm';
+import { playBattleBgm, playLegendBgm, stopBattleBgm } from './audio/bgm';
 import { playHitSfx, playWinSfx, playLevelUpSfx } from './audio/sfx';
 
 type Phase =
@@ -116,9 +116,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   // バトル用の <audio> は町のBGMとは別の要素なので、ここで自分の
   // 開始/終了をそのまま面倒みてよい(町のBGM側と競合しない)。
+  // 伝説(祠・野生のおためし遭遇どちらも)は専用曲を鳴らす。
   useEffect(() => {
-    playBattleBgm();
+    if (setup.kind === 'legend' || setup.kind === 'legend-wild') playLegendBgm();
+    else playBattleBgm();
     return () => stopBattleBgm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- 相手 ----
@@ -130,6 +133,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const [oppHp, setOppHp] = useState(oppStats.maxHp);
   // 一度でも捕まえたことがあるモンスターかどうか(再会したときに一目でわかるように)
   const oppCaught = oppDef ? save.dexCaught.includes(oppDef.id) : false;
+
+  // 自動テストから、相手のHPを直接いじれるようにしておく口。開発ビルドにしか生えない。
+  useEffect(() => {
+    if (!(import.meta as any).env?.DEV) return;
+    (window as any).__advForceOppHp = (hp: number) => setOppHp(hp);
+  });
 
   // ---- こちら ----
   const party = getPartyMonsters(save);
@@ -167,6 +176,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const stats = useRef({ correct: 0, incorrect: 0, mp: 0, exp: 0 });
   const leveled = useRef<string[]>([]);
   const caught = useRef<string | undefined>(undefined);
+  /** kind:'legend-wild' で、HPを半分以上けずって「みとめられた」か */
+  const recognized = useRef(false);
 
   const subtopics = useMemo(() => {
     if (setup.subtopics?.length) return setup.subtopics;
@@ -177,7 +188,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   // 相手が変わるたびに、その相手ぶんの問題を用意する
   useEffect(() => {
-    const st = oppDef ? [oppDef.subtopic] : subtopics;
+    // 伝説の MonsterDef は subtopic が空文字(図鑑用のダミー)なので、
+    // oppDef が存在する=真、という判定だけだと常に [''] が選ばれてしまい、
+    // setup.subtopics で渡した実在のサブトピックが無視されていた
+    // (「たたかう」を押しても「問題文の解析に失敗しました」になっていた実際のバグ)。
+    // oppDef.subtopic が空でないときだけそちらを優先する。
+    const st = oppDef?.subtopic ? [oppDef.subtopic] : subtopics;
     setProblems(pickProblems(st.length ? st : subtopics, setup.questionsPerOpponent + 3));
     setQIndex(0);
     setOppHp(oppStats.maxHp);
@@ -412,6 +428,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // ---- 次へ ----
   const proceed = () => {
     if (hp <= 0) { setPhase('lose'); return; }
+    // 野生の伝説は、たおすためのバトルではない。HPを半分以上けずったら、
+    // そこで「みとめられた」ことにして終える(全滅させても仲間にはならない)。
+    if (setup.kind === 'legend-wild' && oppHp <= oppStats.maxHp * 0.5) {
+      handleRecognized();
+      return;
+    }
     if (oppHp <= 0) { handleFaint(); return; }
 
     if (!wasCorrect && !isRetry) {
@@ -438,6 +460,21 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     }
     setQIndex(next);
     setPhase('command');
+  };
+
+  /**
+   * 野生の伝説に、たおさずして「みとめられた」ことにする。
+   * 経験値・MPは渡さない(仲間になったわけではないため)。
+   */
+  const handleRecognized = () => {
+    recognized.current = true;
+    setMessage([
+      `${oppDef?.name ?? '伝説のモンスター'} は、しずかに あなたを 見つめた……`,
+      'そのちからは 本物だ、と みとめたようだ。',
+      'いつか また、本気で 挑みに 来るだろう ―― そう つげて、雲のかなたへ 消えていった。',
+    ]);
+    playWinSfx();
+    setPhase('win');
   };
 
   const handleFaint = () => {
@@ -551,6 +588,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       expGained: stats.current.exp,
       leveledUp: leveled.current,
       fled,
+      recognized: recognized.current,
     });
   };
 

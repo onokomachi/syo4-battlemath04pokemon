@@ -21,7 +21,7 @@ import {
   ambushCondition, kidnappedInTown, pickKidnapCandidate,
 } from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
-import { getLegend } from '../../data/adventure/legends';
+import { getLegend, legendsInTown } from '../../data/adventure/legends';
 import {
   TEAM_MEMBERS, TEAM_HIDEOUT, TEAM_CHAPTERS,
   AMBUSH_LINES, rescueLines, HIDEOUT_SKIP_SHARD_COST, HIDEOUT_SKIP_LINES,
@@ -82,6 +82,10 @@ const AdventureMode: React.FC<Props> = ({
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
   /** テキトウ団の下っ端。フィールドに1体だけ、時間経過でランダムに現れて追ってくる。 */
   const [ambush, setAmbush] = useState<{ id: string; sprite: string; x: number; z: number } | null>(null);
+  /** フィールドにまれに現れる、巨大な伝説モンスターの「おためし」遭遇。 */
+  const [legendWander, setLegendWander] = useState<
+    { id: string; defId: string; color: string; x: number; z: number } | null
+  >(null);
   /** 直前に持っていた称号ID。増えたぶんだけ「もらった」と知らせる。 */
   const knownTitles = useRef<Set<string> | null>(null);
   const [titleToast, setTitleToast] = useState<{ icon: string; name: string } | null>(null);
@@ -153,11 +157,13 @@ const AdventureMode: React.FC<Props> = ({
   // 町のBGM。バトル中は鳴らしっぱなしのまま無音にするだけにして、バトルが
   // 終わったとき(battle が null に戻ったとき)に音量をもとに戻す。
   // これで、バトルのたびに町の曲が頭出しされることがなくなる。
+  // 野生の伝説が出現しているあいだも、姿を見せた時点で無音にする
+  // (バトルが始まる前から「何かがいる」空気を出すため)。
   useEffect(() => {
     if (!save.started) return;
-    if (battle) { muteFieldBgm(); return; }
+    if (battle || legendWander) { muteFieldBgm(); return; }
     playFieldBgm(town.unit);
-  }, [town.unit, battle, save.started]);
+  }, [town.unit, battle, save.started, legendWander]);
 
   // アドベンチャーそのものを抜けるとき(メインメニューに戻るとき)は、
   // 町の曲・バトル曲を問わず必ず止める。
@@ -262,7 +268,74 @@ const AdventureMode: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save.started, inLeague, town.id]);
 
-  // 自動テストから、待ち伏せの出現を待たずに強制できるようにしておく口。
+  // ---- 野生の伝説(まれに現れる、巨大な「おためし」遭遇) ----
+  // 町を移動したら、いた伝説はリセットする(前の町を追ってこない)
+  useEffect(() => { setLegendWander(null); }, [town.id]);
+
+  const legendDeps = useRef({ save, town, battle, dialogue, overlay, legendWander });
+  useEffect(() => {
+    legendDeps.current = { save, town, battle, dialogue, overlay, legendWander };
+  });
+  useEffect(() => {
+    if (!save.started || inLeague) return;
+    const timer = window.setInterval(() => {
+      const d = legendDeps.current;
+      if (d.battle || d.dialogue || d.overlay !== 'none' || d.legendWander) return;
+      // その町に(祠の)伝説がいて、まだ仲間にしていなければ候補になる
+      const candidates = legendsInTown(d.town.id).filter(
+        l => l.kind === 'legend' && !d.save.legends.includes(l.id),
+      );
+      if (candidates.length === 0) return;
+      // 下っ端よりずっとまれ(数%)にしか出さない
+      if (Math.random() > 0.05) return;
+      const legend = candidates[Math.floor(Math.random() * candidates.length)];
+      const half = d.town.size / 2;
+      const px = control.current.pos.x, pz = control.current.pos.z;
+      let x = 0, z = 0;
+      for (let i = 0; i < 8; i++) {
+        x = (Math.random() * 2 - 1) * (half - 2);
+        z = (Math.random() * 2 - 1) * (half - 2);
+        if (Math.hypot(x - px, z - pz) > 14) break;
+      }
+      const id = `legend-wander-${Date.now()}`;
+      setLegendWander({ id, defId: legend.id, color: legend.shrine.color, x, z });
+      // 巨大なので下っ端より長く居させる。それでも追いつけなければ、あきらめて消える。
+      window.setTimeout(() => setLegendWander(cur => (cur?.id === id ? null : cur)), 70000);
+    }, 20000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save.started, inLeague, town.id]);
+
+  /** 伝説にプレイヤーが追いついたとき(近づいて調べなくても自動で起きる) */
+  const handleLegendCatch = useCallback(() => {
+    const wander = legendWander;
+    if (!wander || battle || dialogue) return;
+    const legend = getLegend(wander.defId);
+    setLegendWander(null);
+    if (!legend) return;
+    setDialogue({
+      speaker: legend.name, accent: legend.shrine.color,
+      lines: [
+        'とつぜん、大地が ふるえた ――',
+        ...legend.awakenText,
+      ],
+      onDone: () => {
+        setDialogue(null);
+        setBattle({
+          kind: 'legend-wild',
+          trainerName: legend.name,
+          opponents: [{ defId: legend.id, level: legend.level }],
+          subtopics: legendSubtopics(legend),
+          questionsPerOpponent: 4,
+          catchable: false,
+          townId: town.id,
+          legendId: legend.id,
+        });
+      },
+    });
+  }, [legendWander, battle, dialogue, town]);
+
+  // 自動テストから、待ち伏せ・伝説の出現を待たずに強制できるようにしておく口。
   // __adv / __advTeleport と同じく、開発ビルドにしか生えない。
   useEffect(() => {
     if (!(import.meta as any).env?.DEV) return;
@@ -270,9 +343,19 @@ const AdventureMode: React.FC<Props> = ({
       const px = control.current.pos.x, pz = control.current.pos.z;
       setAmbush({ id: `ambush-test-${Date.now()}`, sprite: TEAM_MEMBERS.grunt.sprite, x: px + dx, z: pz + dz });
     };
+    (window as any).__advForceLegend = (defId: string, dx = 6, dz = 0) => {
+      const legend = getLegend(defId);
+      if (!legend) return;
+      const px = control.current.pos.x, pz = control.current.pos.z;
+      setLegendWander({
+        id: `legend-test-${Date.now()}`, defId: legend.id, color: legend.shrine.color,
+        x: px + dx, z: pz + dz,
+      });
+    };
     (window as any).__advState = () => ({
-      ambush, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
-      party: save.party, owned: save.owned, townId: save.townId,
+      ambush, legendWander, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
+      party: save.party, owned: save.owned, townId: save.townId, legends: save.legends,
+      wildLegendRecognized: save.wildLegendRecognized,
     });
   });
 
@@ -408,7 +491,11 @@ const AdventureMode: React.FC<Props> = ({
             kind: 'legend',
             trainerName: legend.name,
             opponents: [{ defId: legend.id, level: legend.level }],
-            subtopics: undefined,
+            // 伝説の MonsterDef は subtopic が空文字(図鑑用にダミーで持たせているだけ)
+            // なので、undefined のままだと出題プールが空になり「たたかう」を押しても
+            // 問題が一問も出ない詰みバトルになっていた(実際に起きていたバグ)。
+            // legend.units(そのタイプ全単元)から実在するサブトピックを集める。
+            subtopics: legendSubtopics(legend),
             questionsPerOpponent: legend.kind === 'mythical' ? 6 : 5,
             catchable: false,
             reward: { mp: legend.kind === 'mythical' ? 2500 : 1200, balls: 5 },
@@ -591,6 +678,12 @@ const AdventureMode: React.FC<Props> = ({
     });
   }, [inputEnabled, town, save.defeatedNpcs, store, isSlowGuidedSubtopic]);
 
+  /** 伝説の出題プール。担当単元(legend.units)ぜんぶのサブトピックを集める。 */
+  const legendSubtopics = useCallback(
+    (legend: { units: string[] }) => legend.units.flatMap(u => (MONSTERS_BY_UNIT[u] ?? []).map(m => m.subtopic)),
+    [],
+  );
+
   /** テキトウ団の手持ち。担当単元のモンスターから決定的に選ぶ。 */
   const pickTeamParty = useCallback(
     (units: string[], level: number, size: number) => {
@@ -703,6 +796,26 @@ const AdventureMode: React.FC<Props> = ({
           lines: [
             `${legend.name}は、しずかに 祠へ もどっていった……`,
             'また いつでも、ちょうせんできる。',
+          ],
+          onDone: () => setDialogue(null),
+        });
+      }
+    }
+
+    // --- 野生の伝説(フィールドでの「おためし」遭遇) ---
+    // 「みとめられた」ときのセリフはバトル画面側ですでに見せている。
+    // ここでは、3回たまって祠が開いたときだけ追加で知らせる。
+    if (setup.kind === 'legend-wild' && result.recognized && setup.legendId) {
+      const legend = getLegend(setup.legendId);
+      const newCount = (save.wildLegendRecognized[setup.legendId] ?? 0) + 1;
+      store.recognizeLegend(setup.legendId);
+      if (legend && newCount >= 3) {
+        after.push({
+          speaker: `${legend.name}の祠`, accent: legend.shrine.color,
+          lines: [
+            '―― 祠の しるしが、まぶしく 光りはじめた。',
+            `${legend.name}が、あなたを 本物と みとめたようだ。`,
+            'いつでも、祠で 本気の しょうぶを いどめる。',
           ],
           onDone: () => setDialogue(null),
         });
@@ -1027,7 +1140,20 @@ const AdventureMode: React.FC<Props> = ({
         corridor={corridor}
         ambush={ambush}
         onAmbushCatch={handleAmbushCatch}
+        legendWander={legendWander}
+        onLegendCatch={handleLegendCatch}
       />
+
+      {/* 野生の伝説が出ているあいだ、画面ぜんたいに気配を感じさせる色をかぶせる */}
+      {legendWander && (
+        <div
+          className="absolute inset-0 pointer-events-none animate-pulse"
+          style={{
+            background: `radial-gradient(circle at 50% 60%, transparent 35%, ${legendWander.color}33 100%)`,
+            boxShadow: `inset 0 0 120px 30px ${legendWander.color}55`,
+          }}
+        />
+      )}
 
       {/* 上部のHUD */}
       <div className="absolute top-0 inset-x-0 p-2 sm:p-3 flex items-start justify-between gap-2 pointer-events-none">

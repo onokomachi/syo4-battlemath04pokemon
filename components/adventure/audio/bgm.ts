@@ -123,6 +123,22 @@ export const playBattleBgm = () => {
   if (!muted) void a.play().catch(() => {});
 };
 
+/**
+ * 伝説とのバトル(祠・野生の「おためし」遭遇どちらも)用。
+ * 通常のバトル曲(battle.mp3)とは別に、専用の曲を鳴らす。
+ * まだ TRACKS.legend が無い(曲を用意していない)あいだは無音のままにする
+ * ―― 曲を足すときは TRACKS に1行足すだけでよい、という既存の方針のまま。
+ */
+export const playLegendBgm = () => {
+  battleActive = true;
+  const src = TRACKS.legend;
+  const a = getBattleEl();
+  if (!src) { a.pause(); return; }
+  a.src = src;
+  a.currentTime = 0;
+  if (!muted) void a.play().catch(() => {});
+};
+
 export const stopBattleBgm = () => {
   battleActive = false;
   if (!battleEl) return;

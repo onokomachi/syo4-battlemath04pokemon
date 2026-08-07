@@ -27,7 +27,7 @@ export const SpriteActor: React.FC<{
   phase?: number;
   tint?: string;
   /** 頭の上に「！」を出す */
-  marker?: 'none' | 'talk' | 'battle';
+  marker?: 'none' | 'talk' | 'battle' | 'legend';
   /** 左右反転(進行方向の表現に使う) */
   flip?: boolean;
   opacity?: number;
@@ -39,7 +39,7 @@ export const SpriteActor: React.FC<{
   const markerRef = useRef<THREE.Group>(null);
   const tex = useSpriteTexture(url, tint);
   // フックは条件分岐の外で呼ぶ(marker が none のときは描画しないだけ)
-  const markerTex = useMarkerTexture(marker === 'battle' ? 'battle' : 'talk');
+  const markerTex = useMarkerTexture(marker === 'battle' ? 'battle' : marker === 'legend' ? 'legend' : 'talk');
 
   const world = useMemo(() => new THREE.Vector3(), []);
 
@@ -89,9 +89,9 @@ export const SpriteActor: React.FC<{
   );
 };
 
-/** 「！」「？」の吹き出しをその場で描いて使う(画像ファイル不要) */
+/** 「！」「？」「★」の吹き出しをその場で描いて使う(画像ファイル不要) */
 const markerCache = new Map<string, THREE.Texture>();
-const useMarkerTexture = (kind: 'talk' | 'battle'): THREE.Texture =>
+const useMarkerTexture = (kind: 'talk' | 'battle' | 'legend'): THREE.Texture =>
   useMemo(() => {
     const key = kind;
     const hit = markerCache.get(key);
@@ -99,22 +99,40 @@ const useMarkerTexture = (kind: 'talk' | 'battle'): THREE.Texture =>
     const c = document.createElement('canvas');
     c.width = c.height = 128;
     const ctx = c.getContext('2d')!;
-    ctx.fillStyle = kind === 'battle' ? '#ff5a5a' : '#ffd35c';
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 8;
-    // まるい吹き出し
-    ctx.beginPath();
-    ctx.arc(64, 54, 44, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(50, 92); ctx.lineTo(64, 122); ctx.lineTo(78, 92); ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 68px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(kind === 'battle' ? '!' : '?', 64, 56);
+    if (kind === 'legend') {
+      // 伝説専用: 金色の星(会話・戦闘の丸い吹き出しとは形からして別物にする)
+      ctx.fillStyle = '#ffd700';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 6;
+      const cx = 64, cy = 64, spikes = 5, outerR = 52, innerR = 22;
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const r = i % 2 === 0 ? outerR : innerR;
+        const a = (Math.PI / spikes) * i - Math.PI / 2;
+        const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = kind === 'battle' ? '#ff5a5a' : '#ffd35c';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 8;
+      // まるい吹き出し
+      ctx.beginPath();
+      ctx.arc(64, 54, 44, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(50, 92); ctx.lineTo(64, 122); ctx.lineTo(78, 92); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 68px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(kind === 'battle' ? '!' : '?', 64, 56);
+    }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     markerCache.set(key, tex);
