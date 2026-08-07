@@ -156,13 +156,31 @@ const persistSlots = (slots: (AdventureSave | null)[]) => {
 };
 
 /** プレイヤー自身のHP。手持ちのレベルが上がるほど伸びる。 */
-export const playerMaxHp = (save: AdventureSave): number => {
+/** 手持ちの平均レベル(いなければ1)。 */
+export const partyAverageLevel = (save: AdventureSave): number => {
   const levels = save.party
     .map(uid => save.owned.find(o => o.uid === uid))
     .filter(Boolean)
     .map(o => (o as OwnedMonster).level);
-  const avg = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 1;
-  return Math.round(50 + avg * 4);
+  return levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 1;
+};
+
+export const playerMaxHp = (save: AdventureSave): number =>
+  Math.round(50 + partyAverageLevel(save) * 4);
+
+/**
+ * 野生・NPCのレベルを、手持ちの育ちぐあいに応じて少しだけ引き上げる。
+ *
+ * 町ごとのレベルは固定(単元の並び順で決まる)なので、14の町をどこから
+ * 回ってもいい設計だと、先にレベルを上げてから「まだ弱い」町へ戻ると
+ * 何もかもワンパンで終わってしまう。かといって町の基準どおりに完全一致
+ * させると「育てた意味」が消えるので、育っている分の一部だけを追い上げる
+ * (下方修正はしない。基準より弱いときは町の値のまま)。
+ */
+export const scaledOpponentLevel = (save: AdventureSave, baseLevel: number): number => {
+  const over = partyAverageLevel(save) - baseLevel;
+  if (over <= 0) return baseLevel;
+  return baseLevel + Math.min(15, Math.round(over * 0.35));
 };
 
 let uidCounter = 0;

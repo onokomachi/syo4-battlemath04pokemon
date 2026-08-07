@@ -18,7 +18,7 @@ import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure
 import {
   useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles,
   shrinesInTown, pendingTeamChapter, canEnterHideout, evolvableInParty,
-  ambushCondition, kidnappedInTown, pickKidnapCandidate,
+  ambushCondition, kidnappedInTown, pickKidnapCandidate, scaledOpponentLevel,
 } from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
 import { getLegend, legendsInTown } from '../../data/adventure/legends';
@@ -408,7 +408,7 @@ const AdventureMode: React.FC<Props> = ({
     const pool = MONSTERS_BY_UNIT[town.unit] ?? [];
     if (pool.length === 0) return;
     const def = pool[Math.floor(Math.random() * pool.length)];
-    const level = Math.max(2, town.wildLevel + Math.floor(Math.random() * 3) - 1);
+    const level = scaledOpponentLevel(save, Math.max(2, town.wildLevel + Math.floor(Math.random() * 3) - 1));
     setBattle({
       kind: 'wild',
       opponents: [{ defId: def.id, level }],
@@ -416,7 +416,7 @@ const AdventureMode: React.FC<Props> = ({
       catchable: true,
       townId: town.id,
     });
-  }, [battle, dialogue, town, isSlowGuidedSubtopic]);
+  }, [battle, dialogue, town, isSlowGuidedSubtopic, save]);
 
   // ---- NPCに話しかける ----
   const interact = useCallback(() => {
@@ -666,7 +666,7 @@ const AdventureMode: React.FC<Props> = ({
           trainerName: npc.name,
           trainerSprite: npc.sprite,
           trainerAfterLines: npc.afterLines,
-          opponents: npc.party ?? [],
+          opponents: (npc.party ?? []).map(o => ({ ...o, level: scaledOpponentLevel(save, o.level) })),
           subtopics: npc.subtopics,
           questionsPerOpponent: npc.kind === 'master' ? 4 : trainerHasSlowGuided ? 2 : 3,
           catchable: false,
@@ -676,7 +676,7 @@ const AdventureMode: React.FC<Props> = ({
         });
       },
     });
-  }, [inputEnabled, town, save.defeatedNpcs, store, isSlowGuidedSubtopic]);
+  }, [inputEnabled, town, save, store, isSlowGuidedSubtopic]);
 
   /** 伝説の出題プール。担当単元(legend.units)ぜんぶのサブトピックを集める。 */
   const legendSubtopics = useCallback(

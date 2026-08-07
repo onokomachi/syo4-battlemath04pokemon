@@ -601,6 +601,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   const accent = oppDef ? ELEMENTS[oppDef.type].color : '#38bdf8';
   const oppSprite = oppDef ? getMonsterSprite(oppDef.id) : '';
+  // 伝説(祠・野生のおためし遭遇どちらも)は、ふだんの相手の絵より
+  // ひとまわり大きく見せる。せっかくの一枚絵が小さすぎるという声があったため。
+  const isLegendBattle = setup.kind === 'legend' || setup.kind === 'legend-wild';
 
 
   // ============================================================
@@ -650,7 +653,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
       {/* 相手 */}
       <div
-        className={`absolute right-[10%] top-[12%] w-[34%] max-w-[280px] transition-transform ${shakeOpp ? 'animate-bounce' : ''}`}
+        className={`absolute transition-transform ${shakeOpp ? 'animate-bounce' : ''} ${
+          isLegendBattle ? 'right-[6%] top-[4%] w-[62%] max-w-[520px]' : 'right-[10%] top-[12%] w-[34%] max-w-[280px]'
+        }`}
         style={{ filter: flash === 'hit' ? 'brightness(2.2)' : 'none' }}
       >
         <div className="relative">
