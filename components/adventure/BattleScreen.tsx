@@ -494,9 +494,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       return;
     }
     const power = ITEMS[itemId].catchPower ?? 1;
-    // HPが少ないほどつかまえやすい。失敗が続いてイヤにならないよう、成功率は高め。
+    // 削った割合の2乗でカーブを付ける。ノーダメ(削ってすぐ投げる)だと
+    // ほぼ捕まらず、半分以上削って はじめてそこそこ捕まりやすくなる。
+    // 「たたかわずにボールだけ投げてゲットできてしまう」を防ぐための設計。
     const hpRatio = oppHp / oppStats.maxHp;
-    let rate = (0.42 + (1 - hpRatio) * 0.5) * power;
+    const damageRatio = 1 - hpRatio;
+    let rate = (0.04 + damageRatio * damageRatio * 0.9) * power;
     if (ability === 'lucky') rate += 0.12;
     rate = Math.min(0.95, rate);
     const ok = Math.random() < rate;

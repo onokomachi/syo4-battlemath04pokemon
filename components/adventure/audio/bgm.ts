@@ -50,6 +50,8 @@ const TRACKS: Record<string, string> = {
   '倍の見方': `${BASE}assets/adventure/audio/unit-multiples.mp3`,
   '面積': `${BASE}assets/adventure/audio/unit-area.mp3`,
   '分数': `${BASE}assets/adventure/audio/unit-fractions.mp3`,
+  '折れ線グラフと表': `${BASE}assets/adventure/audio/unit-line-graph.mp3`,
+  '変わり方調べ': `${BASE}assets/adventure/audio/unit-change-rate.mp3`,
 };
 
 const MUTE_KEY = 'bm_bgm_muted';
