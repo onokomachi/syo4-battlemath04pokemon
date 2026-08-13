@@ -383,7 +383,7 @@ export interface ActiveBooster {
 
 export type BattleMode = 'cpu' | 'pvp';
 export type BattleFormat = 'best_of_3' | 'best_of_5' | 'best_of_7' | 'master_duel';
-export type BattleType = 'card_battle' | 'speed_duel';
+export type BattleType = 'card_battle' | 'speed_duel' | 'monster_duel';
 
 export interface SavedDeck {
   name: string;
@@ -431,6 +431,9 @@ export interface Room {
   speedP2Answer?: SpeedDuelAnswer | null;
   speedRoundWinner?: 'host' | 'guest' | 'draw' | null;
   speedRoundActive?: boolean; // true while round is in progress
+  // Monster Duel: 表示用のモンスターID(勝敗には影響しない。演出のみ)
+  hostMonsterDefId?: string | null;
+  guestMonsterDefId?: string | null;
 }
 
 // --- Core Game Types ---
@@ -493,7 +496,7 @@ export interface ProblemCard {
   ability?: Ability;
 }
 
-export type GameState = 'login_screen' | 'main_menu' | 'adventure' | 'practice_mode' | 'review_mode' | 'matchmaking' | 'gamemaster' | 'speed_duel_setup' | 'speed_duel' | 'mock_test' | 'learning_log';
+export type GameState = 'login_screen' | 'main_menu' | 'adventure' | 'practice_mode' | 'review_mode' | 'matchmaking' | 'gamemaster' | 'speed_duel_setup' | 'speed_duel' | 'monster_duel_setup' | 'mock_test' | 'learning_log';
 
 // For FillInProofProblemView to connect with a virtual keypad in the future
 export interface ProblemViewRef {
