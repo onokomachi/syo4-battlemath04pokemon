@@ -18,7 +18,7 @@ import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure
 import {
   useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles,
   shrinesInTown, pendingTeamChapter, canEnterHideout, evolvableInParty,
-  ambushCondition, kidnappedInTown, pickKidnapCandidate, scaledOpponentLevel,
+  ambushCondition, kidnappedInTown, pickKidnapCandidate, scaledOpponentLevel, partyHpTotals,
 } from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
 import { getLegend, legendsInTown } from '../../data/adventure/legends';
@@ -67,6 +67,7 @@ const AdventureMode: React.FC<Props> = ({
 }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
+  const partyHp = partyHpTotals(save);
 
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [bgmMuted, setBgmMutedState] = useState(() => isBgmMuted());
@@ -352,6 +353,7 @@ const AdventureMode: React.FC<Props> = ({
         x: px + dx, z: pz + dz,
       });
     };
+    (window as any).__advGive = (defId: string, level = 5) => store.catchMonster(defId, level);
     (window as any).__advState = () => ({
       ambush, legendWander, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
       party: save.party, owned: save.owned, townId: save.townId, legends: save.legends,
@@ -1168,10 +1170,11 @@ const AdventureMode: React.FC<Props> = ({
               <span className="text-xs font-black text-orange-600">🔶 {save.items.teamshard}</span>
             )}
           </div>
+          {/* 手持ち3体の合計HP。1体ずつ戦う方式なので「パーティ全体の元気さ」を出す。 */}
           <div className="mt-1 w-full h-2 rounded-full bg-slate-200 overflow-hidden">
             <div
               className="h-full bg-emerald-400 transition-all"
-              style={{ width: `${(save.hp / Math.max(1, save.maxHp)) * 100}%` }}
+              style={{ width: `${(partyHp.hp / Math.max(1, partyHp.maxHp)) * 100}%` }}
             />
           </div>
 

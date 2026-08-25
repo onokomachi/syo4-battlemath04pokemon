@@ -5,7 +5,7 @@
  * ・カメラはプレイヤーのうしろ上から見おろす追従カメラ
  * ・草むらを歩くと野生モンスターに遭遇し、NPCに近づくと話しかけられる
  */
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { FieldNpcDef, TownDef } from '../../../data/adventure/adventureTypes';
@@ -483,16 +483,76 @@ const World: React.FC<SceneProps> = ({
   );
 };
 
-const FieldScene: React.FC<SceneProps> = props => (
-  <Canvas
-    shadows={false}
-    dpr={[1, 1.75]}
-    camera={{ fov: 46, near: 0.5, far: 500, position: [0, 10, 14] }}
-    gl={{ antialias: true, powerPreference: 'high-performance' }}
-    style={{ position: 'absolute', inset: 0, touchAction: 'none' }}
-  >
-    <World {...props} />
-  </Canvas>
-);
+/**
+ * ブラウザのズーム(Ctrl+ホイール等)に強い描画解像度をもとめる。
+ *
+ * dpr={[1, 1.75]} と固定していたときの問題:
+ *  ・ズームアウトすると CSS ピクセルでの画面幅が増えるのに dpr の下限が1のままなので、
+ *    実際に描く点の数が「画面幅 × 1」でふくらみ、素の表示より重くなっていた
+ *    (50%まで縮めると横も縦も2倍 = 4倍の点を描くことになる)。
+ * そこで「横おおよそ1600点ぶん」を目安に上限を決め、広い画面ほど dpr を下げる。
+ * こうすると、ズームしても描く点の数がだいたい一定に保たれる。
+ */
+const dprForViewport = (): number => {
+  const device = window.devicePixelRatio || 1;
+  const budget = 1600;
+  const cap = Math.min(1.75, Math.max(0.7, budget / Math.max(1, window.innerWidth)));
+  return Math.min(Math.max(device, 0.7), cap);
+};
+
+/**
+ * ズームや画面サイズが変わったときに、描画解像度を入れなおす。
+ *
+ * Canvas の dpr プロパティを後から変えても反映されないことがあるため、
+ * r3f のストアの setDpr を直接呼ぶ(こうすると描画ループ側が
+ * gl.setPixelRatio と gl.setSize をまとめてやり直してくれる)。
+ */
+/** 開発ビルドだけ、いま実際に使われている解像度を覗けるようにしておく(自動テスト用) */
+const DprProbe: React.FC = () => {
+  const gl = useThree(s => s.gl);
+  const viewport = useThree(s => s.viewport);
+  if ((import.meta as any).env?.DEV) {
+    (window as any).__advGlDpr = () => ({ gl: gl.getPixelRatio(), viewport: viewport.dpr });
+  }
+  return null;
+};
+
+const FieldScene: React.FC<SceneProps> = props => {
+  // 解像度は Canvas の dpr プロパティ「だけ」で決める。
+  // r3f は Canvas が再描画されるたびに configure() を走らせ、そのときの dpr
+  // プロパティで解像度を上書きする。そのため内側から setDpr を呼んでも
+  // すぐ元に戻されてしまう ―― プロパティ側を変えるのが唯一たしかな方法。
+  const [dpr, setDpr] = useState(dprForViewport);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    // ズーム中は resize が連続で飛んでくる。そのたびに解像度を変えると
+    // WebGLのバッファを作りなおして「一瞬固まる」ので、落ち着いてから1回だけ変える。
+    const onResize = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setDpr(dprForViewport()), 250);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  return (
+    <Canvas
+      shadows={false}
+      dpr={dpr}
+      // Canvas自体のサイズ追従もまとめて行う(ズーム中の作りなおしを減らすため)
+      resize={{ debounce: 200 }}
+      camera={{ fov: 46, near: 0.5, far: 500, position: [0, 10, 14] }}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      style={{ position: 'absolute', inset: 0, touchAction: 'none' }}
+    >
+      <DprProbe />
+      <World {...props} />
+    </Canvas>
+  );
+};
 
 export default FieldScene;

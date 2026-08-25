@@ -45,8 +45,8 @@ const Matchmaking: React.FC<MatchmakingProps> = ({ rooms, onJoinRoom, onCancel, 
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-hologram tracking-wide">対戦マッチング</h2>
-            <p className={`text-xs font-bold mt-1 ${battleType === 'speed_duel' ? 'text-orange-400' : 'text-red-400'}`}>
-              {battleType === 'speed_duel' ? '⚡ スピードデュエル' : 'オンライン対戦'}
+            <p className={`text-xs font-bold mt-1 ${battleType === 'speed_duel' ? 'text-orange-400' : battleType === 'monster_duel' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {battleType === 'speed_duel' ? '⚡ スピードデュエル' : battleType === 'monster_duel' ? '🐾 モンスター対戦' : 'オンライン対戦'}
             </p>
           </div>
           <button

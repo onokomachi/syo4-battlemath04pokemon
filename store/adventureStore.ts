@@ -168,6 +168,33 @@ export const partyAverageLevel = (save: AdventureSave): number => {
 export const playerMaxHp = (save: AdventureSave): number =>
   Math.round(50 + partyAverageLevel(save) * 4);
 
+// ---- モンスター1体ごとのHP ----
+// バトルは「1体たおれたら次の子が出る、3体ぜんぶたおれたら負け」という
+// ポケモン方式にしてあるので、HPはトレーナーではなく個体ごとに持たせる。
+// (save.hp / save.maxHp は古いセーブとの互換・フィールドHUDの合計表示用に残してある)
+
+/** その個体の最大HP(レベルから毎回もとめる) */
+export const monsterMaxHp = (o: OwnedMonster): number => {
+  const def = getMonster(o.defId);
+  return def ? statsAtLevel(def, o.level).maxHp : 1;
+};
+
+/** その個体のいまのHP(未設定なら満タン扱い) */
+export const monsterHp = (o: OwnedMonster): number =>
+  o.hp === undefined ? monsterMaxHp(o) : Math.max(0, Math.min(o.hp, monsterMaxHp(o)));
+
+/** 手持ち3体ぶんの合計HP。フィールドのHUDに出す「パーティの元気さ」。 */
+export const partyHpTotals = (save: AdventureSave): { hp: number; maxHp: number } => {
+  const mons = save.party
+    .map(uid => save.owned.find(o => o.uid === uid))
+    .filter((o): o is OwnedMonster => Boolean(o));
+  if (mons.length === 0) return { hp: 0, maxHp: 1 };
+  return {
+    hp: mons.reduce((sum, o) => sum + monsterHp(o), 0),
+    maxHp: mons.reduce((sum, o) => sum + monsterMaxHp(o), 0),
+  };
+};
+
 /**
  * 野生・NPCのレベルを、手持ちの育ちぐあいに応じて少しだけ引き上げる。
  *
@@ -226,6 +253,8 @@ interface AdventureState {
   damage: (n: number) => void;
   healFull: () => void;
   heal: (n: number) => void;
+  /** バトルが終わったとき、手持ちそれぞれの残りHPをまとめて保存する */
+  setMonsterHps: (hps: Record<string, number>) => void;
   addItem: (id: string, n: number) => void;
   useItem: (id: string) => boolean;
 
@@ -340,7 +369,10 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       update(s => (s.seen.includes(defId) ? s : { ...s, seen: [...s.seen, defId] })),
 
     catchMonster: (defId, level) => {
+      // つかまえた子は元気な状態で仲間になる(弱らせてから捕まえる都合上、
+      // 捕獲時のHPをそのまま引きつぐと瀕死のまま加入してしまうため)
       const mon: OwnedMonster = { uid: newUid(), defId, level, exp: 0, caughtAt: Date.now() };
+      mon.hp = monsterMaxHp(mon);
       update(s => {
         const party = s.party.length < 3 ? [...s.party, mon.uid] : s.party;
         const seen = s.seen.includes(defId) ? s.seen : [...s.seen, defId];
@@ -387,6 +419,8 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       update(s => {
         const owned = s.owned.map(o => {
           if (o.uid !== uid) return o;
+          const beforeMax = monsterMaxHp(o);
+          const beforeHp = monsterHp(o);
           let lv = o.level;
           let ex = o.exp + exp;
           while (ex >= expToNext(lv) && lv < 60) {
@@ -395,7 +429,14 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
             leveled = true;
           }
           newLevel = lv;
-          return { ...o, level: lv, exp: ex };
+          const grown = { ...o, level: lv, exp: ex };
+          // レベルが上がって最大HPが伸びたぶんは、いまのHPにもそのまま足す。
+          // ただし たおれている子(HP0)が レベルアップで勝手に復活しないようにする。
+          const gainedMax = monsterMaxHp(grown) - beforeMax;
+          return {
+            ...grown,
+            hp: beforeHp <= 0 ? 0 : Math.min(beforeHp + gainedMax, monsterMaxHp(grown)),
+          };
         });
         const next = { ...s, owned };
         // 手持ちが育つとプレイヤーのHP上限も上がる
@@ -409,9 +450,26 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
 
     damage: n => update(s => ({ ...s, hp: Math.max(0, s.hp - n) })),
 
-    healFull: () => update(s => ({ ...s, hp: playerMaxHp(s), maxHp: playerMaxHp(s) })),
+    /** かいふく所: 手持ちも預けている子もふくめて、ぜんいん全回復にする */
+    healFull: () =>
+      update(s => ({
+        ...s,
+        owned: s.owned.map(o => ({ ...o, hp: monsterMaxHp(o) })),
+        hp: playerMaxHp(s),
+        maxHp: playerMaxHp(s),
+      })),
 
     heal: n => update(s => ({ ...s, hp: Math.min(s.maxHp, s.hp + n) })),
+
+    setMonsterHps: hps =>
+      update(s => ({
+        ...s,
+        owned: s.owned.map(o =>
+          hps[o.uid] === undefined
+            ? o
+            : { ...o, hp: Math.max(0, Math.min(hps[o.uid], monsterMaxHp(o))) },
+        ),
+      })),
 
     addItem: (id, n) =>
       update(s => ({ ...s, items: { ...s.items, [id]: (s.items[id] ?? 0) + n } })),

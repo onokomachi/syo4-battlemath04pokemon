@@ -508,7 +508,11 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
 
            <main className='grid lg:grid-cols-[1fr_220px] gap-3 lg:gap-4 flex-1 min-h-0 overflow-y-auto'>
               <div className='space-y-2 sm:space-y-3'>
-                <div ref={questionBoxRef} className={`w-full flex items-center justify-center bg-slate-950/40 rounded-xl p-3 sm:p-4 border border-red-500/5 shadow-inner relative overflow-y-auto ${currentProblem?.type === 'guided' ? 'max-h-none' : 'max-h-[40vh] lg:max-h-[50vh]'}`}>
+                {/* 上下中央ぞろえは内側の min-h-full ラッパーに掛ける。枠に直接
+                    items-center を付けると、問題文が枠より高いときに はみ出した
+                    「上側」へスクロールで到達できず、問題文の先頭が読めなくなる。 */}
+                <div ref={questionBoxRef} className={`w-full bg-slate-950/40 rounded-xl border border-red-500/5 shadow-inner relative overflow-y-auto ${currentProblem?.type === 'guided' ? 'max-h-none' : 'max-h-[40vh] lg:max-h-[50vh]'}`}>
+                    <div className="min-h-full p-3 sm:p-4 flex items-center justify-center">
                     <div className="w-full">
                     <ProblemQuestionView
                       currentProblem={currentProblem}
@@ -521,6 +525,7 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
                       handleGuidedComplete={handleGuidedComplete}
                       guidedKey={`${currentIndex}-${masterModeOn}`}
                     />
+                    </div>
                     </div>
                 </div>
 

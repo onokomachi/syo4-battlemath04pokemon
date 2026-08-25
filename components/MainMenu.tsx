@@ -280,6 +280,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 w-full max-w-6xl px-4 sm:px-6">
         {[
           { mode: 'speed_duel_setup' as GameState, label: 'スピード', desc: 'デッキ不要！早押し勝負', icon: '⚡', badge: 0 },
+          { mode: 'monster_duel_setup' as GameState, label: 'モンスター対戦', desc: 'つかまえたなかまでバトル', icon: '🐾', badge: 0 },
           { mode: 'practice_mode' as GameState, label: '練習', desc: '分野別に問題を解いて実力アップ', icon: '📖', badge: 0 },
           { mode: 'review_mode' as GameState, label: '復習', desc: '間違えた問題を最適なタイミングで', icon: '🔁', badge: srsReviewCount },
           { mode: 'mock_test' as GameState, label: '本番テスト', desc: '学校のテスト形式にちょうせん', icon: '📝', badge: 0 },

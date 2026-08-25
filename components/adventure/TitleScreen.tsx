@@ -67,8 +67,12 @@ const TitleScreen: React.FC<{
   }
 
   if (step === 'name') {
+    // 上下中央ぞろえ(justify-center)は内側の min-h-full ラッパーに掛ける。
+    // スクロールする枠に直接かけると、画面の高さが足りないときに はみ出した
+    // 「上側」へスクロールで到達できなくなる(実測で353px 読めなくなっていた)。
     return (
-      <div className="fixed inset-0 z-40 bg-gradient-to-b from-sky-300 to-emerald-100 flex flex-col items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-40 bg-gradient-to-b from-sky-300 to-emerald-100 overflow-y-auto">
+      <div className="min-h-full flex flex-col items-center justify-center p-4">
         <h2 className="text-3xl sm:text-4xl font-black text-slate-800 mb-2">なまえを きめよう</h2>
         <p className="text-slate-600 font-bold mb-4 text-sm sm:text-base">ひらがな 6もじまで</p>
 
@@ -111,6 +115,7 @@ const TitleScreen: React.FC<{
           メニューに もどる
         </button>
       </div>
+      </div>
     );
   }
 
@@ -148,8 +153,10 @@ const TitleScreen: React.FC<{
   }
 
   if (step === 'starter') {
+    // 中央ぞろえは内側の min-h-full ラッパーに(理由は なまえ画面と同じ)
     return (
-      <div className="fixed inset-0 z-40 bg-gradient-to-b from-amber-100 to-emerald-100 flex flex-col items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-40 bg-gradient-to-b from-amber-100 to-emerald-100 overflow-y-auto">
+      <div className="min-h-full flex flex-col items-center justify-center p-4">
         <h2 className="text-2xl sm:text-4xl font-black text-slate-800 mb-1">さいしょの なかまを えらぼう</h2>
         <p className="text-slate-600 font-bold mb-5 text-sm sm:text-base text-center px-4">
           タイプは じゃんけんの わ。かず ▶ けいさん ▶ しょうすう ▶ ぶんすう ▶ ばい ▶ グラフ ▶ ずけい ▶ かず…
@@ -191,6 +198,7 @@ const TitleScreen: React.FC<{
         >
           この子に きめた！ ▶
         </button>
+      </div>
       </div>
     );
   }

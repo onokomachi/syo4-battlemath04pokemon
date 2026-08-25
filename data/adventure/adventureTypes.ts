@@ -85,6 +85,12 @@ export interface OwnedMonster {
   /** ニックネーム(未設定なら図鑑名) */
   nickname?: string;
   caughtAt: number;
+  /**
+   * いまのHP。バトルで1体ずつ交代していくため、個体ごとに持つ。
+   * undefined は「満タン」の意味(古いセーブデータとの互換のため)。
+   * 最大HPは statsAtLevel(def, level).maxHp から毎回もとめる。
+   */
+  hp?: number;
 }
 
 /**

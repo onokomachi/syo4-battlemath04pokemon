@@ -20,7 +20,7 @@ import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adv
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
 import { getNpcSprite } from '../../data/adventure/people';
 import {
-  useAdventureStore, getPartyMonsters, partyAttack,
+  useAdventureStore, getPartyMonsters, monsterHp, monsterMaxHp,
 } from '../../store/adventureStore';
 import { checkAnswer as evaluateAnswer } from '../../utils/answerChecker';
 import { generateSubtopicKeypadLayout } from '../../utils/keypadLayoutGenerator';
@@ -141,10 +141,43 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   });
 
   // ---- こちら ----
+  // 手持ち3体はそれぞれ自分のHPを持つ。1体たおれたら次の子が出てきて、
+  // 3体ぜんぶたおれたら負け(交代しても相手は攻撃してこない)。
   const party = getPartyMonsters(save);
-  const lead = party[0];
-  const myAtk = partyAttack(save);
-  const [hp, setHp] = useState(save.hp > 0 ? save.hp : save.maxHp);
+  const [hps, setHps] = useState<number[]>(() => {
+    const initial = party.map(p => monsterHp(p.owned));
+    // 全員たおれた状態でバトルに入ってしまったときの保険(詰み防止)
+    return initial.some(h => h > 0) ? initial : party.map(p => monsterMaxHp(p.owned));
+  });
+  const [activeIdx, setActiveIdx] = useState(() => {
+    const i = party.findIndex(p => monsterHp(p.owned) > 0);
+    return i >= 0 ? i : 0;
+  });
+  const active = party[activeIdx];
+  const lead = active;
+  const activeMaxHp = active ? monsterMaxHp(active.owned) : 1;
+  const hp = hps[activeIdx] ?? 0;
+  /** いま出ている子のHPだけを増減する */
+  const setHp = (fn: (v: number) => number) =>
+    setHps(prev =>
+      prev.map((h, i) => (i === activeIdx ? Math.max(0, Math.min(fn(h), activeMaxHp)) : h)),
+    );
+  const myAtk = active ? statsAtLevel(active.def, active.owned.level).atk : 8;
+  /** まだ戦える手持ちの数 */
+  const aliveCount = hps.filter(h => h > 0).length;
+
+  // 自動テストから、手持ちのHPと交代の様子を確認できるようにしておく口。
+  // __advForceOppHp と同じく、開発ビルドにしか生えない。
+  useEffect(() => {
+    if (!(import.meta as any).env?.DEV) return;
+    (window as any).__advForceMyHp = (v: number) => setHp(() => v);
+    (window as any).__advForceDown = () => handleActiveDown();
+    (window as any).__advBattleState = () => ({
+      hps, activeIdx, aliveCount, phase,
+      activeName: active?.def.name ?? null,
+      partyNames: party.map(p => p.def.name),
+    });
+  });
 
   // ---- 進行 ----
   const [phase, setPhase] = useState<Phase>('intro');
@@ -326,7 +359,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       window.setTimeout(() => { setFlash('none'); setShakeOpp(false); }, 520);
       // とくせい「いやし」: 2問れんぞく正解でHPが少し回復
       if (ability === 'heal' && streak.current % 2 === 0) {
-        setHp(v => Math.min(save.maxHp, v + 8));
+        setHp(v => v + 8);
       }
     } else {
       streak.current = 0;
@@ -427,7 +460,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   // ---- 次へ ----
   const proceed = () => {
-    if (hp <= 0) { setPhase('lose'); return; }
+    if (hp <= 0) { handleActiveDown(); return; }
     // 野生の伝説は、たおすためのバトルではない。HPを半分以上けずったら、
     // そこで「みとめられた」ことにして終える(全滅させても仲間にはならない)。
     if (setup.kind === 'legend-wild' && oppHp <= oppStats.maxHp * 0.5) {
@@ -477,15 +510,47 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setPhase('win');
   };
 
+  /**
+   * いま出ている子がたおれたときの処理。
+   * まだ戦える子がいれば交代し、いなければ(3体ぜんぶたおれたら)負け。
+   * 交代しても相手は攻撃してこない ―― 小4向けに理不尽さを減らすため。
+   * 戻り値 true = ここで処理を打ち切ってよい(交代した、または負けた)。
+   */
+  const handleActiveDown = (): boolean => {
+    if (hp > 0) return false;
+    const nextIdx = hps.findIndex((h, i) => i !== activeIdx && h > 0);
+    if (nextIdx < 0) {
+      setPhase('lose');
+      return true;
+    }
+    const downName = active?.def.name ?? 'なかま';
+    const nextMon = party[nextIdx];
+    setActiveIdx(nextIdx);
+    // 交代したら「1回だけ」系のとくせいは次の子のぶんとして復活させる
+    usedAbility.current = { hint: false, guard: false, first: true };
+    setMessage([
+      `${downName} は たおれてしまった！`,
+      `いけっ、${nextMon.def.name}！`,
+    ]);
+    setPhase('faint');
+    return true;
+  };
+
   const handleFaint = () => {
     const gained = Math.round(12 + oppLevel * 3.5 + (oppDef?.difficulty ?? 2) * 4);
     stats.current.exp += gained;
     stats.current.mp += Math.round(8 + oppLevel * 1.5);
     const leveledBefore = leveled.current.length;
-    for (const p of party) {
+    party.forEach((p, i) => {
+      const beforeMax = monsterMaxHp(p.owned);
       const r = store.addExp(p.owned.uid, Math.round(gained / Math.max(1, party.length)));
-      if (r.leveled) leveled.current.push(p.owned.uid);
-    }
+      if (!r.leveled) return;
+      leveled.current.push(p.owned.uid);
+      // レベルが上がって最大HPが伸びたぶんを、バトル中のHPにも反映する
+      // (たおれている子は0のまま。ここで復活させない)
+      const grew = monsterMaxHp({ ...p.owned, level: r.newLevel }) - beforeMax;
+      if (grew > 0) setHps(prev => prev.map((h, j) => (j === i && h > 0 ? h + grew : h)));
+    });
     if (leveled.current.length > leveledBefore) playLevelUpSfx();
     setMessage([
       `${oppDef?.name ?? 'あいて'} を たおした！`,
@@ -562,8 +627,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const useItem = (id: 'potion' | 'hintbook') => {
     if (!store.useItem(id)) return;
     if (id === 'potion') {
-      setHp(v => Math.min(save.maxHp, v + 30));
-      setMessage(['げんきドリンクを つかった！ HPが かいふくした。']);
+      // いま出ている1体だけを回復する(全員まとめて回復するのは町のかいふく所)
+      setHp(v => v + 30);
+      setMessage([`げんきドリンクを つかった！ ${active?.def.name ?? 'なかま'} の HPが かいふくした。`]);
       setPhase('faint');
     } else {
       setHintOpen(true);
@@ -575,9 +641,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     finish(false, true);
   };
 
-  const finish = (won: boolean, fled = false) => {
-    // バトルで減ったHPは持ちこす(かいふく所で回復する)
-    store.damage(Math.max(0, save.hp - hp));
+  const finish = (won: boolean, fled = false, healAll = false) => {
+    if (healAll) {
+      // 負けたときは かいふく所に運ばれる扱いで、手持ち全員を全回復する
+      store.healFull();
+    } else {
+      // バトルで減ったHPは1体ずつ持ちこす(かいふく所で回復する)
+      const hpMap: Record<string, number> = {};
+      party.forEach((p, i) => { hpMap[p.owned.uid] = hps[i] ?? monsterHp(p.owned); });
+      store.setMonsterHps(hpMap);
+    }
     if (stats.current.mp > 0) { /* MPは呼び出し側で progressionStore に加算する */ }
     onFinish({
       won,
@@ -594,7 +667,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   // 相手を倒したあとの分岐(ダイアログを閉じたとき)
   const afterFaint = () => {
-    if (hp <= 0) { setPhase('lose'); return; }
+    if (hp <= 0) { handleActiveDown(); return; }
     if (oppHp <= 0) { advanceOpponent(); return; }
     setPhase('command');
   };
@@ -609,6 +682,28 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // ============================================================
   // 見た目
   // ============================================================
+
+  // 手持ち3体の生き残りをドットで示す(●=元気 ○=たおれた、白ふちが いま出ている子)
+  const PartyDots = (
+    <span className="flex items-center gap-1 pr-0.5" title={`たたかえる なかま: のこり ${aliveCount}体`}>
+      {hps.map((h, i) => (
+        <span
+          key={party[i]?.owned.uid ?? i}
+          className={`rounded-full transition-all ${i === activeIdx ? 'w-2.5 h-2.5 ring-2 ring-white' : 'w-2 h-2'} ${
+            h > 0 ? 'bg-emerald-400' : 'bg-slate-400/70'
+          }`}
+        />
+      ))}
+    </span>
+  );
+
+  /** こちらのHPバー(いま出ている1体ぶん) */
+  const MyHpBar = (
+    <div className="flex flex-col items-end gap-1">
+      <HpBar hp={hp} max={activeMaxHp} label={active?.def.name ?? 'じぶん'} level={active?.owned.level} small />
+      {hps.length > 1 && PartyDots}
+    </div>
+  );
 
   const StatusBar = (
     <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between p-2 sm:p-3 gap-2 pointer-events-none">
@@ -628,7 +723,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             {typeMult > 1 ? 'こうかばつぐん' : 'いまひとつ'}
           </span>
         )}
-        <HpBar hp={hp} max={save.maxHp} label="じぶん" small />
+        {MyHpBar}
       </div>
     </div>
   );
@@ -788,7 +883,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           </span>
         )}
         <div className="w-28 sm:w-40 shrink-0">
-          <HpBar hp={hp} max={save.maxHp} label="じぶん" small />
+          {MyHpBar}
         </div>
       </div>
 
@@ -796,20 +891,27 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           縦に細長い端末では自動的に上下に積まれる。 */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:gap-3 p-2 sm:p-3 text-white">
         {/* 問題 */}
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-slate-950/50 p-3 sm:p-4 flex items-center justify-center">
+        {/* 上下中央ぞろえ(items-center)を、スクロールする枠そのものではなく
+            内側の min-h-full なラッパーに掛けている。枠に直接 items-center を
+            付けると、問題文が枠より高いときに はみ出した「上側」へスクロールで
+            到達できなくなる(実際に問題文の先頭が読めない不具合が出ていた)。
+            この形なら、短い問題は中央ぞろえのまま・長い問題は上から表示される。 */}
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-slate-950/50">
+          <div className="min-h-full p-3 sm:p-4 flex items-center justify-center">
           {/* 小4が読みやすいよう、バトル中の問題文は練習モードより一回り大きくする */}
-          <div className="mx-auto w-full max-w-3xl battle-question">
-            <ProblemQuestionView
-              currentProblem={problem}
-              problemData={problemData}
-              userAnswer={userAnswer}
-              setUserAnswer={setUserAnswer}
-              showAnswer={showAnswer}
-              problemViewRef={problemViewRef}
-              guidedDisplayProblem={guidedDisplayProblem}
-              handleGuidedComplete={handleGuidedComplete}
-              guidedKey={`${oppIndex}-${qIndex}-${isRetry}-${masterModeOn}`}
-            />
+            <div className="mx-auto w-full max-w-3xl battle-question">
+              <ProblemQuestionView
+                currentProblem={problem}
+                problemData={problemData}
+                userAnswer={userAnswer}
+                setUserAnswer={setUserAnswer}
+                showAnswer={showAnswer}
+                problemViewRef={problemViewRef}
+                guidedDisplayProblem={guidedDisplayProblem}
+                handleGuidedComplete={handleGuidedComplete}
+                guidedKey={`${oppIndex}-${qIndex}-${isRetry}-${masterModeOn}`}
+              />
+            </div>
           </div>
         </div>
 
@@ -1016,7 +1118,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             'だいじょうぶ。なんども ちょうせんできるよ！',
           ]}
           accent="#f43f5e"
-          onDone={() => { store.healFull(); finish(false); }}
+          onDone={() => finish(false, false, true)}
         />
       )}
 

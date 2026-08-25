@@ -30,6 +30,11 @@ import GuidedAnswerHost from './guided/GuidedAnswerHost';
 
 type SpeedPhase = 'countdown' | 'answering' | 'round_result' | 'match_over';
 
+interface DuelMonster {
+  name: string;
+  sprite: string;
+}
+
 interface SpeedDuelBoardProps {
   problem: Problem | null;
   playerScore: number;
@@ -48,6 +53,9 @@ interface SpeedDuelBoardProps {
   isOpponentAnswered: boolean;
   timeLeft: number;
   gameResult: 'win' | 'lose' | 'draw' | null;
+  /** モンスター対戦のときだけ渡す。見た目の演出のみで、勝敗には影響しない */
+  playerMonster?: DuelMonster | null;
+  opponentMonster?: DuelMonster | null;
 }
 
 const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
@@ -68,6 +76,8 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
   isOpponentAnswered,
   timeLeft,
   gameResult,
+  playerMonster,
+  opponentMonster,
 }) => {
   const [answer, setAnswer] = useState('');
   const problemViewRef = useRef<ProblemViewRef>(null);
@@ -240,12 +250,18 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
 
         <div className="flex items-center gap-8 mb-8">
           <div className="text-center">
-            <p className="text-sm text-orange-400 font-bold">{playerName}</p>
+            {playerMonster && (
+              <img src={playerMonster.sprite} alt="" className="w-16 h-16 object-contain mx-auto mb-1" />
+            )}
+            <p className="text-sm text-orange-400 font-bold">{playerMonster?.name ?? playerName}</p>
             <p className="text-5xl font-black text-white">{playerScore}</p>
           </div>
           <span className="text-2xl text-gray-500 font-bold">-</span>
           <div className="text-center">
-            <p className="text-sm text-gray-400 font-bold">{opponentName}</p>
+            {opponentMonster && (
+              <img src={opponentMonster.sprite} alt="" className="w-16 h-16 object-contain mx-auto mb-1" />
+            )}
+            <p className="text-sm text-gray-400 font-bold">{opponentMonster?.name ?? opponentName}</p>
             <p className="text-5xl font-black text-gray-400">{opponentScore}</p>
           </div>
         </div>
@@ -266,8 +282,11 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
       <div className="w-full max-w-3xl flex items-center justify-between mb-3 flex-shrink-0">
         {/* Player Score */}
         <div className="flex items-center gap-3">
+          {playerMonster && (
+            <img src={playerMonster.sprite} alt="" className="w-10 h-10 object-contain flex-shrink-0" />
+          )}
           <div className="text-center">
-            <p className="text-[10px] text-orange-400 font-bold">{playerName}</p>
+            <p className="text-[10px] text-orange-400 font-bold">{playerMonster?.name ?? playerName}</p>
             <p className="text-3xl font-black text-white font-mono">{playerScore}</p>
           </div>
           {isPlayerAnswered && phase === 'answering' && (
@@ -297,9 +316,12 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
             <span className="text-xs text-red-400 font-bold animate-pulse">✓ 解答済</span>
           )}
           <div className="text-center">
-            <p className="text-[10px] text-gray-400 font-bold">{opponentName}</p>
+            <p className="text-[10px] text-gray-400 font-bold">{opponentMonster?.name ?? opponentName}</p>
             <p className="text-3xl font-black text-gray-400 font-mono">{opponentScore}</p>
           </div>
+          {opponentMonster && (
+            <img src={opponentMonster.sprite} alt="" className="w-10 h-10 object-contain flex-shrink-0" />
+          )}
         </div>
       </div>
 

@@ -58,9 +58,12 @@ import WeaknessPanel from './components/WeaknessPanel';
 import ItemShop from './components/ItemShop';
 import SpeedDuelSetup from './components/SpeedDuelSetup';
 import SpeedDuelBoard from './components/SpeedDuelBoard';
+import MonsterDuelSetup from './components/MonsterDuelSetup';
 import NewYearPrompt from './components/NewYearPrompt';
 import ReviewMode from './components/ReviewMode';
 import type { BattleType, Problem, SpeedProblem } from './types';
+import { useAdventureStore } from './store/adventureStore';
+import { getMonster, getMonsterSprite } from './data/adventure/monsters';
 import { shuffleDeck } from './utils/shuffle';
 import { useProgressionStore, expForNextLevel, sessionCounters } from './store/progressionStore';
 import {
@@ -146,6 +149,11 @@ const App: React.FC = () => {
   // --- Speed Duel State ---
   const [battleType, setBattleType] = useState<BattleType>('speed_duel');
   const [speedCategories, setSpeedCategories] = useState<string[]>([]);
+
+  // --- Monster Duel State(スピードデュエルと同じ仕組みに、モンスターの見た目だけを重ねる) ---
+  // 選んだモンスターは表示専用。HP・レベル・タイプ相性は勝敗計算に一切使わない。
+  const [monsterDuelMyMonsterId, setMonsterDuelMyMonsterId] = useState<string | null>(null);
+  const [monsterDuelOpponentId, setMonsterDuelOpponentId] = useState<string | null>(null);
   const [speedProblems, setSpeedProblems] = useState<SpeedProblem[]>([]);
   const [speedRound, setSpeedRound] = useState(1);
   const [speedTotalRounds, setSpeedTotalRounds] = useState(5);
@@ -518,6 +526,8 @@ const App: React.FC = () => {
       setIsHost(false);
       setOpponentDisconnected(false);
       clearActivePvpSession();
+      setMonsterDuelMyMonsterId(null);
+      setMonsterDuelOpponentId(null);
     }
     processedMatchIdRef.current = null;
   }, []);
@@ -562,16 +572,19 @@ const App: React.FC = () => {
       // ルームが外部要因で finished になった場合（相手離脱・管理者終了等）
       if (data.status === 'finished' && (data.winnerId === 'abandoned' || data.winnerId === 'admin_terminated')) {
         cleanupGameSession();
-        setGameState('speed_duel_setup');
+        setGameState(battleType === 'monster_duel' ? 'monster_duel_setup' : 'speed_duel_setup');
         return;
       }
 
       if (data.status === 'playing' && gameStateRef.current === 'matchmaking') {
         processedMatchIdRef.current = null;
 
-        if (data.battleType === 'speed_duel' && data.speedProblems) {
-          // Speed Duel PvP: load problems from room and start
-          setBattleType('speed_duel');
+        if ((data.battleType === 'speed_duel' || data.battleType === 'monster_duel') && data.speedProblems) {
+          // Speed Duel / Monster Duel PvP: load problems from room and start
+          setBattleType(data.battleType);
+          if (data.battleType === 'monster_duel') {
+            setMonsterDuelOpponentId((isHostVal ? data.guestMonsterDefId : data.hostMonsterDefId) ?? null);
+          }
           setSpeedProblems(data.speedProblems as SpeedProblem[]);
           setSpeedTotalRounds(data.speedTotalRounds || 5);
           setBattleFormat((data.speedFormat as BattleFormat) || 'best_of_5');
@@ -592,12 +605,12 @@ const App: React.FC = () => {
         } else {
           // カードバトルは廃止したので、旧形式のルームには参加せず待機画面へ戻す
           cleanupGameSession();
-          setGameState('speed_duel_setup');
+          setGameState(battleType === 'monster_duel' ? 'monster_duel_setup' : 'speed_duel_setup');
         }
       }
 
-      // Speed Duel PvP: sync round results from Firestore
-      if (gameStateRef.current === 'speed_duel' && data.battleType === 'speed_duel') {
+      // Speed Duel / Monster Duel PvP: sync round results from Firestore
+      if (gameStateRef.current === 'speed_duel' && (data.battleType === 'speed_duel' || data.battleType === 'monster_duel')) {
         const myScore = isHostVal ? (data.speedP1Score || 0) : (data.speedP2Score || 0);
         const oppScore = isHostVal ? (data.speedP2Score || 0) : (data.speedP1Score || 0);
         setSpeedPlayerScore(myScore);
@@ -706,10 +719,11 @@ const App: React.FC = () => {
           // p1Hp/p2Hp は旧カードバトルのフィールド。firestore.rules の必須項目
           // なので、スピード対戦では使わないが 0 で作っておく。
           p1Hp: 0, p2Hp: 0, winnerId: null,
-          battleType: 'speed_duel',
+          battleType,
         };
-        // Speed duel: add categories and problems to room
-        if (battleType === 'speed_duel') {
+        // Speed duel / Monster duel: add categories and problems to room
+        // (モンスター対戦はスピードデュエルと全く同じ仕組み。モンスターIDは演出用に加えるだけ)
+        if (battleType === 'speed_duel' || battleType === 'monster_duel') {
           const total = getSpeedTotalRounds(battleFormat);
           const problems = generateSpeedProblems(speedCategories, total);
           base.speedCategories = speedCategories;
@@ -724,6 +738,8 @@ const App: React.FC = () => {
           base.speedP2Answer = null;
           base.speedRoundWinner = null;
           base.speedRoundActive = false;
+          base.hostMonsterDefId = battleType === 'monster_duel' ? monsterDuelMyMonsterId : null;
+          base.guestMonsterDefId = null;
         }
         if (!roomDoc.exists() || (roomDoc.data() as Room).status === 'finished') {
           tx.set(roomRef, base);
@@ -736,7 +752,8 @@ const App: React.FC = () => {
           tx.update(roomRef, {
             status: 'playing', guestId: uid,
             guestName: user.displayName || 'Player',
-            guestReady: true, guestLastActive: serverTimestamp()
+            guestReady: true, guestLastActive: serverTimestamp(),
+            guestMonsterDefId: d.battleType === 'monster_duel' ? monsterDuelMyMonsterId : null,
           });
           return 'guest';
         }
@@ -748,7 +765,7 @@ const App: React.FC = () => {
       saveActivePvpSession({
         roomId,
         isHost: result === 'host',
-        battleType: 'speed_duel',
+        battleType,
         deckIds: [],
         savedAt: Date.now(),
       });
@@ -793,8 +810,8 @@ const App: React.FC = () => {
     return 0; // master_duel: most wins after all rounds
   }, []);
 
-  const startSpeedDuel = useCallback((categories: string[], format: BattleFormat, mode: 'cpu' | 'pvp') => {
-    setBattleType('speed_duel');
+  const startSpeedDuel = useCallback((categories: string[], format: BattleFormat, mode: 'cpu' | 'pvp', bType: BattleType = 'speed_duel') => {
+    setBattleType(bType);
     setSpeedCategories(categories);
     setBattleFormat(format);
     const bmode = mode === 'pvp' ? 'pvp' : 'cpu';
@@ -1080,8 +1097,12 @@ const App: React.FC = () => {
       setGameMode('pvp');
       processedMatchIdRef.current = null;
 
-      if (room.battleType === 'speed_duel' && room.speedProblems) {
-        setBattleType('speed_duel');
+      if ((room.battleType === 'speed_duel' || room.battleType === 'monster_duel') && room.speedProblems) {
+        setBattleType(room.battleType);
+        if (room.battleType === 'monster_duel') {
+          setMonsterDuelMyMonsterId((saved.isHost ? room.hostMonsterDefId : room.guestMonsterDefId) ?? null);
+          setMonsterDuelOpponentId((saved.isHost ? room.guestMonsterDefId : room.hostMonsterDefId) ?? null);
+        }
         setSpeedProblems(room.speedProblems as SpeedProblem[]);
         setSpeedTotalRounds(room.speedTotalRounds || 5);
         setBattleFormat((room.speedFormat as BattleFormat) || 'best_of_5');
@@ -1192,7 +1213,7 @@ const App: React.FC = () => {
         return (
           <Suspense fallback={<AdventureLoading />}>
           <AdventureMode
-            onExit={() => setGameState('main_menu')}
+            onExit={() => { flushSessionData().catch(() => {}); setGameState('main_menu'); }}
             lockedUnits={effectiveLockedUnits}
             mathPoints={mathPoints}
             onAddMathPoints={n => addMathPoints(n)}
@@ -1250,7 +1271,7 @@ const App: React.FC = () => {
             onCancel={async () => {
               await leaveRoom(currentRoomId, isHost);
               cleanupGameSession();
-              setGameState('speed_duel_setup');
+              setGameState(battleType === 'monster_duel' ? 'monster_duel_setup' : 'speed_duel_setup');
             }}
             currentRoomId={currentRoomId}
             user={user}
@@ -1263,8 +1284,7 @@ const App: React.FC = () => {
         return (
           <SpeedDuelSetup
             onStart={(categories, format, mode) => {
-              setBattleType('speed_duel');
-              startSpeedDuel(categories, format, mode);
+              startSpeedDuel(categories, format, mode, 'speed_duel');
             }}
             onBack={() => setGameState('main_menu')}
             isLoggedIn={!!user}
@@ -1272,7 +1292,26 @@ const App: React.FC = () => {
           />
         );
 
-      case 'speed_duel':
+      case 'monster_duel_setup':
+        return (
+          <MonsterDuelSetup
+            onStart={(monsterDefIds, format, mode) => {
+              const subtopics = Array.from(new Set(
+                monsterDefIds.map(id => getMonster(id)?.subtopic).filter((s): s is string => !!s),
+              ));
+              setMonsterDuelMyMonsterId(monsterDefIds[0] ?? null);
+              startSpeedDuel(subtopics, format, mode, 'monster_duel');
+            }}
+            onBack={() => setGameState('main_menu')}
+            isLoggedIn={!!user}
+          />
+        );
+
+      case 'speed_duel': {
+        const playerMonsterDef = battleType === 'monster_duel' && monsterDuelMyMonsterId
+          ? getMonster(monsterDuelMyMonsterId) : null;
+        const opponentMonsterDef = battleType === 'monster_duel' && gameMode === 'pvp' && monsterDuelOpponentId
+          ? getMonster(monsterDuelOpponentId) : null;
         return (
           <SpeedDuelBoard
             problem={speedProblems[speedRound - 1] || null}
@@ -1296,8 +1335,11 @@ const App: React.FC = () => {
             isOpponentAnswered={speedOpponentAnswered}
             timeLeft={speedTimeLeft}
             gameResult={speedGameResult}
+            playerMonster={playerMonsterDef ? { name: playerMonsterDef.name, sprite: getMonsterSprite(playerMonsterDef.id) } : null}
+            opponentMonster={opponentMonsterDef ? { name: opponentMonsterDef.name, sprite: getMonsterSprite(opponentMonsterDef.id) } : null}
           />
         );
+      }
 
       case 'gamemaster':
         return db ? (
