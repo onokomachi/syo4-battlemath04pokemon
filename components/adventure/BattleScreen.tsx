@@ -23,6 +23,7 @@ import {
   useAdventureStore, getPartyMonsters, monsterHp, monsterMaxHp,
 } from '../../store/adventureStore';
 import { checkAnswer as evaluateAnswer } from '../../utils/answerChecker';
+import { shuffleDeck } from '../../utils/shuffle';
 import { generateSubtopicKeypadLayout } from '../../utils/keypadLayoutGenerator';
 import { addIncorrectToSrs } from '../../services/spacedRepetitionService';
 import { recordProblemLog } from '../../services/learningLogService';
@@ -50,8 +51,6 @@ interface Props {
   onFinish: (result: BattleResultSummary) => void;
 }
 
-const shuffle = <T,>(a: T[]): T[] => [...a].sort(() => Math.random() - 0.5);
-
 /** 相手モンスターのサブトピックから問題を引く。足りなければ何周でも回す。 */
 const pickProblems = (subtopics: string[], count: number): Array<Problem & { subTopic: string }> => {
   const pool = subtopics.flatMap(st =>
@@ -59,9 +58,9 @@ const pickProblems = (subtopics: string[], count: number): Array<Problem & { sub
   );
   if (pool.length === 0) return [];
   const out: Array<Problem & { subTopic: string }> = [];
-  let bag = shuffle(pool);
+  let bag = shuffleDeck(pool);
   while (out.length < count) {
-    if (bag.length === 0) bag = shuffle(pool);
+    if (bag.length === 0) bag = shuffleDeck(pool);
     out.push(bag.pop()!);
   }
   return out;
