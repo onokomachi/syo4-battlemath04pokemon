@@ -1,10 +1,7 @@
 
 import { ALL_PROBLEM_SETS } from '../data';
 import { Problem } from '../types';
-
-const shuffleArray = <T,>(array: T[]): T[] => {
-  return [...array].sort(() => Math.random() - 0.5);
-};
+import { shuffleDeck } from '../utils/shuffle';
 
 /**
  * 1セッションの出題数(サブトピックのタイプ別)。
@@ -31,7 +28,7 @@ export const getSessionSize = (subTopic: string): number => {
  */
 export const getShuffledProblemSet = (category: string, subTopic: string): Problem[] => {
   const problemSet = ALL_PROBLEM_SETS[subTopic] || [];
-  const shuffled = shuffleArray(problemSet);
+  const shuffled = shuffleDeck(problemSet);
   const sessionSize = getSessionSize(subTopic);
   return shuffled.slice(0, Math.min(sessionSize, shuffled.length));
 };
@@ -47,6 +44,6 @@ export const getMixedProblemSet = (subtopics: string[], count: number): (Problem
   const pooled = subtopics.flatMap(subTopic =>
     (ALL_PROBLEM_SETS[subTopic] || []).map(p => ({ ...p, category: subTopic }))
   );
-  const shuffled = shuffleArray(pooled);
+  const shuffled = shuffleDeck(pooled);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 };

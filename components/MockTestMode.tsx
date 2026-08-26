@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import type { Problem } from '../types';
 import { ALL_PROBLEM_SETS } from '../data';
 import { checkAnswer } from '../utils/answerChecker';
+import { shuffleDeck } from '../utils/shuffle';
 import { generateBattleKeypadLayout } from '../utils/keypadLayoutGenerator';
 import Keypad from './Keypad';
 import FractionText, { PartialFractionDisplay } from './FractionText';
@@ -197,8 +198,7 @@ interface TestQuestion {
   problem: Problem;
 }
 
-const sample = <T,>(arr: T[], n: number): T[] =>
-  [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+const sample = <T,>(arr: T[], n: number): T[] => shuffleDeck(arr).slice(0, n);
 
 const buildTest = (set: TestSet, mode: TestMode): TestQuestion[] => {
   const items = set.blueprint.filter((b) => (mode === 'ぜんぶ' ? true : b.section === mode));
