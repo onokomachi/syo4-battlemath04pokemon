@@ -50,6 +50,11 @@ interface Props {
   defaultName?: string;
   /** Firestore 同期用のUID(未ログインなら null) */
   uid?: string | null;
+  /**
+   * バトルを始める前に スタミナを使う（学級ポータル）。足りなければ ok=false で、バトルは始めない。
+   * 各単元アプリで練習した分がスタミナになる（learning-app-kit/sanmon）。
+   */
+  onRequestBattle?: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
 
 type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save';
@@ -63,7 +68,7 @@ interface Dialogue {
 }
 
 const AdventureMode: React.FC<Props> = ({
-  onExit, lockedUnits, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid,
+  onExit, lockedUnits, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle,
 }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
@@ -80,6 +85,21 @@ const AdventureMode: React.FC<Props> = ({
   }, []);
   const [battle, setBattle] = useState<BattleSetup | null>(null);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
+  /**
+   * バトルを始める入口。すべてのバトル（野生・トレーナー・ジム・リーグ・伝説・テキトウ団）はここを通す。
+   * スタミナが足りなければ、そのことを ことばで知らせて始めない。
+   */
+  const requestingRef = useRef(false);
+  const startBattle = useCallback((setup: BattleSetup) => {
+    if (!onRequestBattle) { setBattle(setup); return; }
+    if (requestingRef.current) return;
+    requestingRef.current = true;
+    void onRequestBattle(setup.kind).then((r) => {
+      requestingRef.current = false;
+      if (r.ok) setBattle(setup);
+      else setDialogue({ speaker: 'スタミナ', lines: [r.message ?? 'スタミナが たりないよ'], onDone: () => setDialogue(null) });
+    });
+  }, [onRequestBattle]);
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
   /** テキトウ団の下っ端。フィールドに1体だけ、時間経過でランダムに現れて追ってくる。 */
   const [ambush, setAmbush] = useState<{ id: string; sprite: string; x: number; z: number } | null>(null);
@@ -322,7 +342,7 @@ const AdventureMode: React.FC<Props> = ({
       ],
       onDone: () => {
         setDialogue(null);
-        setBattle({
+        startBattle({
           kind: 'legend-wild',
           trainerName: legend.name,
           opponents: [{ defId: legend.id, level: legend.level }],
@@ -373,7 +393,7 @@ const AdventureMode: React.FC<Props> = ({
       lines: AMBUSH_LINES.encounter,
       onDone: () => {
         setDialogue(null);
-        setBattle({
+        startBattle({
           kind: 'ambush',
           trainerName: TEAM_MEMBERS.grunt.name,
           trainerSprite: grunt.sprite,
@@ -411,7 +431,7 @@ const AdventureMode: React.FC<Props> = ({
     if (pool.length === 0) return;
     const def = pool[Math.floor(Math.random() * pool.length)];
     const level = scaledOpponentLevel(save, Math.max(2, town.wildLevel + Math.floor(Math.random() * 3) - 1));
-    setBattle({
+    startBattle({
       kind: 'wild',
       opponents: [{ defId: def.id, level }],
       questionsPerOpponent: isSlowGuidedSubtopic(def.subtopic) ? 2 : 3 + Math.floor(Math.random() * 3),  // 3〜5問(重い筆算単元は2問)
@@ -489,7 +509,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: [...legend.legendText, ...legend.awakenText],
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'legend',
             trainerName: legend.name,
             opponents: [{ defId: legend.id, level: legend.level }],
@@ -528,7 +548,7 @@ const AdventureMode: React.FC<Props> = ({
           lines: rescue.intro,
           onDone: () => {
             setDialogue(null);
-            setBattle({
+            startBattle({
               kind: 'ambush',
               isRescue: true,
               trainerName: npc.name,
@@ -554,7 +574,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: chapter.lines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'team',
             trainerName: member.name,
             trainerSprite: member.sprite,
@@ -584,7 +604,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: e.lines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'elite',
             trainerName: e.name,
             trainerSprite: e.sprite,
@@ -611,7 +631,7 @@ const AdventureMode: React.FC<Props> = ({
           : CHAMPION.lines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'champion',
             trainerName: CHAMPION.name,
             trainerSprite: CHAMPION.sprite,
@@ -663,7 +683,7 @@ const AdventureMode: React.FC<Props> = ({
       lines: npc.lines,
       onDone: () => {
         setDialogue(null);
-        setBattle({
+        startBattle({
           kind: npc.kind === 'master' ? 'master' : 'trainer',
           trainerName: npc.name,
           trainerSprite: npc.sprite,
@@ -712,7 +732,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: TEAM_HIDEOUT.guardLines[key] ?? [],
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'team',
             trainerName: member.name,
             trainerSprite: member.sprite,
@@ -731,7 +751,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: TEAM_HIDEOUT.bossLines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'team',
             trainerName: boss.name,
             trainerSprite: boss.sprite,

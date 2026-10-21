@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { forceSolo } from 'learning-app-kit/sync';
 import type { Problem } from '../types';
 import { ALL_PROBLEM_SETS } from '../data';
 import { checkAnswer } from '../utils/answerChecker';
@@ -238,6 +239,8 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
   const bests = getTestBests();
 
   const startTest = (m: TestMode) => {
+    // 本番テストは実力を測る場面。ペア（1台を2人）のままなら、ここでソロに切り替える（学級ポータル）
+    forceSolo();
     setMode(m);
     setQuestions(buildTest(testSet, m));
     setAnswers([]);

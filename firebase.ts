@@ -25,9 +25,13 @@ const firebaseConfig = {
   measurementId: env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined,
 };
 
-/** 必須キーがそろっているか(そろっていなければオフラインモード) */
-export const isFirebaseConfigured: boolean =
-  !!(firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId);
+/**
+ * 2026-10 から SANMON は学級ポータル（Supabase）の一部として動く（services/portal.ts）。
+ * 名乗りは学級コード＋出席番号、記録は学級ポータルへ送る。Firebase（Googleログイン・PvP・ランキング・管理画面）は使わない。
+ * 環境変数が残っていても初期化しないよう、常に「未設定」として扱う（端末内保存のオフラインモード＋学級ポータル）。
+ */
+void firebaseConfig;
+export const isFirebaseConfigured: boolean = false;
 
 let app: any = null, auth: any = null, db: any = null, storage: any = null, googleProvider: any = null, analytics: any = null;
 let firestoreReady = false;

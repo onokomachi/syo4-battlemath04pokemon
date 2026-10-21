@@ -1,0 +1,77 @@
+# 学級ポータルのアプリ用 CI（learning-app-kit が配る。手で書きかえない。直すときは kit の templates/workflows/check.yml）
+# `npx learning-app-kit-platform fix` で、すべてのアプリにこの版が入る。
+#
+# - push / PR のたびに `npm run check` を実行する（型チェック・ビルド・問題の検証・学級ポータルのルール点検）。
+#   人間（やClaude）が実行を忘れても、問題データの不正・共通ファイルのずれを機械的に止める。
+# - 毎週月曜の朝（日本時間 7:00）に kit の最新と見くらべ、遅れていれば kit を上げて `npm run check` を通し、
+#   通れば main に直接反映する（Vercel が自動で本番に出す。持ち主の操作は要らない）。
+#   通らなければ反映せずに失敗し、GitHub からリポジトリの持ち主にメールが届く（全体セッションで直す）。
+#   CI の設定ファイル自体が変わる更新だけは、GitHub の決まりで自動では書きこめないので、反映せずにメールで知らせる。
+#   トークンの登録も、リポジトリの設定変更も要らない（kit は公開リポジトリ。反映は Actions に最初からある GITHUB_TOKEN で行う）。
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  update:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: kit を最新に上げる（最新なら何もしない）
+        id: kit
+        run: npx learning-app-kit-platform update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: CI の設定が変わる更新は、自動では反映できない
+        if: steps.kit.outputs.updated == 'true'
+        run: |
+          if ! git diff --quiet -- .github/workflows; then
+            echo "::error::この更新は CI の設定ファイル（.github/workflows）も変えます。GitHub の決まりで Actions からは書きこめません。全体セッションで Claude に「kit を最新に上げて」と頼んでください。"
+            exit 1
+          fi
+      - name: 上げた kit で点検する（通らなければ反映しない）
+        if: steps.kit.outputs.updated == 'true'
+        run: npm run check
+      - name: main に反映する
+        if: steps.kit.outputs.updated == 'true'
+        env:
+          SHA: ${{ steps.kit.outputs.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "kit を最新（${SHA:0:7}）に上げる（週1回の自動更新。npm run check 通過済み）"
+          git push origin HEAD:main || { echo "::error::main に反映できませんでした（main が先に動いた／ブランチ保護がある）。全体セッションで Claude に「kit を最新に上げて」と頼んでください。"; exit 1; }

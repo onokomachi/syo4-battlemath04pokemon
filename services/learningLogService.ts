@@ -73,6 +73,14 @@ const BESTS_KEY = 'fb_test_bests_v1';
 const GOAL_KEY = 'fb_daily_goal_v1';
 
 const LOGS_CAP = 500;
+
+/**
+ * 記録が増えたときに呼ばれる（学級ポータルへ送るため。services/portal.ts を App が登録する）。
+ * ここから portal を直接読むと循環 import になるので、呼び出し口だけ置く。
+ */
+let changeListener: (() => void) | null = null;
+export const setLearningLogListener = (fn: (() => void) | null): void => { changeListener = fn; };
+const notifyChange = () => { try { changeListener?.(); } catch { /* 送信の失敗で学習を止めない */ } };
 const TESTS_CAP = 30;
 
 const read = <T,>(key: string, fallback: T): T => {
@@ -104,6 +112,7 @@ export const recordProblemLog = (entry: Omit<ProblemLogEntry, 'id' | 'ts'>): voi
   write(LOGS_KEY, [full, ...logs].slice(0, LOGS_CAP));
   updateMastery(entry.subTopic, entry.correct);
   accumulateDailyPending(entry.subTopic, entry.correct);
+  notifyChange();
 };
 
 const startOfToday = (): number => {
@@ -237,6 +246,7 @@ export const recordTestResult = (rec: Omit<TestRecord, 'id' | 'ts'>): TestBests 
   const records = getTestRecords();
   const full: TestRecord = { ...rec, id: uuid(), ts: Date.now() };
   write(TESTS_KEY, [full, ...records].slice(0, TESTS_CAP));
+  notifyChange();
 
   const bests = getTestBests();
   if (rec.omoteMax > 0) {
