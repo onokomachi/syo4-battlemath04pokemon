@@ -511,7 +511,7 @@ export interface ProblemCard {
   ability?: Ability;
 }
 
-export type GameState = 'login_screen' | 'main_menu' | 'adventure' | 'practice_mode' | 'review_mode' | 'matchmaking' | 'gamemaster' | 'speed_duel_setup' | 'speed_duel' | 'monster_duel_setup' | 'mock_test' | 'learning_log';
+export type GameState = 'login_screen' | 'main_menu' | 'adventure' | 'practice_mode' | 'review_mode' | 'matchmaking' | 'gamemaster' | 'speed_duel_setup' | 'speed_duel' | 'monster_duel_setup' | 'class_duel' | 'mock_test' | 'learning_log';
 
 // For FillInProofProblemView to connect with a virtual keypad in the future
 export interface ProblemViewRef {

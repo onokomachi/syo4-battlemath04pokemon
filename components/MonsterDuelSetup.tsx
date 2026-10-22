@@ -16,7 +16,8 @@ import { BackIcon } from './Icons';
 interface MonsterDuelSetupProps {
   onStart: (monsterDefIds: string[], format: BattleFormat, mode: 'cpu' | 'pvp') => void;
   onBack: () => void;
-  isLoggedIn: boolean;
+  /** 学級コードで名乗っていれば、同じ学級の友だちと対戦できる（クラス対戦） */
+  pvpReady: boolean;
 }
 
 const DUEL_FORMATS: { key: BattleFormat; label: string; desc: string }[] = [
@@ -29,7 +30,7 @@ const DUEL_FORMATS: { key: BattleFormat; label: string; desc: string }[] = [
 /** 手持ちと同じ上限(3体まで)を連れていける */
 const MAX_PICK = 3;
 
-const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, isLoggedIn }) => {
+const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pvpReady }) => {
   const dexCaught = useAdventureStore(s => s.save.dexCaught);
 
   const caughtMonsters = useMemo(
@@ -154,8 +155,9 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, is
         <div className="hud-panel rounded-xl p-4 mb-6 border border-slate-700/30">
           <h3 className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-2">ルール</h3>
           <ul className="space-y-1 text-[11px] text-gray-400">
-            <li>• 同じ問題が両プレイヤーに同時出題</li>
+            <li>• 同じ問題（クラス対戦は同じレベルの問題）が両プレイヤーに同時出題</li>
             <li>• 先に正解した方がラウンド勝利</li>
+            <li>• クラス対戦は同じ学級の ともだちと。3本勝負か5本勝負（7本・マスターは5本勝負になる）</li>
             <li>• モンスターのHP・レベル・タイプ相性は勝敗に関係しません(見た目だけ)</li>
           </ul>
         </div>
@@ -173,13 +175,13 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, is
           </button>
           <button
             onClick={() => handleStart('pvp')}
-            disabled={!isLoggedIn || picked.length === 0}
+            disabled={!pvpReady || picked.length === 0}
             className="btn-tactical py-5 rounded-2xl font-bold tracking-[0.15em] text-base group relative overflow-hidden disabled:opacity-40"
           >
             <div className="absolute -right-4 -bottom-4 text-5xl opacity-[0.08] group-hover:opacity-[0.15] transition-all">⚔</div>
-            <div className="text-lg font-black">プレイヤー対戦</div>
+            <div className="text-lg font-black">クラス対戦</div>
             <div className="text-[10px] text-emerald-400 opacity-70 mt-1">
-              {isLoggedIn ? 'オンラインで早押し勝負' : 'ログインが必要です'}
+              {pvpReady ? '同じ学級の ともだちと 早押し' : 'がっきゅうコードを 入れると あそべるよ'}
             </div>
           </button>
         </div>

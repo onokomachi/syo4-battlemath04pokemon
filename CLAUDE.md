@@ -23,7 +23,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 
 - **名乗りは学級コード＋出席番号**（learning-app-kit の JoinGate／子ども用ハブからの `#c=&n=`）。氏名・Googleアカウントは使わない。
 - **Firebase は使わない**（`firebase.ts` は常に「未設定」。ログイン・PvP・ランキング・管理画面は動かない）。
-  端末内保存のオフラインモード＋学級ポータル、で動く。Firebase の SDK は入れていない（`firebase.ts` と `services/firebaseOff.ts` は名前だけの代わり。呼ばれることはない）。古い PvP・ランキングの画面のコードを消すのは後の片付け。
+  端末内保存のオフラインモード＋学級ポータル、で動く。Firebase の SDK は入れていない（`firebase.ts` と `services/firebaseOff.ts` は名前だけの代わり。サーバとやりとりする関数は呼ばれない。`increment` などの値を作る関数は、古いコードが `db` を確かめる前に呼ぶので投げずに値を返す）。古い PvP・ランキングの画面のコードを消すのは後の片付け。
 - **町（ぼうけん・スピードデュエルの単元）の解放とスタミナは `learning-app-kit/sanmon` が決める**（子ども用ハブと同じ関数）。
   ここで独自に判定しない。数（練習7割・テスト8割をちがう日に3回・階段の半分・ひとりで3日、バトル1回スタミナ5）を変えるときは kit を直す。
   れんしゅう・ふくしゅう・本番テストは学習そのものなので、町が開いていなくても使える（スタミナも使わない）。
@@ -31,6 +31,21 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - 記録は `services/portal.ts` が学級ポータルへ送る（1問ごと→learning_event、本番テスト→test_result、セーブデータ→sanmon_save）。
   skill_id はサブトピック名そのもの（kit のカタログ `sanmon` と同じ）。サブトピックを足したら kit のカタログを作り直す。
 - 環境変数: `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`（publishable キーだけ）。
+
+## クラス対戦（2026-10〜）
+
+- **同じ学級の2人が、つかまえたモンスターの問題で早押し**（モンスター対戦の画面の「クラス対戦」）。画面は `components/duel/ClassDuel.tsx`（開いたときだけ読み込む）、
+  対戦画面は CPU 戦と同じ `SpeedDuelBoard`、1問ごとの学習の記録も CPU 戦と同じ `recordDuelLearning`（App.tsx）。
+- **勝ち負け・時間・ラウンドはサーバが決める**（Supabase の `sanmon_duel` 表と `sanmon_duel_create / list / join / state / answer / leave`）。
+  端末は「答えた・正しかった」を送るだけ。表は直接読めない（RLS・ポリシーなし）。
+- 端末どうしの合図は Realtime Broadcast（公開チャンネル。部屋の名前 `topic` はサーバが作る推測できない文字列）で、中身は「状態が変わった」だけ。
+  受けた側はサーバから読みなおす。**合図が届かない回線でも2秒ごとの読みなおしで進む**（学校のネットで WebSocket が止まっても遊べる）。
+- 1本目は部屋を作った子のモンスター、2本目は入った子のモンスターの分野（交代）。2人に同じ番号の問題を出す（`pickIndex`）。
+  アプリと同じ答え方の問題は数字が出るたびに変わるので「同じレベル・ちがう数字」になる。
+- スタミナは**部屋に入ったときにサーバが2人ぶん使う**（`_duel_cost()` = 5。kit の `SANMON_RULES.battleCost` を変えたらここも変える）。
+  1ラウンドは45秒（`_duel_round_seconds()`）。相手が30秒いなくなったら残った子の勝ち。
+- ごほうびは勝ち負けの分（`SPEED_DUEL_REWARDS`）＋せいかい1問ごとの MP（`CLASS_DUEL_MP_PER_CORRECT`、負けてももらえる）。順位表は作らない。
+- 古い Firebase の PvP（Matchmaking・rooms）は使っていない（後で消す）。
 
 ## 問題は 各単元アプリと同じ（2026-10〜）
 

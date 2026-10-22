@@ -15,6 +15,7 @@
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
+    "@supabase/realtime-js": "2.116.0",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
     "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/f82d0b6be92aee5806550b8058a33551983f66f8.tar.gz",

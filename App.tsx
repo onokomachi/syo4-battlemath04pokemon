@@ -53,7 +53,7 @@ import MockTestMode from './components/MockTestMode';
 import LearningLogScreen from './components/LearningLogScreen';
 import {
   SPEED_DUEL_TIME_LIMIT_SEC, SPEED_DUEL_COUNTDOWN_MS, SPEED_CPU,
-  speedCpuAccuracy, SPEED_DUEL_REWARDS,
+  speedCpuAccuracy, SPEED_DUEL_REWARDS, CLASS_DUEL_MP_PER_CORRECT,
 } from './constants/gameBalance';
 import { addIncorrectToSrs, getDueCount } from './services/spacedRepetitionService';
 import { recordAttempt, getCategoryWeights } from './services/weaknessAnalysisService';
@@ -77,6 +77,8 @@ import {
 // 3Dアドベンチャーは three.js を含み重いので、選ばれたときだけ読みこむ
 // (練習モードしか使わない児童の初期読み込みを遅くしないため)
 const AdventureMode = lazy(() => import('./components/adventure/AdventureMode'));
+// クラス対戦（Supabase のリアルタイム合図を使う）。開いたときだけ読み込む
+const ClassDuel = lazy(() => import('./components/duel/ClassDuel'));
 
 // 採点は utils/answerChecker.ts に一本化（3Dバトル・スピード対戦・練習モード共通）
 
@@ -156,6 +158,8 @@ const App: React.FC = () => {
   // --- Monster Duel State(スピードデュエルと同じ仕組みに、モンスターの見た目だけを重ねる) ---
   // 選んだモンスターは表示専用。HP・レベル・タイプ相性は勝敗計算に一切使わない。
   const [monsterDuelMyMonsterId, setMonsterDuelMyMonsterId] = useState<string | null>(null);
+  /** クラス対戦に つれていくモンスターと形式 */
+  const [classDuel, setClassDuel] = useState<{ monsterIds: string[]; format: BattleFormat } | null>(null);
   const [monsterDuelOpponentId, setMonsterDuelOpponentId] = useState<string | null>(null);
   const [speedProblems, setSpeedProblems] = useState<SpeedProblem[]>([]);
   const [speedRound, setSpeedRound] = useState(1);
@@ -930,16 +934,8 @@ const App: React.FC = () => {
     return () => { if (speedCpuTimerRef.current) clearTimeout(speedCpuTimerRef.current); };
   }, [gameState, speedPhase, speedRound, gameMode, speedProblems, userLevelStats]);
 
-  const handleSpeedAnswer = useCallback(async (answer: string) => {
-    if (speedPhase !== 'answering' || speedPlayerAnswered) return;
-    const problem = speedProblems[speedRound - 1];
-    if (!problem) return;
-
-    setSpeedPlayerAnswered(true);
-
-    // Check correctness (カードバトルと同一の採点ロジック)
-    const isCorrect = checkAnswer(answer, problem.answer, { multiple: !!(problem.data as any)?.multiple, requireForm: (problem.data as any)?.requireForm });
-
+  // 早押し対戦（CPU のスピードデュエル・クラス対戦）で1問答えたときの学習の記録。どちらの対戦も同じ記録にする
+  const recordDuelLearning = useCallback((problem: SpeedProblem, answer: string, isCorrect: boolean) => {
     // ゲーミフィケーション統合: チェイン・バッジ・クエスト・セッション統計
     recordAnswerOutcome(isCorrect);
     // 学習記録: 弱点分析と間隔反復(SRS)はカードバトル・練習モードと同様に蓄積する
@@ -963,6 +959,19 @@ const App: React.FC = () => {
       userAnswer: answer,
       correct: isCorrect,
     });
+  }, [recordAnswerOutcome]);
+
+  const handleSpeedAnswer = useCallback(async (answer: string) => {
+    if (speedPhase !== 'answering' || speedPlayerAnswered) return;
+    const problem = speedProblems[speedRound - 1];
+    if (!problem) return;
+
+    setSpeedPlayerAnswered(true);
+
+    // Check correctness (カードバトルと同一の採点ロジック)
+    const isCorrect = checkAnswer(answer, problem.answer, { multiple: !!(problem.data as any)?.multiple, requireForm: (problem.data as any)?.requireForm });
+
+    recordDuelLearning(problem, answer, isCorrect);
 
     if (gameMode === 'pvp' && currentRoomId && db) {
       // PvP: write answer to Firestore, use transaction for atomicity
@@ -1001,7 +1010,7 @@ const App: React.FC = () => {
       setSpeedPhase('round_result');
     }
     // If wrong, player can't retry - wait for CPU or timeout
-  }, [speedPhase, speedPlayerAnswered, speedProblems, speedRound, recordAnswerOutcome, gameMode, currentRoomId, db]);
+  }, [speedPhase, speedPlayerAnswered, speedProblems, speedRound, recordDuelLearning, gameMode, currentRoomId, db]);
 
   const handleSpeedNextRound = useCallback(() => {
     const required = getSpeedRequiredWins(battleFormat);
@@ -1085,6 +1094,17 @@ const App: React.FC = () => {
     if (gameMode === 'pvp') handleQuestProgress('pvp_match');
     flushSessionData().catch(() => {});
   }, [speedPhase, speedGameResult, gameMode, addExp, addBoostedMp, incrementTotalWins, saveUserToFirestore, handleQuestProgress, flushSessionData]);
+
+  // クラス対戦のごほうび（対戦が終わったとき1回だけ）。勝ち負けのごほうび＋せいかい1問ごとの MP（負けても もらえる）
+  const finishClassDuel = useCallback((result: 'win' | 'lose' | 'draw', myCorrect: number) => {
+    const reward = SPEED_DUEL_REWARDS[result];
+    addExp(reward.exp);
+    const mp = reward.mp + myCorrect * CLASS_DUEL_MP_PER_CORRECT;
+    if (mp > 0) addBoostedMp(mp);
+    if (result === 'win') incrementTotalWins();
+    handleQuestProgress('pvp_match');
+    flushSessionData().catch(() => {});
+  }, [addExp, addBoostedMp, incrementTotalWins, handleQuestProgress, flushSessionData]);
 
   // ============================
   // PvP再接続
@@ -1324,15 +1344,37 @@ const App: React.FC = () => {
                 monsterDefIds.map(id => getMonster(id)?.subtopic).filter((s): s is string => !!s),
               ));
               setMonsterDuelMyMonsterId(monsterDefIds[0] ?? null);
+              if (mode === 'pvp') {
+                // クラス対戦: スタミナは へやに入ったときにサーバが2人ぶん使う
+                setClassDuel({ monsterIds: monsterDefIds, format });
+                setGameState('class_duel');
+                return;
+              }
               void requestBattle('monster_duel').then((r) => {
                 if (r.ok) startSpeedDuel(subtopics, format, mode, 'monster_duel');
                 else setPortalNotice(r.message ?? 'スタミナが たりないよ');
               });
             }}
             onBack={() => setGameState('main_menu')}
-            isLoggedIn={!!user}
+            pvpReady={!!portal.student}
           />
         );
+
+      case 'class_duel':
+        return portal.student && classDuel ? (
+          <Suspense fallback={<AdventureLoading />}>
+            <ClassDuel
+              studentId={portal.student.studentId}
+              myNumber={portal.student.number}
+              monsterIds={classDuel.monsterIds}
+              format={classDuel.format}
+              onExit={() => { void portal.refresh(); setGameState('monster_duel_setup'); }}
+              onRecord={recordDuelLearning}
+              onFinish={finishClassDuel}
+              onStaminaChanged={() => { void portal.refresh(); }}
+            />
+          </Suspense>
+        ) : null;
 
       case 'speed_duel': {
         const playerMonsterDef = battleType === 'monster_duel' && monsterDuelMyMonsterId

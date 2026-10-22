@@ -54,3 +54,10 @@ export const SPEED_DUEL_REWARDS = {
   draw: { exp: 150, mp: 0 },
   lose: { exp: 75, mp: 0 },
 } as const;
+
+/**
+ * クラス対戦（同じ学級の友だちと早押し）で、せいかい1問ごとにもらえる MP。勝ち負けに関係なくもらえる。
+ * 負けた子も、解いたぶんは報われるようにする（協力のほうが競争より学力・友だち関係に良い:
+ * Roseth, Johnson & Johnson 2008 のメタ分析。競争だけにしない）。勝ち負けのごほうびは SPEED_DUEL_REWARDS。
+ */
+export const CLASS_DUEL_MP_PER_CORRECT = 20;
