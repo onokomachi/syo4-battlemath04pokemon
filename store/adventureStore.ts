@@ -20,6 +20,7 @@ import { ALL_LEGENDS, legendsInTown, type LegendDef } from '../data/adventure/le
 import { TEAM_CHAPTERS, TEAM_HIDEOUT } from '../data/adventure/team';
 import { getAllMastery } from '../services/learningLogService';
 import type { KidnappedRecord, OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
+import { GROWTH_RULES, dailyEffective, levelCapOf, todayKey } from '../data/adventure/growth';
 
 const KEY = 'bm_adventure_v1';
 const SLOTS_KEY = 'bm_adventure_slots_v1';
@@ -73,7 +74,22 @@ export interface AdventureSave {
    * いなくても祠に挑めるようになる(=野生での実績が本番の近道になる)。
    */
   wildLegendRecognized: Record<string, number>;
+  /** 今日、モンスター（defId）ごとに満額でもらった正解の数（growth.ts の1日の上限） */
+  growthLog?: { date: string; used: Record<string, number> };
   updatedAt: number;
+}
+
+/** growBySubtopic の結果（育った1体ぶん） */
+export interface GrowthResult {
+  uid: string;
+  defId: string;
+  gained: number;
+  leveled: boolean;
+  newLevel: number;
+  /** レベルの上限に とどいている（かけらで上がる） */
+  capped: boolean;
+  /** 出どころのモンスターだったか（満額） */
+  source: boolean;
 }
 
 const emptySave = (): AdventureSave => ({
@@ -246,7 +262,12 @@ interface AdventureState {
   kidnapMonster: (uid: string, townId: string) => void;
   /** その町の奪還戦に勝ったとき、さらわれていた個体をすべて手持ちに戻す */
   rescueMonsters: (townId: string) => void;
-  addExp: (uid: string, exp: number) => { leveled: boolean; newLevel: number };
+  addExp: (uid: string, exp: number) => { leveled: boolean; newLevel: number; capped: boolean };
+  /**
+   * 正解した問題の出どころ（サブトピック）のモンスターを育てる（growth.ts）。
+   * expFull は出どころのモンスター1体が満額でもらう量。shareParty なら、ほかの手持ちにも2割。
+   */
+  growBySubtopic: (subtopic: string, corrects: number, expFull: number, opts?: { shareParty?: boolean }) => GrowthResult[];
   setParty: (uids: string[]) => void;
 
   // --- HP・アイテム ---
@@ -416,17 +437,24 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
     addExp: (uid, exp) => {
       let leveled = false;
       let newLevel = 1;
+      let capped = false;
       update(s => {
         const owned = s.owned.map(o => {
           if (o.uid !== uid) return o;
           const beforeMax = monsterMaxHp(o);
           const beforeHp = monsterHp(o);
+          // レベルの上限は単元のかけらで上がる。上限では、つぎのレベルの手前までためておく（上限が上がったら すぐ1つ上がる）
+          const cap = levelCapOf(getMonster(o.defId));
           let lv = o.level;
           let ex = o.exp + exp;
-          while (ex >= expToNext(lv) && lv < 60) {
+          while (ex >= expToNext(lv) && lv < cap) {
             ex -= expToNext(lv);
             lv += 1;
             leveled = true;
+          }
+          if (lv >= cap) {
+            capped = true;
+            ex = Math.min(ex, expToNext(lv) - 1);
           }
           newLevel = lv;
           const grown = { ...o, level: lv, exp: ex };
@@ -443,7 +471,39 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         const maxHp = playerMaxHp(next);
         return { ...next, maxHp, hp: Math.min(next.hp + (maxHp - s.maxHp), maxHp) };
       });
-      return { leveled, newLevel };
+      return { leveled, newLevel, capped };
+    },
+
+    growBySubtopic: (subtopic, corrects, expFull, opts) => {
+      const results: GrowthResult[] = [];
+      if (!subtopic || corrects <= 0 || expFull <= 0) return results;
+      const s0 = get().save;
+      const date = todayKey();
+      const log = s0.growthLog?.date === date ? { ...s0.growthLog.used } : {};
+      const gains: { uid: string; defId: string; exp: number; source: boolean }[] = [];
+      // 出どころのモンスター（同じ種類を何体か持っていれば、どれも育つ。1日の数は種類ごと）
+      const sources = s0.owned.filter(o => getMonster(o.defId)?.subtopic === subtopic);
+      const defIds = Array.from(new Set(sources.map(o => o.defId)));
+      for (const defId of defIds) {
+        const d = dailyEffective(log[defId] ?? 0, corrects);
+        log[defId] = d.used;
+        const exp = Math.round(expFull * (d.effective / corrects));
+        for (const o of sources.filter(x => x.defId === defId)) gains.push({ uid: o.uid, defId, exp, source: true });
+      }
+      if (opts?.shareParty) {
+        for (const uid of s0.party) {
+          const o = s0.owned.find(x => x.uid === uid);
+          if (!o || gains.some(g => g.uid === uid)) continue;
+          gains.push({ uid, defId: o.defId, exp: Math.round(expFull * GROWTH_RULES.othersShare), source: false });
+        }
+      }
+      if (defIds.length) update(s => ({ ...s, growthLog: { date, used: log } }));
+      for (const g of gains) {
+        if (g.exp <= 0) continue;
+        const r = get().addExp(g.uid, g.exp);
+        results.push({ uid: g.uid, defId: g.defId, gained: g.exp, source: g.source, ...r });
+      }
+      return results;
     },
 
     setParty: uids => update(s => ({ ...s, party: uids.slice(0, 3) })),

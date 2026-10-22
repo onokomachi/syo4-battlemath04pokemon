@@ -16,6 +16,7 @@ import type { Problem, ProblemViewRef } from '../../types';
 import type { BattleSetup, BattleResultSummary, MonsterDef } from '../../data/adventure/adventureTypes';
 import { battleProblems } from '../../data';
 import { getMonster, getMonsterSprite, statsAtLevel } from '../../data/adventure/monsters';
+import { GROWTH_RULES } from '../../data/adventure/growth';
 import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adventure/elements';
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
 import { getNpcSprite } from '../../data/adventure/people';
@@ -207,6 +208,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   const stats = useRef({ correct: 0, incorrect: 0, mp: 0, exp: 0 });
   const leveled = useRef<string[]>([]);
+  /** いまの相手に正解した数（分野ごと）。たおしたとき、その分野のモンスターに けいけんちが入る（growth.ts） */
+  const correctsByTopic = useRef<Record<string, number>>({});
+  const countCorrect = (subTopic: string) => {
+    correctsByTopic.current[subTopic] = (correctsByTopic.current[subTopic] ?? 0) + 1;
+  };
   const caught = useRef<string | undefined>(undefined);
   /** kind:'legend-wild' で、HPを半分以上けずって「みとめられた」か */
   const recognized = useRef(false);
@@ -347,6 +353,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
     if (correct) {
       stats.current.correct += 1;
+      countCorrect(problem.subTopic);
       streak.current += 1;
       // まちがえたあとの強制ヒントと同じあつかいで、自分から見た
       // ヒントも こうげきを弱くする(ノーヒントで挑む理由を残すため)。
@@ -439,6 +446,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       }
       if (correct) {
         stats.current.correct += 1;
+        if (problem) countCorrect(problem.subTopic);
         const dmg = damageToOpponent(false);
         setOppHp(v => Math.max(0, v - dmg));
         playHitSfx();
@@ -540,20 +548,37 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     stats.current.exp += gained;
     stats.current.mp += Math.round(8 + oppLevel * 1.5);
     const leveledBefore = leveled.current.length;
+    // けいけんちは、正解した問題の出どころのモンスター（同じ種類）に満額。ほかの手持ちは2割（growth.ts）
+    const beforeMax = party.map(p => monsterMaxHp(p.owned));
+    const byTopic = Object.entries(correctsByTopic.current);
+    if (byTopic.length === 0 && oppDef?.subtopic) byTopic.push([oppDef.subtopic, 1]);
+    const totalCorrect = byTopic.reduce((a, [, n]) => a + n, 0) || 1;
+    correctsByTopic.current = {};
+    const results = byTopic.flatMap(([sub, n]) => store.growBySubtopic(sub, n, Math.round((gained * n) / totalCorrect)));
+    const grownUids = new Set(results.map(r => r.uid));
+    for (const p of party) {
+      if (grownUids.has(p.owned.uid)) continue;
+      const r = store.addExp(p.owned.uid, Math.round(gained * GROWTH_RULES.othersShare));
+      results.push({ uid: p.owned.uid, defId: p.owned.defId, gained: 0, source: false, ...r });
+    }
     party.forEach((p, i) => {
-      const beforeMax = monsterMaxHp(p.owned);
-      const r = store.addExp(p.owned.uid, Math.round(gained / Math.max(1, party.length)));
-      if (!r.leveled) return;
+      const r = results.find(x => x.uid === p.owned.uid);
+      if (!r?.leveled) return;
       leveled.current.push(p.owned.uid);
       // レベルが上がって最大HPが伸びたぶんを、バトル中のHPにも反映する
       // (たおれている子は0のまま。ここで復活させない)
-      const grew = monsterMaxHp({ ...p.owned, level: r.newLevel }) - beforeMax;
+      const grew = monsterMaxHp({ ...p.owned, level: r.newLevel }) - beforeMax[i]!;
       if (grew > 0) setHps(prev => prev.map((h, j) => (j === i && h > 0 ? h + grew : h)));
     });
     if (leveled.current.length > leveledBefore) playLevelUpSfx();
+    const sourceMon = results.find(r => r.source);
+    const cappedMon = results.find(r => r.source && r.capped);
     setMessage([
       `${oppDef?.name ?? 'あいて'} を たおした！`,
-      `けいけんちを ${gained} もらった！`,
+      sourceMon
+        ? `おなじ なかまの ${getMonster(sourceMon.defId)?.name ?? ''} が けいけんちを たくさん もらった！`
+        : `けいけんちを もらった！（おなじ モンスターで たたかうと たくさん もらえるよ）`,
+      ...(cappedMon ? [`${getMonster(cappedMon.defId)?.name ?? ''} は レベルの じょうげん！ 単元アプリで「かけら」を あつめよう`] : []),
     ]);
     setPhase('faint');
   };

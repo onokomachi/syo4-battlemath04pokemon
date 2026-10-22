@@ -107,6 +107,10 @@ const uuid = (): string =>
 
 export const getProblemLogs = (): ProblemLogEntry[] => read<ProblemLogEntry[]>(LOGS_KEY, []);
 
+/** 1問記録するたびに呼ぶ（モンスターを育てる。App が置く） */
+let problemLogHook: ((entry: Omit<ProblemLogEntry, 'id' | 'ts'>) => void) | null = null;
+export const setProblemLogHook = (fn: typeof problemLogHook): void => { problemLogHook = fn; };
+
 export const recordProblemLog = (entry: Omit<ProblemLogEntry, 'id' | 'ts'>): void => {
   const logs = getProblemLogs();
   const full: ProblemLogEntry = { ...entry, id: uuid(), ts: Date.now() };
@@ -114,6 +118,7 @@ export const recordProblemLog = (entry: Omit<ProblemLogEntry, 'id' | 'ts'>): voi
   updateMastery(entry.subTopic, entry.correct);
   accumulateDailyPending(entry.subTopic, entry.correct);
   notifyChange();
+  try { problemLogHook?.(entry); } catch { /* 育てるのに失敗しても記録は止めない */ }
 };
 
 const startOfToday = (): number => {

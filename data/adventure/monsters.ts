@@ -67,8 +67,10 @@ const buildDex = (): MonsterDef[] => {
           type,
           difficulty,
           tier,
-          baseHp: 18 + difficulty * 7,
-          baseAtk: 5 + difficulty * 3,
+          // 強さはおもにレベル（＝練習した量）で決まる。難しい単元ほど少しだけ強い（1.5倍ほど）。
+          // 差を大きくすると強いモンスターばかり使われ、ほかの単元が使われなくなる（2026-10 先生と決めた）
+          baseHp: 28 + difficulty * 4,
+          baseAtk: Math.round(8 + difficulty * 1.5),
           ability: ABILITY_ORDER[(no - 1) % ABILITY_ORDER.length],
           flavor: row ? row[3] : `${category.name}の「${subtopic}」からうまれたモンスター。`,
           motif: row ? row[2] : 'a round friendly mascot holding a small number tile',

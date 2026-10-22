@@ -32,20 +32,28 @@ npm run build    # 本番ビルド(コミット前に必ず)
   skill_id はサブトピック名そのもの（kit のカタログ `sanmon` と同じ）。サブトピックを足したら kit のカタログを作り直す。
 - 環境変数: `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`（publishable キーだけ）。
 
-## クラス対戦（2026-10〜）
+## モンスターの育ち方（2026-10〜 先生と決めた）
 
-- **同じ学級の2人が、つかまえたモンスターの問題で早押し**（モンスター対戦の画面の「クラス対戦」）。画面は `components/duel/ClassDuel.tsx`（開いたときだけ読み込む）、
-  対戦画面は CPU 戦と同じ `SpeedDuelBoard`、1問ごとの学習の記録も CPU 戦と同じ `recordDuelLearning`（App.tsx）。
-- **勝ち負け・時間・ラウンドはサーバが決める**（Supabase の `sanmon_duel` 表と `sanmon_duel_create / list / join / state / answer / leave`）。
-  端末は「答えた・正しかった」を送るだけ。表は直接読めない（RLS・ポリシーなし）。
-- 端末どうしの合図は Realtime Broadcast（公開チャンネル。部屋の名前 `topic` はサーバが作る推測できない文字列）で、中身は「状態が変わった」だけ。
-  受けた側はサーバから読みなおす。**合図が届かない回線でも2秒ごとの読みなおしで進む**（学校のネットで WebSocket が止まっても遊べる）。
-- 1本目は部屋を作った子のモンスター、2本目は入った子のモンスターの分野（交代）。2人に同じ番号の問題を出す（`pickIndex`）。
-  アプリと同じ答え方の問題は数字が出るたびに変わるので「同じレベル・ちがう数字」になる。
-- スタミナは**部屋に入ったときにサーバが2人ぶん使う**（`_duel_cost()` = 5。kit の `SANMON_RULES.battleCost` を変えたらここも変える）。
-  1ラウンドは45秒（`_duel_round_seconds()`）。相手が30秒いなくなったら残った子の勝ち。
-- ごほうびは勝ち負けの分（`SPEED_DUEL_REWARDS`）＋せいかい1問ごとの MP（`CLASS_DUEL_MP_PER_CORRECT`、負けてももらえる）。順位表は作らない。
-- 古い Firebase の PvP（Matchmaking・rooms）は使っていない（後で消す）。
+- **けいけんちは、正解した問題の「出どころのモンスター」に満額**（`data/adventure/growth.ts` と store の `growBySubtopic`）。ぼうけんで野生のAと戦えば問題はAの分野なので、手持ちのAが育つ。ほかの手持ちは2割。
+  れんしゅう・ふくしゅう・対戦・テストの正解でも、その問題のモンスターが育つ（App の `setProblemLogHook`）。1日に満額は同じモンスターで20問まで、そのあとは4分の1。まちがえても減らない。
+- **レベルの上限は単元の「かけら」で上がる**（kit の `sanmonShards`：単元アプリのテスト8割の日・実力の階段、アプリが無い単元は SANMON の練習）。上限 = 20 + 5×かけら（60まで）。
+  上限では けいけんちを次のレベルの手前までためる。学級ポータルで名乗っていない（おためし）ときは上限なし。今までに上がったレベルは下げない。
+- 強さ（`monsters.ts` の baseHp・baseAtk）は難しい単元ほど少しだけ強い（1.5倍ほど）。おもにレベルで決まる。
+
+## モンスター対戦・クラス対戦（パーティ3匹か5匹・HPあり、2026-10〜）
+
+- **ぼうけんでつかまえたモンスターでパーティを3匹か5匹くむ**（`components/MonsterDuelSetup.tsx`）。伝説・幻は分野が無いので入れない。
+- 毎ターン2人に同じ問題（場に出ている2匹の分野を交互に。奇数ターンは部屋を作った側）。**正解すれば2人とも攻撃**（速い方が少しだけ強い）。HPが0で次のモンスター、ぜんぶ たおしたら勝ち。
+  強さの比の効き目は1.5倍まで。相性は ×1.5／×0.67。ダメージのゆれ・きゅうしょ・**がんばり**（攻撃できないターンが続くと次の正解が強くなる）。1回で最大HPの7割まで。
+- **きまりは `data/partyDuel.ts`（CPU 戦）とサーバの `_pduel_hit`・`_pduel_resolve`（クラス対戦）の2か所にある。数を変えるときは両方を変え、`node scripts/sim-party-duel.mjs`（`npm run check` に入っている）でバランスを確かめる。**
+  ねらい：3匹で にがてな子が同じレベルで1割近く勝てる・練習してレベルを上げると ぐっと近づく。
+- 画面は `components/duel/PartyDuelBoard.tsx`（CPU 戦 `CpuPartyDuel`・クラス対戦 `ClassDuel` で同じ）。問題の部分は スピードデュエルと同じ `DuelAnswerArea`。問題えらびは `duelProblems.ts`。
+- **クラス対戦の HP・強さ・勝ち負け・時間はサーバが決める**（`sanmon_pduel_create / join / answer` と、前からある `sanmon_duel_state / list / leave`）。
+  モンスターは個体の uid を送り、**レベルはサーバのセーブ（sanmon_save）から読む**（へやを作る・入る前に `pushSave`）。図鑑の分野・タイプ・もとの強さはサーバの表 `sanmon_monster`。
+  **モンスターを足した・強さの式を変えたら `node scripts/export-duel-monsters.mjs` の SQL をサーバで流す。**
+- 端末どうしの合図は Realtime Broadcast（中身は「状態が変わった」だけ）＋2秒ごとの読みなおし。相手が30秒いなくなったら残った子の勝ち。1ターン45秒。
+- スタミナは部屋に入ったときにサーバが2人ぶん使う（`_duel_cost()` = 5）。ごほうびは勝ち負けの分＋せいかい1問ごとの MP。順位表は作らない。
+- 古い早押しの関数（`sanmon_duel_create / join / answer`）は、古い画面が残っているあいだのために残してある（パーティの部屋には入れないようにしてある）。後で消す。
 - **モードの開け閉めは先生が PRISM の SANMON タブで学級ごとに決める**（Supabase `sanmon_mode_settings`、子どもは関数 `sanmon_modes` で読む。一覧と判定は kit の `SANMON_MODES`・`isModeOpen`）。
   閉じたモードはメニューで 🔒。クラス対戦はサーバ（`_duel_check_open`）でも へやを作れない・入れない。きろくは いつも開いている。
 

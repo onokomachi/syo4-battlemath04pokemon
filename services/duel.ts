@@ -9,9 +9,37 @@
  */
 import { RealtimeClient, type RealtimeChannel } from '@supabase/realtime-js';
 import { PORTAL } from './portal';
+import type { ElementId } from '../data/adventure/elements';
 
-export type DuelFormat = 'best_of_3' | 'best_of_5';
+export type DuelFormat = 'best_of_3' | 'best_of_5' | 'party_3' | 'party_5';
 export type DuelSide = 'host' | 'guest' | 'draw';
+
+/** パーティの1匹（サーバの _pduel_party と同じ形。HP・強さはサーバが計算する） */
+export interface ServerDuelMon {
+  uid: string;
+  defId: string;
+  level: number;
+  subtopic: string;
+  type: ElementId;
+  maxHp: number;
+  hp: number;
+  power: number;
+}
+
+export interface DuelHit { damage: number; crit: boolean; type: number; grit: number }
+
+/** 前のターンの結果（自分から見た形） */
+export interface DuelLastTurn {
+  turn: number;
+  my_hit: DuelHit | null;
+  opp_hit: DuelHit | null;
+  my_ko: boolean;
+  opp_ko: boolean;
+  my_correct: boolean | null;
+  opp_correct: boolean | null;
+  my_defid: string | null;
+  opp_defid: string | null;
+}
 
 /** サーバが返す「自分から見た」対戦の状態（_duel_view と同じ形） */
 export interface DuelView {
@@ -38,6 +66,14 @@ export interface DuelView {
   winner: DuelSide | null;
   end_reason: 'score' | 'left' | 'cancel' | null;
   server_now: string;
+  /** パーティの対戦（3か5）。古い早押しの対戦は null */
+  party_size: number | null;
+  my_party: ServerDuelMon[] | null;
+  opp_party: ServerDuelMon[] | null;
+  my_active: number;
+  opp_active: number;
+  my_miss: number;
+  last_turn: DuelLastTurn | null;
 }
 
 export interface DuelRoom {
@@ -46,6 +82,8 @@ export interface DuelRoom {
   host_monsters: string[];
   format: DuelFormat;
   created_at: string;
+  party_size: number | null;
+  host_party: { defId: string; level: number }[] | null;
 }
 
 export interface DuelLobby {
@@ -86,6 +124,13 @@ export const duelApi = {
     rpc<DuelView>('sanmon_duel_state', { p_student_id: studentId, p_duel_id: duelId }),
   answer: (studentId: string, duelId: string, round: number, correct: boolean, ms: number) =>
     rpc<DuelView>('sanmon_duel_answer', { p_student_id: studentId, p_duel_id: duelId, p_round: round, p_correct: correct, p_ms: Math.round(ms) }),
+  /** パーティの対戦（2026-10〜）。モンスターは uid でえらび、レベルはサーバのセーブから読む */
+  createParty: (studentId: string, uids: string[], size: number) =>
+    rpc<DuelView>('sanmon_pduel_create', { p_student_id: studentId, p_uids: uids, p_size: size }),
+  joinParty: (studentId: string, duelId: string, uids: string[]) =>
+    rpc<DuelView>('sanmon_pduel_join', { p_student_id: studentId, p_duel_id: duelId, p_uids: uids }),
+  answerParty: (studentId: string, duelId: string, round: number, correct: boolean, ms: number) =>
+    rpc<DuelView>('sanmon_pduel_answer', { p_student_id: studentId, p_duel_id: duelId, p_round: round, p_correct: correct, p_ms: Math.round(ms) }),
   leave: (studentId: string, duelId: string) =>
     rpc<DuelView>('sanmon_duel_leave', { p_student_id: studentId, p_duel_id: duelId }),
 };
