@@ -6,6 +6,7 @@
  * 授業で新しく習った内容だけを反復練習できるようにするため)。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { toGuidedRetryHint } from '../utils/toGuidedRetryHint';
 
 interface TextExtra {
@@ -520,23 +521,26 @@ const roundJudgeBudget: Problem[] = roundJudgeBudgetRows.map(({ items, budget, c
 });
 
 export const roundingProblems: Record<string, Problem[]> = {
-  '大きな数を「約何万」で': meaningMan.map(toGuidedRetryHint),
-  '「約何千」で表そう': meaningSen.map(toGuidedRetryHint),
-  'がい数をつかう場面は？': meaningScene.map(toGuidedRetryHint),
-  '指定の位までのがい数': roundPlace.map(toGuidedRetryHint),
-  '上から1けたのがい数': roundDigit1.map(toGuidedRetryHint),
-  '上から2けたのがい数': roundDigit2.map(toGuidedRetryHint),
-  '2つの条件に合う数は？': roundChoose.map(toGuidedRetryHint),
-  '十の位までのはんい': rangeTens.map(toGuidedRetryHint),
-  '百の位までのはんい': rangeHundreds.map(toGuidedRetryHint),
-  '千の位までのはんい': rangeThousands.map(toGuidedRetryHint),
-  'たし算の見積もり': sumAdd.map(toGuidedRetryHint),
-  'ひき算の見積もり': sumSub.map(toGuidedRetryHint),
-  '3つの数の見積もり': sumTriple.map(toGuidedRetryHint),
-  'かけ算の見積もり': prodMul.map(toGuidedRetryHint),
-  'わり算の見積もり': prodDiv.map(toGuidedRetryHint),
-  '文章題で見積もり': prodWord.map(toGuidedRetryHint),
-  '切り上げ・切り捨てのれんしゅう': roundJudgeValue.map(toGuidedRetryHint),
-  'どの見積もり方がいい？': roundJudgeMethod.map(toGuidedRetryHint),
-  '予算で考えよう': roundJudgeBudget.map(toGuidedRetryHint),
+  '大きな数を「約何万」で': [...meaningMan.map(toGuidedRetryHint), ...appRound('gaisu', 'meaning-man', '大きな数を「約何万」で', 3)],
+  '「約何千」で表そう': [...meaningSen.map(toGuidedRetryHint), ...appRound('gaisu', 'meaning-sen', '「約何千」で表そう', 3)],
+  'がい数をつかう場面は？': [...meaningScene.map(toGuidedRetryHint), ...appRound('gaisu', 'meaning-scene', 'がい数をつかう場面は？', 3)],
+  '指定の位までのがい数': [...roundPlace.map(toGuidedRetryHint), ...appRound('gaisu', 'round-place', '指定の位までのがい数', 3)],
+  '上から1けたのがい数': [...roundDigit1.map(toGuidedRetryHint), ...appRound('gaisu', 'round-digit1', '上から1けたのがい数', 3)],
+  '上から2けたのがい数': [...roundDigit2.map(toGuidedRetryHint), ...appRound('gaisu', 'round-digit2', '上から2けたのがい数', 3)],
+  '2つの条件に合う数は？': [...roundChoose.map(toGuidedRetryHint), ...appRound('gaisu', 'round-choose', '2つの条件に合う数は？', 3)],
+  '十の位までのはんい': [...rangeTens.map(toGuidedRetryHint), ...appRound('gaisu', 'range-tens', '十の位までのはんい', 3)],
+  '百の位までのはんい': [...rangeHundreds.map(toGuidedRetryHint), ...appRound('gaisu', 'range-hundreds', '百の位までのはんい', 3)],
+  '千の位までのはんい': [...rangeThousands.map(toGuidedRetryHint), ...appRound('gaisu', 'range-thousands', '千の位までのはんい', 3)],
+  'たし算の見積もり': [...sumAdd.map(toGuidedRetryHint), ...appRound('gaisu', 'sumdiff-add', 'たし算の見積もり', 3)],
+  'ひき算の見積もり': [...sumSub.map(toGuidedRetryHint), ...appRound('gaisu', 'sumdiff-sub', 'ひき算の見積もり', 3)],
+  '3つの数の見積もり': [...sumTriple.map(toGuidedRetryHint), ...appRound('gaisu', 'sumdiff-triple', '3つの数の見積もり', 3)],
+  'かけ算の見積もり': [...prodMul.map(toGuidedRetryHint), ...appRound('gaisu', 'prodquot-mul', 'かけ算の見積もり', 3)],
+  'わり算の見積もり': [...prodDiv.map(toGuidedRetryHint), ...appRound('gaisu', 'prodquot-div', 'わり算の見積もり', 3)],
+  '文章題で見積もり': [...prodWord.map(toGuidedRetryHint), ...appRound('gaisu', 'prodquot-word', '文章題で見積もり', 3)],
+  '切り上げ・切り捨てのれんしゅう': [...roundJudgeValue.map(toGuidedRetryHint), ...appRound('gaisu', 'roundjudge-value', '切り上げ・切り捨てのれんしゅう', 3)],
+  'どの見積もり方がいい？': [...roundJudgeMethod.map(toGuidedRetryHint), ...appRound('gaisu', 'roundjudge-method', 'どの見積もり方がいい？', 3)],
+  '予算で考えよう': [...roundJudgeBudget.map(toGuidedRetryHint), ...appRound('gaisu', 'roundjudge-budget', '予算で考えよう', 3)],
+  'どの位を四捨五入する？': appRound('gaisu', 'round-which-place', 'どの位を四捨五入する？'),
+  '切り捨てで何こ買えるか': appRound('gaisu', 'roundjudge-floor', '切り捨てで何こ買えるか'),
+  'がい数のまちがい探し': appRound('gaisu', 'error', 'がい数のまちがい探し'),
 };

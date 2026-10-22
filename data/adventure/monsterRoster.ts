@@ -127,6 +127,10 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['切り上げ・切り捨てのれんしゅう', 'キリキリ', 'a cream dandelion-puff sprite with one petal up and one petal down', '上を向いた顔と下を向いた顔で、切り上げと切り捨てを決める。'],
     ['どの見積もり方がいい？', 'エラビー', 'a pale gold mist fox with head tilted, between two paths of haze', 'どの見積もり方がよいか、いつも道の分かれ目でなやんでいる。'],
     ['予算で考えよう', 'ヨサンダ', 'a pale gold mist fox carrying a small coin pouch', 'おこづかいが足りるかどうかを、買う前に教えてくれる。'],
+    // ↓ 単元アプリ「がい数の表し方と使い方」にそろえて足した3体（2026-10）。絵は仮（色ちがい）
+    ["どの位を四捨五入する？", "シシャゴー", "a small cream cloud sprite pointing a tiny arrow at one digit of a long number", "どの位を 四捨五入すれば いいか、ゆびさして 教えてくれる。"],
+    ["切り捨てで何こ買えるか", "キリステン", "a cream cloud whale carrying a little coin purse and a shopping basket", "お金が たりなくならないよう、切り捨てで 買える数を 考える。"],
+    ["がい数のまちがい探し", "ミヌキモヤ", "a misty cream cloud spirit with round spectacles inspecting a rounded number", "四捨五入の まちがいを、霧の中から 見つけだす。"],
   ],
 
   '計算のきまり': [

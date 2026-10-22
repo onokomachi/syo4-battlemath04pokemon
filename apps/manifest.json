@@ -156,6 +156,30 @@
         "lib/sound.ts",
         "store/progressStore.ts"
       ]
+    },
+    "gaisu": {
+      "repo": "syo4-gaisu",
+      "files": [
+        "lib/problems.ts",
+        "lib/praise.ts",
+        "components/shared/AnswerEntry.tsx",
+        "components/shared/Keypad.tsx",
+        "components/modules/MeaningModule.tsx",
+        "components/modules/ProdQuotModule.tsx",
+        "components/modules/RangeModule.tsx",
+        "components/modules/RoundJudgeModule.tsx",
+        "components/modules/RoundModule.tsx",
+        "components/modules/SumDiffModule.tsx",
+        "components/modules/ErrorHunterModule.tsx"
+      ],
+      "shims": [
+        "components/ui/primitives.tsx",
+        "components/shared/AppShell.tsx",
+        "components/shared/AdaptiveBar.tsx",
+        "lib/useAdaptive.ts",
+        "lib/sound.ts",
+        "store/progressStore.ts"
+      ]
     }
   }
 }
