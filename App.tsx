@@ -45,7 +45,9 @@ import LoginBonusModal, { getLoginReward } from './components/LoginBonusModal';
 import ClassBattleBoard from './components/ClassBattleBoard';
 import { checkAnswer } from './utils/answerChecker';
 import { APP_ROUND_SUBTOPICS, isAppRoundProblem } from './data';
-import { recordProblemLog, setLearningLogListener, type TestBests } from './services/learningLogService';
+import { recordProblemLog, setLearningLogListener, setProblemLogHook, type TestBests } from './services/learningLogService';
+import { expPerCorrect } from './data/adventure/growth';
+import { toDuelMon, type DuelMon } from './data/partyDuel';
 import { fetchLockedUnits } from './services/unitLockService';
 import { fetchAdminEmails } from './services/adminAccessService';
 import { getEquippedBackground, setEquippedBackground, badgeRatio, isBackgroundUnlocked, type BackgroundId } from './utils/backgroundUnlock';
@@ -80,6 +82,7 @@ import {
 const AdventureMode = lazy(() => import('./components/adventure/AdventureMode'));
 // クラス対戦（Supabase のリアルタイム合図を使う）。開いたときだけ読み込む
 const ClassDuel = lazy(() => import('./components/duel/ClassDuel'));
+const CpuPartyDuel = lazy(() => import('./components/duel/CpuPartyDuel'));
 
 // 採点は utils/answerChecker.ts に一本化（3Dバトル・スピード対戦・練習モード共通）
 
@@ -160,7 +163,9 @@ const App: React.FC = () => {
   // 選んだモンスターは表示専用。HP・レベル・タイプ相性は勝敗計算に一切使わない。
   const [monsterDuelMyMonsterId, setMonsterDuelMyMonsterId] = useState<string | null>(null);
   /** クラス対戦に つれていくモンスターと形式 */
-  const [classDuel, setClassDuel] = useState<{ monsterIds: string[]; format: BattleFormat } | null>(null);
+  const [classDuel, setClassDuel] = useState<{ uids: string[]; size: number } | null>(null);
+  /** モンスター対戦（コンピュータ）のパーティ */
+  const [cpuParty, setCpuParty] = useState<DuelMon[] | null>(null);
   const [monsterDuelOpponentId, setMonsterDuelOpponentId] = useState<string | null>(null);
   const [speedProblems, setSpeedProblems] = useState<SpeedProblem[]>([]);
   const [speedRound, setSpeedRound] = useState(1);
@@ -225,6 +230,32 @@ const App: React.FC = () => {
     }
   }, [portal]);
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
+  /** モンスターが育ったときの小さなお知らせ（れんしゅう・ふくしゅう・対戦） */
+  const [growthToast, setGrowthToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!growthToast) return;
+    const t = setTimeout(() => setGrowthToast(null), 2800);
+    return () => clearTimeout(t);
+  }, [growthToast]);
+  // れんしゅう・ふくしゅう・対戦・テストで正解したら、その問題のモンスターが育つ（ぼうけんは バトルの画面が育てる）
+  useEffect(() => {
+    const cappedShown = new Set<string>();
+    setProblemLogHook((e) => {
+      if (!e.correct || e.mode === 'battle') return;
+      const store = useAdventureStore.getState();
+      const def = store.save.owned.map((o) => getMonster(o.defId)).find((m) => m?.subtopic === e.subTopic);
+      if (!def) return;
+      const results = store.growBySubtopic(e.subTopic, 1, expPerCorrect(def.difficulty));
+      const up = results.find((r) => r.leveled);
+      const capped = results.find((r) => r.capped && r.source);
+      if (up) setGrowthToast(`${getMonster(up.defId)?.name ?? ''} が Lv.${up.newLevel} に なった！`);
+      else if (capped && !cappedShown.has(capped.defId)) {
+        cappedShown.add(capped.defId);
+        setGrowthToast(`${def.name} は レベルの じょうげん（単元アプリで かけらを あつめよう）`);
+      }
+    });
+    return () => setProblemLogHook(null);
+  }, []);
   useEffect(() => {
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     setLearningLogListener(() => {
@@ -1121,6 +1152,15 @@ const App: React.FC = () => {
     flushSessionData().catch(() => {});
   }, [addExp, addBoostedMp, incrementTotalWins, handleQuestProgress, flushSessionData]);
 
+  // モンスター対戦（コンピュータ）のごほうび。CPU 戦なので MP は1日の上限つき（荒稼ぎ防止）・クエストは数えない
+  const finishCpuPartyDuel = useCallback((result: 'win' | 'lose' | 'draw') => {
+    const reward = SPEED_DUEL_REWARDS[result];
+    addExp(reward.exp);
+    if (reward.mp > 0) addCpuBattleMp(reward.mp);
+    if (result === 'win') incrementTotalWins();
+    flushSessionData().catch(() => {});
+  }, [addExp, addCpuBattleMp, incrementTotalWins, flushSessionData]);
+
   // ============================
   // PvP再接続
   // 誤リロード後、保存済みセッションのルームがまだ進行中なら復帰を提案する
@@ -1358,20 +1398,22 @@ const App: React.FC = () => {
       case 'monster_duel_setup':
         return (
           <MonsterDuelSetup
-            onStart={(monsterDefIds, format, mode) => {
-              const subtopics = Array.from(new Set(
-                monsterDefIds.map(id => getMonster(id)?.subtopic).filter((s): s is string => !!s),
-              ));
-              setMonsterDuelMyMonsterId(monsterDefIds[0] ?? null);
+            onStart={(uids, size, mode) => {
               if (mode === 'pvp') {
                 // クラス対戦: スタミナは へやに入ったときにサーバが2人ぶん使う
-                setClassDuel({ monsterIds: monsterDefIds, format });
+                setClassDuel({ uids, size });
                 setGameState('class_duel');
                 return;
               }
+              const owned = useAdventureStore.getState().save.owned;
+              const party = uids
+                .map((u) => owned.find((o) => o.uid === u))
+                .map((o) => (o ? toDuelMon(o) : null))
+                .filter((m): m is DuelMon => !!m);
               void requestBattle('monster_duel').then((r) => {
-                if (r.ok) startSpeedDuel(subtopics, format, mode, 'monster_duel');
-                else setPortalNotice(r.message ?? 'スタミナが たりないよ');
+                if (!r.ok) { setPortalNotice(r.message ?? 'スタミナが たりないよ'); return; }
+                setCpuParty(party);
+                setGameState('party_cpu');
               });
             }}
             onBack={() => setGameState('main_menu')}
@@ -1387,12 +1429,24 @@ const App: React.FC = () => {
             <ClassDuel
               studentId={portal.student.studentId}
               myNumber={portal.student.number}
-              monsterIds={classDuel.monsterIds}
-              format={classDuel.format}
+              uids={classDuel.uids}
+              size={classDuel.size}
               onExit={() => { void portal.refresh(); setGameState('monster_duel_setup'); }}
               onRecord={recordDuelLearning}
               onFinish={finishClassDuel}
               onStaminaChanged={() => { void portal.refresh(); }}
+            />
+          </Suspense>
+        ) : null;
+
+      case 'party_cpu':
+        return cpuParty ? (
+          <Suspense fallback={<AdventureLoading />}>
+            <CpuPartyDuel
+              party={cpuParty}
+              onRecord={recordDuelLearning}
+              onFinish={finishCpuPartyDuel}
+              onExit={() => { void portal.refresh(); setGameState('monster_duel_setup'); }}
             />
           </Suspense>
         ) : null;
@@ -1529,6 +1583,11 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+        {growthToast && (
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[290] pointer-events-none">
+            <div className="hud-panel rounded-xl px-4 py-2 text-sm font-bold text-emerald-200 border border-emerald-500/40 shadow-lg">🐾 {growthToast}</div>
           </div>
         )}
         {/* スタミナが足りない などの お知らせ（window.alert は一部の端末で出ないので アプリ内で出す） */}

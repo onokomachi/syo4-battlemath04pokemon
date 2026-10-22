@@ -7,11 +7,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStudent, subscribeStudent, type StudentIdentity } from 'learning-app-kit/sync';
 import {
-  fetchSanmonStatus, fetchSanmonModes, sanmonUnits, spendStamina, isModeOpen, SANMON_RULES,
+  fetchSanmonStatus, fetchSanmonModes, sanmonUnits, sanmonShards, spendStamina, isModeOpen, SANMON_RULES,
   type SanmonStatus, type SanmonUnitProgress, type SanmonModes, type SanmonModeKey,
 } from 'learning-app-kit/sanmon';
 import { MATH_CATEGORIES } from '../constants';
 import { PORTAL, isPortalConfigured } from '../services/portal';
+import { useLevelCaps } from '../data/adventure/growth';
 
 export interface SanmonPortal {
   student: StudentIdentity | null;
@@ -38,9 +39,13 @@ export function useSanmonPortal(): SanmonPortal {
 
   const refresh = useCallback(async () => {
     const s = getStudent();
-    if (!isPortalConfigured || !s) { setStatus(null); setModes({}); return; }
+    if (!isPortalConfigured || !s) { setStatus(null); setModes({}); useLevelCaps.getState().setShards(null); return; }
     const [r, m] = await Promise.all([fetchSanmonStatus(PORTAL, s.studentId), fetchSanmonModes(PORTAL, s.studentId)]);
-    if (r.ok) setStatus(r.status);
+    if (r.ok) {
+      setStatus(r.status);
+      // モンスターのレベルの上限（単元のかけら）。サーバの記録から決める
+      useLevelCaps.getState().setShards(sanmonShards(r.status));
+    }
     if (m.ok) setModes(m.modes);
   }, []);
 

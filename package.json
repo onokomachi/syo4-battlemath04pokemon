@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "platform": "learning-app-kit-platform check",
     "prebuild": "npm run platform",
-    "check": "npm run platform && npx tsc --noEmit && node scripts/verify-app-rounds.mjs && npm run build && node scripts/audit-problems.mjs",
+    "check": "npm run platform && npx tsc --noEmit && node scripts/verify-app-rounds.mjs && node scripts/sim-party-duel.mjs && npm run build && node scripts/audit-problems.mjs",
     "sync-apps": "node scripts/sync-app-sources.mjs"
   },
   "dependencies": {
@@ -18,7 +18,7 @@
     "@supabase/realtime-js": "2.116.0",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
-    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/39972fa387ad6423c5e6bcac0504bc6935789e7e.tar.gz",
+    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/2575fccf25f841461cb28948b240b789eafed08c.tar.gz",
     "lucide-react": "^1.61.0",
     "motion": "^14.5.0",
     "react": "^19.1.1",

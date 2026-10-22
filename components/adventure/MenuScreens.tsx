@@ -18,6 +18,7 @@ import {
   spriteIdFor, displayNameFor,
 } from '../../store/adventureStore';
 import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
+import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
@@ -243,6 +244,7 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const save = useAdventureStore(s => s.save);
   const setParty = useAdventureStore(s => s.setParty);
+  const shards = useLevelCaps(s => s.shards);
   const party = getPartyMonsters(save);
   // いま「いれかえる」対象として選んでいる手持ちのマス(0〜2)。null なら未選択。
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -382,7 +384,11 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       <span className="ml-1 text-xs text-amber-500">✦</span>
                     )}
                   </p>
-                  <p className="text-xs font-bold text-slate-500">Lv.{p.owned.level} ／ こうげき {st.atk}</p>
+                  <p className="text-xs font-bold text-slate-500">
+                    Lv.{p.owned.level}
+                    {shards && <span className="text-slate-400">（じょうげん {levelCapOf(p.def, shards)}）</span>}
+                    {' '}／ こうげき {st.atk}
+                  </p>
                   <span
                     className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-white text-[10px] font-black"
                     style={{ backgroundColor: el.color }}
@@ -397,6 +403,14 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   style={{ width: `${(p.owned.exp / expToNext(p.owned.level)) * 100}%` }}
                 />
               </div>
+              {shards && p.owned.level >= levelCapOf(p.def, shards) && (
+                <p className="mt-1 text-[11px] font-black text-amber-600">
+                  レベルの じょうげん！ {p.def.unit} の アプリで「かけら」を あつめると あがるよ
+                </p>
+              )}
+              <p className="mt-1 text-[10px] font-bold text-slate-400">
+                「{p.def.subtopic || p.def.unit}」の もんだいを とくと よく そだつ
+              </p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">
                 {ABILITIES[p.def.ability].icon} {ABILITIES[p.def.ability].name}
               </p>
@@ -434,7 +448,7 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <p className="text-[11px] font-black text-slate-800 truncate">
                 {displayNameFor(save, o)}
               </p>
-              <p className="text-[10px] font-bold text-slate-500">Lv.{o.level}</p>
+              <p className="text-[10px] font-bold text-slate-500">Lv.{o.level}{shards ? `／${levelCapOf(def, shards)}` : ''}</p>
             </button>
           );
         })}
