@@ -17,7 +17,7 @@
     "@react-three/fiber": "^9.6.1",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
-    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/15f3c578957286db00fa4e1d7a763b81793ee4f5.tar.gz",
+    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/f82d0b6be92aee5806550b8058a33551983f66f8.tar.gz",
     "lucide-react": "^1.61.0",
     "motion": "^14.5.0",
     "react": "^19.1.1",
