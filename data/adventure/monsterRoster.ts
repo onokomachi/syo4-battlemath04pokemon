@@ -111,6 +111,8 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['大きな数のもんだい', 'キョダイン', 'a massive copper clockwork hound in heavy plated armor', '大きい数のもんだいほど、目をかがやかせる。'],
     // ↓ 単元アプリ「わり算の筆算」にそろえて足した1体（2026-10）。絵は仮（色ちがい）
     ["わり算のまちがい探し", "ワリミケン", "a small stone owl golem holding a magnifying glass over a long division bracket", "筆算の まちがいを、大きな目で 見ぬいてしまう。"],
+    // ↓ 単元アプリ「わり算の筆算」にそろえて足した1体（2026-10）。絵は仮（色ちがい）
+    ["3けた÷3けた", "ミケタゴン", "a sturdy stone tortoise golem carrying three stacked number tablets on its shell", "3けたで 3けたを わる 大きな筆算も、ゆっくり たしかに すすめる。"],
   ],
 
   'がい数': [

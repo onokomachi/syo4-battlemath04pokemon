@@ -59,6 +59,8 @@ npm run build    # 本番ビルド(コミット前に必ず)
   （番号＝絵のファイル名・つかまえた記録。途中に入れると ずれる）。単元ボスも `BOSS_ROWS` の いちばん後ろに足す。
   絵が無いものは `node scripts/make-placeholder-sprites.mjs` で仮の絵（色ちがい）を作り、本番の絵で上書きする。
 - サブトピックを足したら、learning-app-kit のカタログ `sanmon` も作り直す（PRISM の項目名）。
+- **バトル（ぼうけん・スピードデュエル・クラス対戦）では、アプリと同じ答え方の問題があるサブトピックは それだけを出す**（`data/index.ts` の `battleProblems`・`APP_ROUND_SUBTOPICS`。2026-10-22 先生の判断）。
+  SANMON にしかない問題は れんしゅう・ふくしゅう・本番テストで出る。わり算の筆算は アプリの筆算シミュレーター（`apps/hissan` の `hissan-*`）。
 - `scripts/verify-app-rounds.mjs`（`npm run check` に入っている）: すべてのレベルで問題が作れる／data の app-round が registry にある／
   図鑑の名簿と絵がそろっている／写しが元とずれていない、を確かめる。
 
