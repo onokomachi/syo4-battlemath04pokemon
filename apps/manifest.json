@@ -204,6 +204,33 @@
         "lib/sound.ts",
         "store/progressStore.ts"
       ]
+    },
+    "bai": {
+      "repo": "syo4-bainomikata",
+      "files": [
+        "lib/problems.ts",
+        "components/shared/AnswerEntry.tsx",
+        "components/shared/Keypad.tsx",
+        "components/shared/ChoiceStage.tsx",
+        "components/shared/DiagramFillStage.tsx",
+        "components/shared/DoubleNumberLine.tsx",
+        "components/shared/roundTypes.ts",
+        "components/modules/KihonModule.tsx",
+        "components/modules/TimesModule.tsx",
+        "components/modules/CompareModule.tsx",
+        "components/modules/BaseModule.tsx",
+        "components/modules/RatioCompareModule.tsx",
+        "components/modules/WordProblemModule.tsx",
+        "components/modules/ErrorHunterModule.tsx"
+      ],
+      "shims": [
+        "components/ui/primitives.tsx",
+        "components/shared/AppShell.tsx",
+        "components/shared/AdaptiveBar.tsx",
+        "lib/useAdaptive.ts",
+        "lib/sound.ts",
+        "store/progressStore.ts"
+      ]
     }
   }
 }

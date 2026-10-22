@@ -12,6 +12,7 @@ import { BUNSUU4_ROUNDS } from './bunsuu4/sanmon';
 import { SUIHEI_ROUNDS } from './suihei/sanmon';
 import { GAISU_ROUNDS } from './gaisu/sanmon';
 import { HISSAN_ROUNDS } from './hissan/sanmon';
+import { BAI_ROUNDS } from './bai/sanmon';
 
 export const APP_ROUNDS: Record<string, Record<string, AppRoundDef>> = {
   karakuri: KARAKURI_ROUNDS,
@@ -23,4 +24,5 @@ export const APP_ROUNDS: Record<string, Record<string, AppRoundDef>> = {
   suihei: SUIHEI_ROUNDS,
   gaisu: GAISU_ROUNDS,
   hissan: HISSAN_ROUNDS,
+  bai: BAI_ROUNDS,
 };

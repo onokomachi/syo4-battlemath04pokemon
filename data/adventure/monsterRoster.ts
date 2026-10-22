@@ -256,5 +256,9 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['倍の文章題(もとにする量)', 'モトモン', 'a green seed-squirrel holding a large brown tree root in its paws', 'お話にかくれた「もとにする量」をほり出す。'],
     ['倍の文章題(割合でくらべる)', 'ワリモナ', 'a green sapling beast with two short leaf-ribbons resting flat on its back', 'お話の2つの割合を、てんびんでくらべる。'],
     ['まちがいをなおそう(倍の見方)', 'ナオスン', 'a green sapling beast with one small curled stem on its head', 'まちがった考え方を、つるでやさしく結びなおす。'],
+    // ↓ 単元アプリ「倍の見方」にそろえて足した3体（2026-10）。絵は仮（色ちがい）
+    ["テープ図でくらべられる量", "テプノビー", "a cheerful ribbon snake made of measuring tape that stretches itself several times longer", "テープを 何本も つなげて、くらべられる量を 見せてくれる。"],
+    ["テープ図で何倍か", "バイカウント", "a little tape-measure hermit crab counting how many shells fit along a tape", "テープが 何こ分あるかを、はさみで かぞえる。"],
+    ["テープ図でもとにする量", "モトキリン", "a small giraffe whose neck is marked like a tape diagram cut into equal parts", "長いテープを 同じ長さに 切って、もとにする量を さがす。"],
   ],
 };
