@@ -908,7 +908,7 @@ const AdventureMode: React.FC<Props> = ({
           `${BADGE_NAMES[setup.townId] ?? 'バッジ'} を 手に入れた！`,
           `これで バッジは ${new Set([...save.badges, setup.townId]).size} こ。`,
           ...(new Set([...save.badges, setup.townId]).size >= TOWNS.length
-            ? ['14この バッジが そろった！ ナンバーリーグへ 行こう！']
+            ? [`${TOWNS.length}この バッジが そろった！ ナンバーリーグへ 行こう！`]
             : []),
         ],
         onDone: () => setDialogue(null),
@@ -1183,7 +1183,7 @@ const AdventureMode: React.FC<Props> = ({
           <p className="text-lg sm:text-xl font-black text-slate-800 leading-none">{town.name}</p>
           <p className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5">{town.unit}</p>
           <div className="mt-1.5 flex items-center gap-2">
-            <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/14</span>
+            <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/{TOWNS.length}</span>
             <span className="text-xs font-black text-slate-600">⚪ {save.items.ball ?? 0}</span>
             <span className="text-xs font-black text-amber-600">MP {mathPoints}</span>
             {(save.items.teamshard ?? 0) > 0 && (

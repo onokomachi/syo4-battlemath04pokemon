@@ -142,12 +142,27 @@ export interface GuidedRetryHintData {
     extraKeys?: string[];
 }
 
+/**
+ * 単元アプリの解答画面をそのまま出す問題（apps/ に写したアプリのソース）。
+ * どの画面・どのレベルを出すかだけを持ち、問題そのものは出すたびにアプリの作り方で作る。
+ */
+export interface GuidedAppRoundData {
+    guidedKind: 'app-round';
+    /** 学級ポータルの app_id（apps/<app>/） */
+    app: string;
+    /** そのアプリの中の解答画面（apps/registry.ts のキー） */
+    round: string;
+    /** カード一覧・記録の見出し */
+    question: string;
+}
+
 export type GuidedProblemData =
     | GuidedDivisionHissanData
     | GuidedDivisionErrorHunterData
     | GuidedDecimalColumnData
     | GuidedMultiplicationData
-    | GuidedRetryHintData;
+    | GuidedRetryHintData
+    | GuidedAppRoundData;
 
 export interface ProofProblemData {
     assumption: string;

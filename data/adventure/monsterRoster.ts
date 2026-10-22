@@ -64,6 +64,18 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['三角じょうぎの角', 'ジョウギン', 'a golden crystal beast with two flat triangular plates on its back', '2まいの三角じょうぎを組み合わせて、いろんな角を作る。'],
   ],
 
+  // 2026-10 に足した町「ヘイコウ台地」（単元アプリ 垂直・平行と四角形 の まとまりごと）。絵は仮（色ちがい）
+  '垂直・平行と四角形': [
+    ['垂直・平行を見つけよう', 'チョッカク', 'a small white stone golem shaped like a perfect right angle with a tiny square mark', '直角に 交わる 2本の線を 見つけると、ぴかっと 光る。'],
+    ['三角じょうぎで作図', 'ジョウギン', 'a stone golem holding two triangle rulers like little wings', '三角じょうぎを すべらせて、まっすぐな 線を ひく。'],
+    ['まちの中の垂直・平行', 'ミチノスケ', 'a stone tortoise whose shell is a tiny town map of parallel streets', 'まちの 道や たてものの中に、垂直と平行を 見つける。'],
+    ['四角形の名前', 'ナマエタイル', 'a stone golem made of four tiles that can rearrange into different quadrilaterals', '平行な辺の組を かぞえて、四角形の 名前を あてる。'],
+    ['四角形のせいしつ', 'セイシツィ', 'a stone parallelogram creature with matching angle marks glowing on opposite corners', '向かい合う 角や 辺が 等しいことを 知っている。'],
+    ['対角線のひみつ', 'タイカクン', 'a stone rhombus creature with two glowing crossing lines on its body', '2本の 対角線の 交わり方で、四角形を 見わける。'],
+    ['しきつめ', 'シキツメル', 'a stone creature covered in perfectly tessellating quadrilateral tiles', 'すきまなく しきつめると、角の和が 360°になるのを 見せてくれる。'],
+    ['垂直・平行のまちがい探し', 'ミヌキセン', 'a stone owl with a monocle inspecting two almost-parallel lines', 'わずかに かたむいた線を「平行」とは 言わせない。'],
+  ],
+
   '小数のしくみ': [
     ['数をつくる', 'ツクリン', 'a small blue droplet creature gathering tiny water beads in its arms', '0.1のつぶを組み合わせて、いろいろな小数を作るのがしごと。'],
     ['あつめた数', 'アツメン', 'a plump blue droplet creature with many small bubbles clustered on its back', '0.1をこつこつ集める。10こ集まると1になるのがうれしい。'],
@@ -120,6 +132,13 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
   '計算のきまり': [
     ['計算の順じょ', 'ジュンジョ', 'a small steel gear-golem with three interlocking gears in a row on its chest', '体の歯車が、正しい順番でしかまわらない。'],
     ['計算のくふう', 'クフウギア', 'a nimble steel gear-golem with a shortcut belt-drive across its body', '歯車を組みかえて、計算をぐんと楽にしてしまう。'],
+    // ↓ 単元アプリ「計算のきまり」の まとまりごとに足した6体（2026-10）。絵は仮（同じ町の絵の色ちがい）
+    ['式に表そう', 'シキアミー', 'a small steel golem knitting glowing number and operator tiles into one long chain', '場面の数を ひとつの式に あみあげるのが とくい。'],
+    ['式をよもう', 'ヨミギア', 'a bespectacled brass gear-owl reading a scroll covered in parentheses', '式を見ると、どんな場面かを すらすら話してくれる。'],
+    ['ドットたんてい', 'ドッテク', 'a detective-hat steel robot holding a magnifying glass over a grid of dots', 'ならんだ ドットを見て、どんな式で数えたかを 見ぬく。'],
+    ['□を求めよう', 'カクレン', 'a shy steel box-shaped golem peeking out of a square hatch on its chest', '□の中に かくれた数を、逆の計算で 見つけだす。'],
+    ['なりたつかな', 'ナリタツ', 'a balanced steel scale-golem with two pans holding equal glowing weights', 'きまりが なりたつかどうか、天びんで たしかめる。'],
+    ['10倍・100倍のひみつ', 'ジュウバイン', 'a steel gear-golem whose chest gear has ten small gears spinning around it', 'かける数を10ばいにすると、答えも10ばいになることを知っている。'],
   ],
 
   '面積': [
@@ -128,6 +147,12 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['辺の長さを求める', 'ヘンサガシ', 'a golden tile-armored beast with one edge of its shell glowing', 'わからない辺の長さを、面積からぎゃくに考える。'],
     ['大きな面積の単位', 'ヘクター', 'a huge golden tile-armored beast covered in many overlapping plates', 'a も ha も km² も、この子にとってはふつうの大きさ。'],
     ['L字型の面積', 'エルジー', 'a golden tile-armored beast with an L-shaped shell', '体を2つの長方形に分けると、面積がすぐわかる。'],
+    // ↓ 単元アプリ「面積のくらべ方と表し方」の まとまりごとに足した5体（2026-10）。絵は仮（同じ町の絵の色ちがい）
+    ["方眼で面積", "マスカゾエ", "a small golden tortoise whose shell is a neat grid of glowing one-centimeter squares", "1cm²のマスを、ひとつずつ ていねいに 数える。"],
+    ["面積の公式", "コウシキン", "a golden tortoise carrying a stone tablet carved with a times sign", "たて×よこ の じゅもんを となえると、広さが わかる。"],
+    ["大きな面積を求めよう", "ヒロイノス", "a giant golden tortoise with a shell like a map of square fields", "a・ha・km² で、大地の広さを はかる。"],
+    ["面積の変わり方", "カワリタイル", "a golden tortoise whose shell tiles slide and stretch in rows", "まわりの長さは同じでも、形で 広さが かわることを 知っている。"],
+    ["面積のまちがい探し", "ミヌクタイル", "a golden tortoise wearing round spectacles inspecting a tile with a red mark", "まちがえた 計算を見つけると、しっぽで そっと 教えてくれる。"],
   ],
 
   '小数のかけ算とわり算': [
@@ -139,6 +164,13 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['商とあまり(小数)', 'アマシオ', 'a blue wave-serpent with one small droplet left at its tail tip', '小数のわり算で残ったつぶを、たいせつに持っている。'],
     ['小数×の文章題', 'カケモン', 'a blue wave-serpent coiled around a rolled scroll', 'お話のなかの「何こ分」を見つけて、かけ算にする。'],
     ['小数÷の文章題', 'ワリモン', 'a blue wave-serpent dividing a rolled scroll into parts', 'お話のなかの「1つ分」を見つけて、わり算にする。'],
+    // ↓ 単元アプリ「小数のしくみ・小数のかけ算とわり算」の まとまりごとに足した6体（2026-10）。絵は仮（同じ町の絵の色ちがい）
+    ["小数×2けた", "ニケタシオ", "a small blue-and-white sea serpent juggling two glowing number pearls", "2けたの数を かけても、小数点の いちを まちがえない。"],
+    ["小数÷2けた", "ワリシオン", "a blue sea dragon slicing a wave into equal glowing pieces with its fin", "2けたで わる 小数のわり算を、波のように なめらかに こなす。"],
+    ["小数点のいち", "テンポイント", "a tiny white seahorse with one bright glowing dot on its forehead", "小数点を どこに うつか、ひたいの 光で 教えてくれる。"],
+    ["商のがい数とたしかめ", "ガイショウ", "a blue sea turtle holding a little brass scale and a rounding flag", "わりきれない 商を がい数にして、けん算で たしかめる。"],
+    ["小数のあんざん", "アンザンエイ", "a quick little blue ray fish with 0.1 marks dotted across its wings", "0.1の いくつ分で 考えると、あんざんが すぐ できる。"],
+    ["小数倍", "バイシオン", "a blue-and-gold sea dragon whose body stretches 1.5 times longer as it swims", "1.5倍 や 0.8倍 も、もとにする量から すぐ 求める。"],
   ],
 
   '分数': [
@@ -173,10 +205,24 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['ひき算の文しょうだい', 'ブンヒキモン', 'a pink ribbon sprite cutting a ribbon shorter', 'お話のなかの「のこりは」を見つけるのがとくい。'],
     ['まちがい探し', 'マチガイ', 'a pink ribbon sprite holding a magnifying glass over a tangled loop', 'まちがった式を見つけると、そっと直してくれる。'],
     ['整数になる分数', 'セイスウン', 'a pink cake fairy holding one perfectly whole round cake', 'かけらがそろうと、まるごとの整数にへんしんする。'],
+    // ↓ 単元アプリ「分数（1より大きい分数）」の まとまりごとに足した6体（2026-10）。絵は仮（同じ町の絵の色ちがい）
+    ["分数を図であらわそう", "ヌリケーキ", "a small pink cake golem painting slices of a tape diagram with a frosting brush", "テープや 水のかさの図に、分数の色を ぬってくれる。"],
+    ["わり算で帯分数に", "ワリタルト", "a cream tart creature slicing itself evenly with a tiny butter knife", "わり算の 商と あまりで、帯分数に なおしてしまう。"],
+    ["等しい分数を見つけよう", "オナジェリー", "a jelly creature splitting into two same-sized wobbling halves", "大きさが同じ 分数を、数直線で ぴたりと 見つける。"],
+    ["分子が同じ分数の大小", "ブンシマカロン", "a stack of macarons with the same number painted on each top", "分子が同じなら、分母が小さいほど 大きいことを 知っている。"],
+    ["整数と帯分数の計算", "セイスウパイ", "a round pie golem holding whole pies in one hand and a slice in the other", "整数と 帯分数の たし算・ひき算を、パイで 考える。"],
+    ["どこまで進んだ？", "ススムクッキー", "a cookie creature walking along a ruler line leaving crumb marks", "何kmの どこまで 進んだかを、分数で 教えてくれる。"],
   ],
 
   '変わり方調べ': [
     ['変わり方と表', 'カワリン', 'a violet bird with a tail that curves upward in a smooth arc', '2つの数のかんけいを、表にして見せてくれる。時計塔のぬし。'],
+    // ↓ 単元アプリ「変わり方調べ」の まとまりごとに足した6体（2026-10）。絵は仮（同じ町の絵の色ちがい）
+    ["ともなって変わる2つの量", "ペアクロック", "a small violet owl holding two little clock hands that move together", "かたほうが かわると、もうかたほうも いっしょに かわるペアを見つける。"],
+    ["変わり方のきまり", "キマリフクロ", "a violet owl with a glowing pattern of repeating dots across its wings", "表を じっと見て、かくれた きまりを 見つけだす。"],
+    ["変わり方を式に", "シキフクロウ", "a violet owl writing a glowing box-and-circle formula in the air with its feather", "□と○の 式で、変わり方を ひとことで あらわす。"],
+    ["変わり方のグラフ", "グラフクロウ", "a violet owl perched on a rising line of glowing points", "点をうって 線でむすぶと、この先の 変わり方が 見える。"],
+    ["変わり方をつかってとく", "ミライフクロ", "a wise violet owl peering through a brass telescope at the 100th step", "100番目でも、きまりを つかえば すぐに わかる。"],
+    ["変わり方のまちがい探し", "ミヌキフクロ", "a violet owl wearing spectacles circling a mistaken table cell", "たてと よこを とりちがえた 表を すぐに 見ぬく。"],
   ],
 
   '直方体と立方体': [
@@ -184,6 +230,10 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['展開図', 'テンカイ', 'a golden cube beast unfolding into a flat cross-shaped pattern', '体をぺたんと開いて、平らな形になれる。'],
     ['面や辺の垂直・平行', 'スイヘイ', 'a golden cube beast with two perpendicular glowing bars', '直角なところと平行なところが、青と黄に光る。'],
     ['位置の表し方', 'イチシメス', 'a golden cube beast with three axis arrows rising from its back', 'たて・よこ・高さの3つの数で、いる場所を言いあてる。'],
+    // ↓ 単元アプリ「直方体と立方体」の まとまりごとに足した3体（2026-10）。絵は仮（同じ町の絵の色ちがい）
+    ["見取図", "ミトリス", "a small sandstone cube-sphinx with glowing solid and dotted edge lines on its body", "見えない辺を 点線でかくと、箱の形が ぜんぶ見える。"],
+    ["直方体をいかそう", "リボンクス", "a sandstone cube-sphinx wrapped in a golden ribbon tied in a bow", "箱に リボンを かけるとき、どれだけ いるかを すぐ はかる。"],
+    ["直方体のまちがい探し", "ミヌキューブ", "a sandstone cube-sphinx with a monocle peering at a cardboard net", "重なる点や 辺の まちがいを、展開図から 見ぬく。"],
   ],
 
   '倍の見方': [

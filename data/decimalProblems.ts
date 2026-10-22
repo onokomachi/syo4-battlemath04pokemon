@@ -5,6 +5,7 @@
  * 小数の答えは数値比較(1.60 = 1.6)で採点する(utils/japaneseNumber.decimalEquals)。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { labeledNumberLineSvg } from '../utils/mathSvg';
 import { toGuidedRetryHint } from '../utils/toGuidedRetryHint';
 
@@ -713,13 +714,20 @@ export const decimalProblems: Record<string, Problem[]> = {
   '小数のひき算の文章題': bunshouSub.map(toGuidedRetryHint),
 };
 
+/** 小数のかけ算とわり算。前からの8体にはアプリの解答画面も まぜる。のこりの6体は アプリ（syousu）の まとまりごとに足したもの */
 export const decimalMulDivProblems: Record<string, Problem[]> = {
-  '小数×整数(小数第一位)': mul1dp,
-  '小数×整数(小数第二位)': mul2dp,
-  '小数÷整数(小数第一位)': div1dp,
+  '小数×整数(小数第一位)': [...mul1dp, ...appRound('syousu', 'mul1', '小数×整数(小数第一位)', 3)],
+  '小数×整数(小数第二位)': [...mul2dp, ...appRound('syousu', 'mul2', '小数×整数(小数第二位)', 3)],
+  '小数÷整数(小数第一位)': [...div1dp, ...appRound('syousu', 'div1', '小数÷整数', 3)],
   '小数÷整数(小数第二位)': div2dp,
-  'わり進むわり算': warisusumu,
-  '商とあまり(小数)': amariShou,
-  '小数×の文章題': bunshouMul.map(toGuidedRetryHint),
-  '小数÷の文章題': bunshouDiv.map(toGuidedRetryHint),
+  'わり進むわり算': [...warisusumu, ...appRound('syousu', 'divInt', 'わり進むわり算', 3)],
+  '商とあまり(小数)': [...amariShou, ...appRound('syousu', 'divRem', '商とあまり(小数)', 3)],
+  '小数×の文章題': [...bunshouMul.map(toGuidedRetryHint), ...appRound('syousu', 'mulWord', '小数×の文章題', 3)],
+  '小数÷の文章題': [...bunshouDiv.map(toGuidedRetryHint), ...appRound('syousu', 'divWord', '小数÷の文章題', 3)],
+  '小数×2けた': appRound('syousu', 'mul2digit', '小数×2けた'),
+  '小数÷2けた': appRound('syousu', 'div2digit', '小数÷2けた'),
+  '小数点のいち': appRound('syousu', 'point', '小数点のいち'),
+  '商のがい数とたしかめ': appRound('syousu', 'divRound', '商のがい数とたしかめ'),
+  '小数のあんざん': appRound('syousu', 'mental', '小数のあんざん'),
+  '小数倍': appRound('syousu', 'times', '小数倍'),
 };

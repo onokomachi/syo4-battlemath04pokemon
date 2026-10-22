@@ -16,6 +16,7 @@ import { decimalProblems, decimalMulDivProblems } from './decimalProblems';
 import { roundingProblems } from './roundingProblems';
 import { calcRulesProblems, areaProblems, changeProblems, solidProblems } from './mixedUnitsProblems';
 import { ratioProblems } from './ratioProblems';
+import { suiheiProblems } from './suiheiProblems';
 
 /** サブトピック名 → 問題配列(小4全14単元を統合)。練習モード・スピードデュエル・本番テストの出題元。 */
 export const ALL_PROBLEM_SETS: Record<string, Problem[]> = {
@@ -23,6 +24,7 @@ export const ALL_PROBLEM_SETS: Record<string, Problem[]> = {
   ...graphTableProblems,
   ...division1Problems,
   ...angleProblems,
+  ...suiheiProblems,
   ...decimalProblems,
   ...division2Problems,
   ...roundingProblems,

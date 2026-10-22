@@ -729,7 +729,7 @@ export const shrineState = (save: AdventureSave, legend: LegendDef): ShrineState
     } else {
       if (!save.champion) missing.push('チャンピオンに かつ');
       const badges = save.badges.length;
-      if (badges < TOWNS.length) missing.push(`14この バッジを 集める (${badges} / 14)`);
+      if (badges < TOWNS.length) missing.push(`${TOWNS.length}この バッジを 集める (${badges} / ${TOWNS.length})`);
       const legendCount = save.legends.filter(id => id.startsWith('legend-')).length;
       if (legendCount < 7) missing.push(`7体の 伝説を 仲間にする (${legendCount} / 7)`);
     }

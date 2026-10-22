@@ -9,6 +9,7 @@ import { MONSTER_DEX, getMonsterSprite } from '../../data/adventure/monsters';
 import { ELEMENTS } from '../../data/adventure/elements';
 import { PLAYER_APPEARANCES, PROFESSOR_NAME, getNpcSprite, getPlayerSprite } from '../../data/adventure/people';
 import { DialogueBox } from './ui/DialogueBox';
+import { TOWNS } from '../../data/adventure/towns';
 
 /** さいしょの なかま3体。タイプがばらけるように選んである。 */
 const STARTER_SUBTOPICS = ['何の位・いくつ分', '分度器と角', '分数のよみかき'];
@@ -48,9 +49,9 @@ const TitleScreen: React.FC<{
           lines={[
             'やあ、よく来たね。わたしは スウジはかせ。',
             'ここは ナンバーランド地方 ―― 数から うまれた モンスターたちが すむ 世界だ。',
-            'この地方には 14の町がある。町にはそれぞれ「単元マスター」がいてね。',
+            `この地方には ${TOWNS.length}の町がある。町にはそれぞれ「単元マスター」がいてね。`,
             'マスターに かつと、バッジが もらえる。',
-            '14この バッジを ぜんぶ 集めたら、ナンバーリーグに ちょうせんできる。',
+            `${TOWNS.length}この バッジを ぜんぶ 集めたら、ナンバーリーグに ちょうせんできる。`,
             'その先で まっているのが ―― チャンピオンだ。',
             'さあ、きみの ぼうけんを はじめよう。まずは 名前を おしえてくれるかい？',
           ]}

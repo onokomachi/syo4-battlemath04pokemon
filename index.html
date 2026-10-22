@@ -130,6 +130,15 @@ body {
 }
 .vfx-success { animation: success-burst 0.5s ease-out; }
 
+
+      /* 単元アプリの解答画面を出す「白い紙」（components/guided/AppRoundHost.tsx）。アプリの「ノーマル」と同じ配色 */
+      .app-paper {
+        --c-bg: #eef2f7; --c-surface: #ffffff; --c-surface-2: #f6f8fb; --c-surface-3: #eaeef4;
+        --c-content: #1e293b; --c-muted: #5b6b80; --c-faint: #94a3b8; --c-line: #e4e9f0;
+        --c-brand: #2563eb; --c-brand-strong: #1d4ed8; --c-on-brand: #ffffff;
+        background: #eef2f7; color: #1e293b; text-shadow: none; letter-spacing: normal;
+        font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+      }
 </style>
 </head>
   <body>

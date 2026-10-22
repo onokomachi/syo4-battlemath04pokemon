@@ -82,7 +82,7 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
     icon: '📐',
     color: '#c9a227',
     darkColor: '#8a6c10',
-    units: ['角の大きさ', '面積', '直方体と立方体'],
+    units: ['角の大きさ', '垂直・平行と四角形', '面積', '直方体と立方体'],
   },
 };
 
@@ -150,7 +150,7 @@ export const ELEMENT_ART: Record<ElementId, ElementArt> = {
   },
 };
 
-/** 単元名 → タイプ。MATH_CATEGORIES の全14単元を覆う。 */
+/** 単元名 → タイプ。MATH_CATEGORIES の全単元を覆う。 */
 export const UNIT_TO_ELEMENT: Record<string, ElementId> = (() => {
   const map: Record<string, ElementId> = {};
   for (const def of Object.values(ELEMENTS)) {

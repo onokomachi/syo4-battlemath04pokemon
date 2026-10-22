@@ -529,7 +529,7 @@ export const MapScreen: React.FC<{
           👑 ナンバーリーグ
           <span className="block text-sm font-bold mt-1">
             {!allBadges
-              ? `バッジ ${save.badges.length} / 14 ―― ぜんぶ 集めると ちょうせんできる`
+              ? `バッジ ${save.badges.length} / ${TOWNS.length} ―― ぜんぶ 集めると ちょうせんできる`
               : inLeague
                 ? 'いま 回廊の 中にいる。町へ もどるには 上から 町を えらぼう'
                 : save.champion
@@ -609,12 +609,12 @@ export const TrainerCardScreen: React.FC<{ onClose: () => void }> = ({ onClose }
   const next = nextAdventureTitles(save, 3);
 
   const rows: Array<[string, string, number, number | null]> = [
-    ['🏅', 'バッジ', st.badges, 14],
+    ['🏅', 'バッジ', st.badges, TOWNS.length],
     ['📕', 'ずかん(つかまえた)', st.caught, st.dexTotal],
     ['👀', 'ずかん(出会った)', st.seen, st.dexTotal],
     ['⚔', 'かったトレーナー', st.trainersBeaten, null],
     ['✏️', 'せいかいした問題', st.correct, null],
-    ['🗺', 'おとずれた町', st.towns, 14],
+    ['🗺', 'おとずれた町', st.towns, TOWNS.length],
     ['⭐', '手持ちの最高レベル', st.maxLevel, null],
   ];
 

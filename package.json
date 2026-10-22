@@ -9,13 +9,18 @@
     "preview": "vite preview",
     "platform": "learning-app-kit-platform check",
     "prebuild": "npm run platform",
-    "check": "npm run platform && npx tsc --noEmit && npm run build && node scripts/audit-problems.mjs"
+    "check": "npm run platform && npx tsc --noEmit && node scripts/verify-app-rounds.mjs && npm run build && node scripts/audit-problems.mjs",
+    "sync-apps": "node scripts/sync-app-sources.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
     "firebase": "^12.2.1",
-    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/150c2f83cf1d674483a5c7d0b1f8855fa7b024b0.tar.gz",
+    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/15f3c578957286db00fa4e1d7a763b81793ee4f5.tar.gz",
+    "lucide-react": "^1.61.0",
+    "motion": "^14.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0",

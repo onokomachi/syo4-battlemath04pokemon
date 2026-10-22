@@ -11,6 +11,8 @@
  * ぼうけん専用の称号をここに足している。判定はすべてセーブと学習記録から
  * 計算するだけなので、あとから条件を変えても過去のデータで再判定される。
  */
+import { TOWNS } from './towns';
+// 称号の id（adv_badge14 など）は セーブデータに残っているので変えない。町が増えても 数は TOWNS.length にそろえる
 
 export type RankStatKey =
   | 'badges'        // 取得バッジ数
@@ -50,7 +52,7 @@ export const ADVENTURE_TITLES: AdventureTitleDef[] = [
   { id: 'adv_badge1', name: 'はじめの一歩', description: 'バッジを 1つ 手に入れた', icon: '🏅', stat: 'badges', value: 1, rarity: 'common' },
   { id: 'adv_badge4', name: 'たびのとちゅう', description: 'バッジを 4つ 集めた', icon: '🎖', stat: 'badges', value: 4, rarity: 'rare' },
   { id: 'adv_badge8', name: 'ベテラントレーナー', description: 'バッジを 8つ 集めた', icon: '🥈', stat: 'badges', value: 8, rarity: 'epic' },
-  { id: 'adv_badge14', name: 'ぜんバッジ せいは', description: '14この バッジを すべて集めた', icon: '🥇', stat: 'badges', value: 14, rarity: 'legendary' },
+  { id: 'adv_badge14', name: 'ぜんバッジ せいは', description: `${TOWNS.length}この バッジを すべて集めた`, icon: '🥇', stat: 'badges', value: TOWNS.length, rarity: 'legendary' },
 
   // --- しょうぶ ---
   { id: 'adv_win5', name: 'しょうぶ好き', description: 'トレーナーに 5回 かった', icon: '⚔', stat: 'trainersBeaten', value: 5, rarity: 'common' },
@@ -69,7 +71,7 @@ export const ADVENTURE_TITLES: AdventureTitleDef[] = [
 
   // --- たび ---
   { id: 'adv_towns7', name: 'はんぶん せいは', description: '7つの 町を おとずれた', icon: '🗺', stat: 'towns', value: 7, rarity: 'common' },
-  { id: 'adv_towns14', name: '地方めぐり かんりょう', description: '14の 町すべてを おとずれた', icon: '🧭', stat: 'towns', value: 14, rarity: 'epic' },
+  { id: 'adv_towns14', name: '地方めぐり かんりょう', description: `${TOWNS.length}の 町すべてを おとずれた`, icon: '🧭', stat: 'towns', value: TOWNS.length, rarity: 'epic' },
 
   // --- リーグ ---
   { id: 'adv_elite1', name: '四天王への挑戦者', description: '四天王に 1人 かった', icon: '⚡', stat: 'league', value: 1, rarity: 'rare' },
