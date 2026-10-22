@@ -46,6 +46,8 @@ npm run build    # 本番ビルド(コミット前に必ず)
   1ラウンドは45秒（`_duel_round_seconds()`）。相手が30秒いなくなったら残った子の勝ち。
 - ごほうびは勝ち負けの分（`SPEED_DUEL_REWARDS`）＋せいかい1問ごとの MP（`CLASS_DUEL_MP_PER_CORRECT`、負けてももらえる）。順位表は作らない。
 - 古い Firebase の PvP（Matchmaking・rooms）は使っていない（後で消す）。
+- **モードの開け閉めは先生が PRISM の SANMON タブで学級ごとに決める**（Supabase `sanmon_mode_settings`、子どもは関数 `sanmon_modes` で読む。一覧と判定は kit の `SANMON_MODES`・`isModeOpen`）。
+  閉じたモードはメニューで 🔒。クラス対戦はサーバ（`_duel_check_open`）でも へやを作れない・入れない。きろくは いつも開いている。
 
 ## 問題は 各単元アプリと同じ（2026-10〜）
 

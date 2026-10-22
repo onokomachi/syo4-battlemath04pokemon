@@ -18,6 +18,9 @@ interface MonsterDuelSetupProps {
   onBack: () => void;
   /** 学級コードで名乗っていれば、同じ学級の友だちと対戦できる（クラス対戦） */
   pvpReady: boolean;
+  /** 先生が開いているか（PRISM で学級ごとに決める） */
+  cpuOpen?: boolean;
+  classDuelOpen?: boolean;
 }
 
 const DUEL_FORMATS: { key: BattleFormat; label: string; desc: string }[] = [
@@ -30,7 +33,7 @@ const DUEL_FORMATS: { key: BattleFormat; label: string; desc: string }[] = [
 /** 手持ちと同じ上限(3体まで)を連れていける */
 const MAX_PICK = 3;
 
-const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pvpReady }) => {
+const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pvpReady, cpuOpen = true, classDuelOpen = true }) => {
   const dexCaught = useAdventureStore(s => s.save.dexCaught);
 
   const caughtMonsters = useMemo(
@@ -166,22 +169,22 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
         <div className="grid grid-cols-2 gap-4 pb-4">
           <button
             onClick={() => handleStart('cpu')}
-            disabled={picked.length === 0}
+            disabled={picked.length === 0 || !cpuOpen}
             className="btn-tactical py-5 rounded-2xl font-bold tracking-[0.15em] text-base group relative overflow-hidden disabled:opacity-40"
           >
             <div className="absolute -right-4 -bottom-4 text-5xl opacity-[0.08] group-hover:opacity-[0.15] transition-all">🤖</div>
             <div className="text-lg font-black">CPU対戦</div>
-            <div className="text-[10px] text-emerald-400 opacity-70 mt-1">コンピュータと早押し勝負</div>
+            <div className="text-[10px] text-emerald-400 opacity-70 mt-1">{cpuOpen ? 'コンピュータと早押し勝負' : '🔒 先生が まだ ひらいていないよ'}</div>
           </button>
           <button
             onClick={() => handleStart('pvp')}
-            disabled={!pvpReady || picked.length === 0}
+            disabled={!pvpReady || !classDuelOpen || picked.length === 0}
             className="btn-tactical py-5 rounded-2xl font-bold tracking-[0.15em] text-base group relative overflow-hidden disabled:opacity-40"
           >
             <div className="absolute -right-4 -bottom-4 text-5xl opacity-[0.08] group-hover:opacity-[0.15] transition-all">⚔</div>
             <div className="text-lg font-black">クラス対戦</div>
             <div className="text-[10px] text-emerald-400 opacity-70 mt-1">
-              {pvpReady ? '同じ学級の ともだちと 早押し' : 'がっきゅうコードを 入れると あそべるよ'}
+              {!classDuelOpen ? '🔒 先生が まだ ひらいていないよ' : pvpReady ? '同じ学級の ともだちと 早押し' : 'がっきゅうコードを 入れると あそべるよ'}
             </div>
           </button>
         </div>

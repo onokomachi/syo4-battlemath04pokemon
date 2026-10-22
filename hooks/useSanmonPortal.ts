@@ -7,8 +7,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStudent, subscribeStudent, type StudentIdentity } from 'learning-app-kit/sync';
 import {
-  fetchSanmonStatus, sanmonUnits, spendStamina, SANMON_RULES,
-  type SanmonStatus, type SanmonUnitProgress,
+  fetchSanmonStatus, fetchSanmonModes, sanmonUnits, spendStamina, isModeOpen, SANMON_RULES,
+  type SanmonStatus, type SanmonUnitProgress, type SanmonModes, type SanmonModeKey,
 } from 'learning-app-kit/sanmon';
 import { MATH_CATEGORIES } from '../constants';
 import { PORTAL, isPortalConfigured } from '../services/portal';
@@ -23,6 +23,8 @@ export interface SanmonPortal {
   /** まだ開いていない町の単元名（MATH_CATEGORIES の name）。ぼうけん・デュエルで使う */
   lockedUnitNames: Set<string>;
   refresh: () => Promise<void>;
+  /** 先生がそのモードを開いているか（PRISM の SANMON タブで学級ごとに決める）。読めないうちは開いている扱い */
+  modeOpen: (key: SanmonModeKey) => boolean;
   /** バトル1回ぶんのスタミナを使う。足りなければ false（使わない） */
   spendForBattle: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
@@ -30,14 +32,16 @@ export interface SanmonPortal {
 export function useSanmonPortal(): SanmonPortal {
   const [student, setStudent] = useState<StudentIdentity | null>(() => getStudent());
   const [status, setStatus] = useState<SanmonStatus | null>(null);
+  const [modes, setModes] = useState<SanmonModes>({});
 
   useEffect(() => subscribeStudent((s) => setStudent(s)), []);
 
   const refresh = useCallback(async () => {
     const s = getStudent();
-    if (!isPortalConfigured || !s) { setStatus(null); return; }
-    const r = await fetchSanmonStatus(PORTAL, s.studentId);
+    if (!isPortalConfigured || !s) { setStatus(null); setModes({}); return; }
+    const [r, m] = await Promise.all([fetchSanmonStatus(PORTAL, s.studentId), fetchSanmonModes(PORTAL, s.studentId)]);
     if (r.ok) setStatus(r.status);
+    if (m.ok) setModes(m.modes);
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh, student?.studentId]);
@@ -67,5 +71,6 @@ export function useSanmonPortal(): SanmonPortal {
   return {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     units, lockedUnitNames, refresh, spendForBattle,
+    modeOpen: (key: SanmonModeKey) => isModeOpen(modes, key),
   };
 }

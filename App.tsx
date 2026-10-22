@@ -212,6 +212,18 @@ const App: React.FC = () => {
   // れんしゅう・ふくしゅう・本番テストは 学習そのものなので、町が開いていなくても使える。
   const portal = useSanmonPortal();
   const requestBattle = portal.spendForBattle;
+  // 先生が PRISM で閉じたモード（学級ごと）。メニューのボタンを押せない形にし、開くときにも止める
+  const isModeClosed = useCallback((mode: GameState): boolean => {
+    switch (mode) {
+      case 'adventure': return !portal.modeOpen('adventure');
+      case 'speed_duel_setup': return !portal.modeOpen('speed');
+      case 'monster_duel_setup': return !portal.modeOpen('monster') && !portal.modeOpen('class_duel');
+      case 'practice_mode': return !portal.modeOpen('practice');
+      case 'review_mode': return !portal.modeOpen('review');
+      case 'mock_test': return !portal.modeOpen('mock_test');
+      default: return false;
+    }
+  }, [portal]);
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
   useEffect(() => {
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1229,7 +1241,11 @@ const App: React.FC = () => {
           <>
           <PortalStatusBar portal={portal} />
           <MainMenu
-            onSelectMode={mode => setGameState(mode)}
+            onSelectMode={mode => {
+              if (isModeClosed(mode)) { setPortalNotice('このモードは、先生が まだ ひらいていないよ'); return; }
+              setGameState(mode);
+            }}
+            isModeClosed={isModeClosed}
             playerLevel={playerLevel}
             playerExp={playerExp}
             expForNextLevel={expForNextLevel(playerLevel)}
@@ -1360,6 +1376,8 @@ const App: React.FC = () => {
             }}
             onBack={() => setGameState('main_menu')}
             pvpReady={!!portal.student}
+            cpuOpen={portal.modeOpen('monster')}
+            classDuelOpen={portal.modeOpen('class_duel')}
           />
         );
 
