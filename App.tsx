@@ -14,12 +14,12 @@ import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect,
   getRedirectResult, signOut,
   type User
-} from 'firebase/auth';
+} from './services/firebaseOff';
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, increment,
   collection, onSnapshot, query, serverTimestamp,
   runTransaction, where,
-} from 'firebase/firestore';
+} from './services/firebaseOff';
 import { auth, db, googleProvider } from './firebase';
 import type { GameState, Room, BattleMode, BattleFormat, StudentProfile } from './types';
 import {

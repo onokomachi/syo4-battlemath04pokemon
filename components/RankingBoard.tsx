@@ -6,7 +6,7 @@
  * - 形式別ランキング: 1回の50ユーザークエリ → クライアント側でタブ切替（通信量75%削減）
  */
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs } from '../services/firebaseOff';
 import type { BattleFormat } from '../types';
 
 interface RankingEntry {

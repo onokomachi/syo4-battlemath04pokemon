@@ -6,7 +6,7 @@
 ## スタック(まちがえやすい)
 
 **Vite 6 + React 19 + TypeScript + Tailwind 3 + Zustand 5。Next.js ではない。**
-3Dは react-three-fiber v9 / drei v10 / three 0.180。バックエンドは Firebase。
+3Dは react-three-fiber v9 / drei v10 / three 0.180。バックエンドは 学級ポータル（Supabase）。
 
 - Tailwind の設定は `tailwind.config.js`、**グローバルCSSは `index.html` の `<style>` に直接書いてある**
   (`.btn-tactical` `.hud-panel` `.text-hologram` `.corner-accent` `.adventure-cta` など)。
@@ -23,7 +23,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 
 - **名乗りは学級コード＋出席番号**（learning-app-kit の JoinGate／子ども用ハブからの `#c=&n=`）。氏名・Googleアカウントは使わない。
 - **Firebase は使わない**（`firebase.ts` は常に「未設定」。ログイン・PvP・ランキング・管理画面は動かない）。
-  端末内保存のオフラインモード＋学級ポータル、で動く。Firebase のコードを消すのは後の段の片付け。
+  端末内保存のオフラインモード＋学級ポータル、で動く。Firebase の SDK は入れていない（`firebase.ts` と `services/firebaseOff.ts` は名前だけの代わり。呼ばれることはない）。古い PvP・ランキングの画面のコードを消すのは後の片付け。
 - **町（ぼうけん・スピードデュエルの単元）の解放とスタミナは `learning-app-kit/sanmon` が決める**（子ども用ハブと同じ関数）。
   ここで独自に判定しない。数（練習7割・テスト8割をちがう日に3回・階段の半分・ひとりで3日、バトル1回スタミナ5）を変えるときは kit を直す。
   れんしゅう・ふくしゅう・本番テストは学習そのものなので、町が開いていなくても使える（スタミナも使わない）。

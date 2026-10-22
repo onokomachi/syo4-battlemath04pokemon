@@ -10,7 +10,7 @@
  * (フィールドを歩くたびに書き込むようなことはしない)
  */
 import { create } from 'zustand';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from '../services/firebaseOff';
 import { db } from '../firebase';
 import { MONSTER_DEX, MONSTERS_BY_UNIT, getMonster, statsAtLevel, expToNext } from '../data/adventure/monsters';
 import { TOWNS, BADGE_NAMES, getTown } from '../data/adventure/towns';

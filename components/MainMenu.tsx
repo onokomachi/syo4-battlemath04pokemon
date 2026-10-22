@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { GameState, DailyQuestDef } from '../types';
-import type { User } from 'firebase/auth';
+import type { User } from '../services/firebaseOff';
 import DataBackupModal from './DataBackupModal';
 
 interface MainMenuProps {

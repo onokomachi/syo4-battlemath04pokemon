@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import type { Problem, SessionStats, StudentProfile } from '../types';
-import type { User } from 'firebase/auth';
-import type { Firestore } from 'firebase/firestore';
+import type { User } from '../services/firebaseOff';
+import type { Firestore } from '../services/firebaseOff';
 import MenuScreen from './MenuScreen';
 import ProblemScreen from './ProblemScreen';
 import RecordsScreen from './RecordsScreen';

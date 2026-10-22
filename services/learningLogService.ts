@@ -9,6 +9,7 @@
  * 保存先は localStorage(端末)。Firestore への要約同期は呼び出し側
  * (App.tsx / MockTestMode)が users ドキュメントに対して行う。
  */
+import { doc, setDoc, increment } from './firebaseOff';
 
 export type LogMode = 'practice' | 'battle' | 'speed' | 'review' | 'test';
 
@@ -211,7 +212,6 @@ export const flushDailySummary = async (db: any, uid: string | null): Promise<vo
   const pending = read<DailyPending | null>(PENDING_KEY, null);
   if (!pending || pending.answered === 0) return;
   try {
-    const { doc, setDoc, increment } = await import('firebase/firestore');
     let label: string | null = null;
     try {
       const sp = JSON.parse(localStorage.getItem('battleMathStudentProfile') || 'null');

@@ -503,7 +503,7 @@ export const MapScreen: React.FC<{
               </div>
               {locked && (
                 <p className="mt-2 text-xs font-black text-amber-300">
-                  🔒 まだ 先生が ひらいていない 町
+                  🔒 単元の アプリで がんばると ひらく 町
                 </p>
               )}
               {has && !locked && (

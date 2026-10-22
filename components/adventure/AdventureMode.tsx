@@ -205,7 +205,7 @@ const AdventureMode: React.FC<Props> = ({
         store.setTown(open.id);
         setDialogue({
           lines: [
-            'この町は、まだ 先生が ひらいていないみたい。',
+            'この町は、まだ ひらいていないみたい。単元の アプリで がんばると ひらくよ。',
             `${open.name} に もどってきたよ。`,
           ],
           accent: '#f59e0b',

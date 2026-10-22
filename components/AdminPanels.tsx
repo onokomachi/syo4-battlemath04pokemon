@@ -11,7 +11,7 @@
  *    リアルタイム監視(onSnapshot)は使わない。
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from '../services/firebaseOff';
 import { MATH_CATEGORIES, ADMIN_EMAILS } from '../constants';
 import { fetchLockedUnits, saveLockedUnits } from '../services/unitLockService';
 import { fetchAdminEmails, saveAdminEmails } from '../services/adminAccessService';
