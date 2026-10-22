@@ -5,6 +5,7 @@
  * 小数の答えは数値比較(1.60 = 1.6)で採点する(utils/japaneseNumber.decimalEquals)。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { labeledNumberLineSvg } from '../utils/mathSvg';
 import { toGuidedRetryHint } from '../utils/toGuidedRetryHint';
 
@@ -695,31 +696,41 @@ const bunshouDiv: Problem[] = [
 ];
 
 export const decimalProblems: Record<string, Problem[]> = {
-  '数をつくる': tsukuru.map(toGuidedRetryHint),
-  'あつめた数': atsumeta.map(toGuidedRetryHint),
-  '何十倍・何分の一': naniwari.map(toGuidedRetryHint),
-  '○の位の数字は': kuraiSuuji.map(toGuidedRetryHint),
-  '数直線を読む': suuchokusen.map(toGuidedRetryHint),
-  '大小をくらべよう': daishou.map(toGuidedRetryHint),
-  '小数をならべかえよう': narabekae.map(toGuidedRetryHint),
-  '長さの単位を小数で': choutan.map(toGuidedRetryHint),
-  '重さの単位を小数で': omosa.map(toGuidedRetryHint),
-  '小数のたし算(同じ位)': addSame,
-  '小数のたし算(けたがちがう)': addDiff,
-  '小数のひき算(同じ位)': subSame,
-  '小数のひき算(けたがちがう)': subDiff,
-  '小数のひき算(空位に注意)': subZero,
+  '数をつくる': [...tsukuru.map(toGuidedRetryHint), ...appRound('decimal', 'compose', '数をつくる', 3)],
+  'あつめた数': [...atsumeta.map(toGuidedRetryHint), ...appRound('decimal', 'collect', 'あつめた数', 3)],
+  '何十倍・何分の一': [...naniwari.map(toGuidedRetryHint), ...appRound('decimal', 'scale', '何十倍・何分の一', 3)],
+  '○の位の数字は': [...kuraiSuuji.map(toGuidedRetryHint), ...appRound('decimal', 'placeid', '○の位の数字は', 3)],
+  '数直線を読む': [...suuchokusen.map(toGuidedRetryHint), ...appRound('decimal', 'line', '数直線を読む', 3)],
+  '大小をくらべよう': [...daishou.map(toGuidedRetryHint), ...appRound('decimal', 'compare', '大小をくらべよう', 3)],
+  '小数をならべかえよう': [...narabekae.map(toGuidedRetryHint), ...appRound('decimal', 'order', '小数をならべかえよう', 3)],
+  '長さの単位を小数で': [...choutan.map(toGuidedRetryHint), ...appRound('decimal', 'unit-length', '長さの単位を小数で', 3)],
+  '重さの単位を小数で': [...omosa.map(toGuidedRetryHint), ...appRound('decimal', 'unit-mass', '重さの単位を小数で', 3)],
+  '小数のたし算(同じ位)': [...addSame, ...appRound('decimal', 'add-basic', '小数のたし算(同じ位)', 3)],
+  '小数のたし算(けたがちがう)': [...addDiff, ...appRound('decimal', 'add-diff', '小数のたし算(けたがちがう)', 3)],
+  '小数のひき算(同じ位)': [...subSame, ...appRound('decimal', 'sub-basic', '小数のひき算(同じ位)', 3)],
+  '小数のひき算(けたがちがう)': [...subDiff, ...appRound('decimal', 'sub-diff', '小数のひき算(けたがちがう)', 3)],
+  '小数のひき算(空位に注意)': [...subZero, ...appRound('decimal', 'sub-whole', '小数のひき算(空位に注意)', 3)],
   '小数のたし算の文章題': bunshouAdd.map(toGuidedRetryHint),
   '小数のひき算の文章題': bunshouSub.map(toGuidedRetryHint),
+  '小数を分けて表そう': appRound('decimal', 'decompose', '小数を分けて表そう'),
+  '単位をまぜて小数で': appRound('decimal', 'unit-mix', '単位をまぜて小数で'),
+  '小数のまちがい探し': appRound('decimal', 'error', '小数のまちがい探し'),
 };
 
+/** 小数のかけ算とわり算。前からの8体にはアプリの解答画面も まぜる。のこりの6体は アプリ（syousu）の まとまりごとに足したもの */
 export const decimalMulDivProblems: Record<string, Problem[]> = {
-  '小数×整数(小数第一位)': mul1dp,
-  '小数×整数(小数第二位)': mul2dp,
-  '小数÷整数(小数第一位)': div1dp,
+  '小数×整数(小数第一位)': [...mul1dp, ...appRound('syousu', 'mul1', '小数×整数(小数第一位)', 3)],
+  '小数×整数(小数第二位)': [...mul2dp, ...appRound('syousu', 'mul2', '小数×整数(小数第二位)', 3)],
+  '小数÷整数(小数第一位)': [...div1dp, ...appRound('syousu', 'div1', '小数÷整数', 3)],
   '小数÷整数(小数第二位)': div2dp,
-  'わり進むわり算': warisusumu,
-  '商とあまり(小数)': amariShou,
-  '小数×の文章題': bunshouMul.map(toGuidedRetryHint),
-  '小数÷の文章題': bunshouDiv.map(toGuidedRetryHint),
+  'わり進むわり算': [...warisusumu, ...appRound('syousu', 'divInt', 'わり進むわり算', 3)],
+  '商とあまり(小数)': [...amariShou, ...appRound('syousu', 'divRem', '商とあまり(小数)', 3)],
+  '小数×の文章題': [...bunshouMul.map(toGuidedRetryHint), ...appRound('syousu', 'mulWord', '小数×の文章題', 3)],
+  '小数÷の文章題': [...bunshouDiv.map(toGuidedRetryHint), ...appRound('syousu', 'divWord', '小数÷の文章題', 3)],
+  '小数×2けた': appRound('syousu', 'mul2digit', '小数×2けた'),
+  '小数÷2けた': appRound('syousu', 'div2digit', '小数÷2けた'),
+  '小数点のいち': appRound('syousu', 'point', '小数点のいち'),
+  '商のがい数とたしかめ': appRound('syousu', 'divRound', '商のがい数とたしかめ'),
+  '小数のあんざん': appRound('syousu', 'mental', '小数のあんざん'),
+  '小数倍': appRound('syousu', 'times', '小数倍'),
 };

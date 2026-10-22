@@ -1,5 +1,5 @@
 /**
- * towns.ts — ナンバーランド地方の14の町(=14単元)。
+ * towns.ts — ナンバーランド地方の町(=単元。はじめは14、2026-10 に「垂直・平行と四角形」を足して15)。
  *
  * 町のならびは MATH_CATEGORIES(教科書の学習順)と一致している。ただし
  * 進行は自由で、先生が管理画面でロックした単元の町だけが閉じる。
@@ -241,6 +241,54 @@ const SEEDS: TownSeed[] = [
       '「カクバッジ」を さしあげます。',
     ],
     ground: 'ancient pale marble ruins floor with cracked stone tiles and small grass tufts',
+  },
+
+  // 15番目の町（2026-10 単元アプリ「垂直・平行と四角形」にそろえて足した）。学習順で 角の大きさ の次に置く
+  {
+    id: 'heikou',
+    name: 'ヘイコウ台地',
+    subtitle: '垂直と平行の 石だたみの台地',
+    unit: '垂直・平行と四角形',
+    biome: 'ruins',
+    size: 44,
+    intro: [
+      'ヘイコウ台地 ―― まっすぐな 石だたみが どこまでも つづく 台地。',
+      'たての道と よこの道が、ぴたりと 直角に 交わっている。',
+      'ここでは、かたちの きまりが 道になっているのだ。',
+    ],
+    villagerSprite: 'villager-boy',
+    villagerLines: [
+      'この台地の道はね、ぜんぶ 垂直か 平行なんだ。',
+      '2本の直線が 直角に 交わっていたら「垂直」。',
+      'どこまで のばしても 交わらなかったら「平行」。',
+      '四角形は、平行な辺の 組の数で 名前が きまるんだよ。',
+    ],
+    trainers: [
+      {
+        name: 'せっけいしの ユウ', sprite: 'trainer-builder',
+        lines: ['三角じょうぎ 2まいで 垂直な線が ひけるかい？', 'ずれたら 家が かたむいちゃう。', 'しょうぶだ！'],
+        after: ['ぴったり 直角！ いい腕だね。', '平行も 三角じょうぎを すべらせれば ひけるよ。'],
+      },
+      {
+        name: 'もようづくりの ミナ', sprite: 'trainer-artist',
+        lines: ['この タイル、なんて 名前の四角形か わかる？', 'ひし形？ 平行四辺形？', '見わけられたら、わたしの まけよ！'],
+        after: ['平行な辺の組で 見わける…… さすがね。', '対角線にも ひみつが あるのよ。'],
+      },
+    ],
+    masterName: 'ジョウギ',
+    masterSprite: 'master-15',
+    masterTitle: '垂直・平行の マスター',
+    masterLines: [
+      'ようこそ、ヘイコウの道場へ。わしは ジョウギ。',
+      '直線と 直線の「交わり方」を 見るのじゃ。',
+      '見た目の向きに だまされては ならん。のばして、はかって、たしかめる。',
+      'さあ、きみの目を 見せてもらおう。',
+    ],
+    masterAfter: [
+      'みごと。かたちを きまりで 見る目が そなわっておる。',
+      '「ヘイコウバッジ」を わたそう。',
+    ],
+    ground: 'straight pale stone paving with perfectly parallel and perpendicular grooves, small grass tufts',
   },
 
   {
@@ -833,5 +881,5 @@ export const BADGE_NAMES: Record<string, string> = {
   kakudo: 'カクバッジ', shizuku: 'シズクバッジ', futago: 'フタゴバッジ',
   kirino: 'キリバッジ', karakuri: 'ハグルマバッジ', tile: 'タイルバッジ',
   shiokaze: 'シオカゼバッジ', cake: 'ケーキバッジ', tokino: 'トキバッジ',
-  hakoniwa: 'ハコバッジ', kyoju: 'キョジュバッジ',
+  hakoniwa: 'ハコバッジ', kyoju: 'キョジュバッジ', heikou: 'ヘイコウバッジ',
 };

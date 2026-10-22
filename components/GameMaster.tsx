@@ -12,7 +12,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   collection, query, orderBy, onSnapshot,
   doc, updateDoc, deleteDoc, limit, getDoc, setDoc
-} from 'firebase/firestore';
+} from '../services/firebaseOff';
 import type { Room, StudentProfile } from '../types';
 import { TARGET_GRADE } from '../constants';
 import { UnitLockPanel, AnalyticsPanel, AdminAccessPanel } from './AdminPanels';

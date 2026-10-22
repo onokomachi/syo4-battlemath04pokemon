@@ -3,6 +3,7 @@
  * 参照リポジトリに対応アプリがない単元。学習指導要領解説・東書4年の単元構成から作成。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { rectAreaSvg, lShapeAreaSvg, pairTableSvg, cubeNetSvg, cuboidWireframeSvg } from '../utils/mathSvg';
 
 interface TextExtra {
@@ -674,26 +675,53 @@ const ichiNoArawashikata: Problem[] = [
   }),
 ];
 
+/**
+ * 計算のきまり。前からの2体（順じょ・くふう）には、アプリの解答画面も まぜる。
+ * のこりの6体は アプリ（syo4-keisannokimari）の「まとまり」ごとに足したもので、問題は アプリと同じ画面で出す。
+ */
 export const calcRulesProblems: Record<string, Problem[]> = {
-  '計算の順じょ': junjo,
-  '計算のくふう': kufuu,
+  '計算の順じょ': [...junjo, ...appRound('karakuri', 'order', '計算の順じょ（じゅんばん マスター）', 4)],
+  '計算のくふう': [...kufuu, ...appRound('karakuri', 'kufuu', '計算のくふう（くふう けいさん）', 4)],
+  '式に表そう': appRound('karakuri', 'express', '式に表そう'),
+  '式をよもう': appRound('karakuri', 'read', '式をよもう'),
+  'ドットたんてい': appRound('karakuri', 'dots', 'ドットたんてい'),
+  '□を求めよう': appRound('karakuri', 'inverse', '□を求めよう'),
+  'なりたつかな': appRound('karakuri', 'lawcheck', 'なりたつかな（計算のきまり）'),
+  '10倍・100倍のひみつ': appRound('karakuri', 'times', '10倍・100倍のひみつ'),
 };
 
+/** 面積。前からの5体にはアプリの解答画面も まぜる。のこりの5体は アプリ（menseki4）の まとまりごとに足したもの */
 export const areaProblems: Record<string, Problem[]> = {
-  '長方形の面積': chouhoukei,
-  '正方形の面積': seihoukei,
-  '辺の長さを求める': tateWoMotomeru,
-  '大きな面積の単位': ookinaMenseki,
-  'L字型の面積': fukugouZukei,
+  '長方形の面積': [...chouhoukei, ...appRound('menseki4', 'rect', '長方形の面積', 3)],
+  '正方形の面積': [...seihoukei, ...appRound('menseki4', 'square', '正方形の面積', 3)],
+  '辺の長さを求める': [...tateWoMotomeru, ...appRound('menseki4', 'side', '辺の長さを求める', 3)],
+  '大きな面積の単位': [...ookinaMenseki, ...appRound('menseki4', 'unit', '大きな面積の単位', 4)],
+  'L字型の面積': [...fukugouZukei, ...appRound('menseki4', 'comp', 'いろいろな形の面積', 4)],
+  '方眼で面積': appRound('menseki4', 'grid', '方眼で面積'),
+  '面積の公式': appRound('menseki4', 'formula', '面積の公式'),
+  '大きな面積を求めよう': appRound('menseki4', 'calc', '大きな面積を求めよう'),
+  '面積の変わり方': appRound('menseki4', 'change', '面積の変わり方'),
+  '面積のまちがい探し': appRound('menseki4', 'error', '面積のまちがい探し'),
 };
 
+/** 変わり方調べ。前からの1体にはアプリの「表で しらべる」も まぜる。のこりの6体は アプリ（kawari）の まとまりごとに足したもの */
 export const changeProblems: Record<string, Problem[]> = {
-  '変わり方と表': kawarikata,
+  '変わり方と表': [...kawarikata, ...appRound('kawari', 'table', '変わり方と表（表で しらべる）', 4)],
+  'ともなって変わる2つの量': appRound('kawari', 'find', 'ともなって変わる2つの量'),
+  '変わり方のきまり': appRound('kawari', 'rule', '変わり方のきまり'),
+  '変わり方を式に': appRound('kawari', 'expr', '変わり方を式に'),
+  '変わり方のグラフ': appRound('kawari', 'graph', '変わり方のグラフ'),
+  '変わり方をつかってとく': appRound('kawari', 'apply', '変わり方をつかってとく'),
+  '変わり方のまちがい探し': appRound('kawari', 'error', '変わり方のまちがい探し'),
 };
 
+/** 直方体と立方体。前からの4体にはアプリの解答画面も まぜる。のこりの3体は アプリ（rippoutai）の まとまりごとに足したもの */
 export const solidProblems: Record<string, Problem[]> = {
-  '面・辺・頂点': menHenChoten,
-  '展開図': tenkaizu,
-  '面や辺の垂直・平行': suichokuHeikou,
-  '位置の表し方': ichiNoArawashikata,
+  '面・辺・頂点': [...menHenChoten, ...appRound('rippoutai', 'kousei', '面・辺・頂点', 4)],
+  '展開図': [...tenkaizu, ...appRound('rippoutai', 'tenkai', '展開図', 4)],
+  '面や辺の垂直・平行': [...suichokuHeikou, ...appRound('rippoutai', 'heiko', '面や辺の垂直・平行', 4)],
+  '位置の表し方': [...ichiNoArawashikata, ...appRound('rippoutai', 'ichi', '位置の表し方', 3)],
+  '見取図': appRound('rippoutai', 'mitori', '見取図'),
+  '直方体をいかそう': appRound('rippoutai', 'katsuyo', '直方体をいかそう'),
+  '直方体のまちがい探し': appRound('rippoutai', 'error', '直方体のまちがい探し'),
 };

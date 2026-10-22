@@ -8,8 +8,8 @@
  *
  * 読み取りはログイン時に1回だけ。オフライン・未設定時は前回キャッシュ→空配列で動作する。
  */
-import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { Firestore } from './firebaseOff';
+import { doc, getDoc, setDoc } from './firebaseOff';
 
 const ADMIN_DOC = 'admins';
 const CACHE_KEY = 'fb_admin_emails_cache';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { User } from 'firebase/auth';
+import type { User } from '../services/firebaseOff';
 import type { StudentProfile } from '../types';
 import { getCurrentSchoolYear, SCHOOL_NAME, TARGET_GRADE } from '../constants';
 

@@ -7,12 +7,12 @@
  * - 再接続用セッション保存ヘルパー (sessionStorage)
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import type { User } from 'firebase/auth';
+import type { User } from '../services/firebaseOff';
 import {
   doc, getDoc, updateDoc,
   collection, onSnapshot, query, serverTimestamp,
   where, orderBy, limit,
-} from 'firebase/firestore';
+} from '../services/firebaseOff';
 import { db } from '../firebase';
 import type { GameState, Room, BattleType } from '../types';
 

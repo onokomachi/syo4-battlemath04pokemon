@@ -9,8 +9,8 @@
  * 読み取りはログイン時に1回だけ(150人×1読取/起動 程度)。
  * オフライン・未設定時は「すべて使用可」で動作する。
  */
-import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { Firestore } from './firebaseOff';
+import { doc, getDoc, setDoc } from './firebaseOff';
 
 const LOCK_DOC = 'unit_locks';
 const CACHE_KEY = 'fb_unit_locks_cache';

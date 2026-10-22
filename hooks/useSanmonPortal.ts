@@ -1,0 +1,71 @@
+/**
+ * hooks/useSanmonPortal.ts — 名乗り・町の解放・スタミナ（学級ポータル）
+ *
+ * きまり（どの町が開くか・スタミナの数）は learning-app-kit/sanmon に1か所だけある。
+ * 子ども用ハブと同じ関数で判定するので、ハブで「開いた」町は SANMON でも必ず開いている。
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getStudent, subscribeStudent, type StudentIdentity } from 'learning-app-kit/sync';
+import {
+  fetchSanmonStatus, sanmonUnits, spendStamina, SANMON_RULES,
+  type SanmonStatus, type SanmonUnitProgress,
+} from 'learning-app-kit/sanmon';
+import { MATH_CATEGORIES } from '../constants';
+import { PORTAL, isPortalConfigured } from '../services/portal';
+
+export interface SanmonPortal {
+  student: StudentIdentity | null;
+  /** サーバから読めたか（読めないうちは アプリの無い町だけ開く） */
+  loaded: boolean;
+  stamina: number;
+  earnedToday: number;
+  units: SanmonUnitProgress[];
+  /** まだ開いていない町の単元名（MATH_CATEGORIES の name）。ぼうけん・デュエルで使う */
+  lockedUnitNames: Set<string>;
+  refresh: () => Promise<void>;
+  /** バトル1回ぶんのスタミナを使う。足りなければ false（使わない） */
+  spendForBattle: (reason: string) => Promise<{ ok: boolean; message?: string }>;
+}
+
+export function useSanmonPortal(): SanmonPortal {
+  const [student, setStudent] = useState<StudentIdentity | null>(() => getStudent());
+  const [status, setStatus] = useState<SanmonStatus | null>(null);
+
+  useEffect(() => subscribeStudent((s) => setStudent(s)), []);
+
+  const refresh = useCallback(async () => {
+    const s = getStudent();
+    if (!isPortalConfigured || !s) { setStatus(null); return; }
+    const r = await fetchSanmonStatus(PORTAL, s.studentId);
+    if (r.ok) setStatus(r.status);
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh, student?.studentId]);
+  // 単元アプリで頑張ってから戻ってきたときに、スタミナと町を読みなおす
+  useEffect(() => {
+    const onVis = () => { if (!document.hidden) void refresh(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [refresh]);
+
+  const units = useMemo(() => sanmonUnits(status), [status]);
+  const lockedUnitNames = useMemo(() => {
+    const open = new Set(units.filter((u) => u.open).map((u) => u.name));
+    return new Set(MATH_CATEGORIES.map((c) => c.name).filter((n) => !open.has(n)));
+  }, [units]);
+
+  const spendForBattle = useCallback(async (reason: string) => {
+    const s = getStudent();
+    if (!isPortalConfigured || !s) return { ok: false, message: 'バトルには がっきゅうコードが いるよ（右下から 入れてね）' };
+    const eventId = `battle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const r = await spendStamina(PORTAL, s.studentId, eventId, SANMON_RULES.battleCost, reason);
+    if (r.stamina != null) setStatus((st) => (st ? { ...st, stamina: r.stamina! } : st));
+    if (r.ok) return { ok: true };
+    return { ok: false, message: r.stamina == null ? r.message : `スタミナが たりないよ（いま ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。単元の アプリで れんしゅうすると たまるよ` };
+  }, []);
+
+  return {
+    student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
+    units, lockedUnitNames, refresh, spendForBattle,
+  };
+}

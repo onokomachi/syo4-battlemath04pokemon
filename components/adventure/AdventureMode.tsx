@@ -50,6 +50,11 @@ interface Props {
   defaultName?: string;
   /** Firestore 同期用のUID(未ログインなら null) */
   uid?: string | null;
+  /**
+   * バトルを始める前に スタミナを使う（学級ポータル）。足りなければ ok=false で、バトルは始めない。
+   * 各単元アプリで練習した分がスタミナになる（learning-app-kit/sanmon）。
+   */
+  onRequestBattle?: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
 
 type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save';
@@ -63,7 +68,7 @@ interface Dialogue {
 }
 
 const AdventureMode: React.FC<Props> = ({
-  onExit, lockedUnits, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid,
+  onExit, lockedUnits, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle,
 }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
@@ -80,6 +85,21 @@ const AdventureMode: React.FC<Props> = ({
   }, []);
   const [battle, setBattle] = useState<BattleSetup | null>(null);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
+  /**
+   * バトルを始める入口。すべてのバトル（野生・トレーナー・ジム・リーグ・伝説・テキトウ団）はここを通す。
+   * スタミナが足りなければ、そのことを ことばで知らせて始めない。
+   */
+  const requestingRef = useRef(false);
+  const startBattle = useCallback((setup: BattleSetup) => {
+    if (!onRequestBattle) { setBattle(setup); return; }
+    if (requestingRef.current) return;
+    requestingRef.current = true;
+    void onRequestBattle(setup.kind).then((r) => {
+      requestingRef.current = false;
+      if (r.ok) setBattle(setup);
+      else setDialogue({ speaker: 'スタミナ', lines: [r.message ?? 'スタミナが たりないよ'], onDone: () => setDialogue(null) });
+    });
+  }, [onRequestBattle]);
   const [nearNpc, setNearNpc] = useState<FieldNpcDef | null>(null);
   /** テキトウ団の下っ端。フィールドに1体だけ、時間経過でランダムに現れて追ってくる。 */
   const [ambush, setAmbush] = useState<{ id: string; sprite: string; x: number; z: number } | null>(null);
@@ -185,7 +205,7 @@ const AdventureMode: React.FC<Props> = ({
         store.setTown(open.id);
         setDialogue({
           lines: [
-            'この町は、まだ 先生が ひらいていないみたい。',
+            'この町は、まだ ひらいていないみたい。単元の アプリで がんばると ひらくよ。',
             `${open.name} に もどってきたよ。`,
           ],
           accent: '#f59e0b',
@@ -322,7 +342,7 @@ const AdventureMode: React.FC<Props> = ({
       ],
       onDone: () => {
         setDialogue(null);
-        setBattle({
+        startBattle({
           kind: 'legend-wild',
           trainerName: legend.name,
           opponents: [{ defId: legend.id, level: legend.level }],
@@ -373,7 +393,7 @@ const AdventureMode: React.FC<Props> = ({
       lines: AMBUSH_LINES.encounter,
       onDone: () => {
         setDialogue(null);
-        setBattle({
+        startBattle({
           kind: 'ambush',
           trainerName: TEAM_MEMBERS.grunt.name,
           trainerSprite: grunt.sprite,
@@ -411,7 +431,7 @@ const AdventureMode: React.FC<Props> = ({
     if (pool.length === 0) return;
     const def = pool[Math.floor(Math.random() * pool.length)];
     const level = scaledOpponentLevel(save, Math.max(2, town.wildLevel + Math.floor(Math.random() * 3) - 1));
-    setBattle({
+    startBattle({
       kind: 'wild',
       opponents: [{ defId: def.id, level }],
       questionsPerOpponent: isSlowGuidedSubtopic(def.subtopic) ? 2 : 3 + Math.floor(Math.random() * 3),  // 3〜5問(重い筆算単元は2問)
@@ -489,7 +509,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: [...legend.legendText, ...legend.awakenText],
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'legend',
             trainerName: legend.name,
             opponents: [{ defId: legend.id, level: legend.level }],
@@ -528,7 +548,7 @@ const AdventureMode: React.FC<Props> = ({
           lines: rescue.intro,
           onDone: () => {
             setDialogue(null);
-            setBattle({
+            startBattle({
               kind: 'ambush',
               isRescue: true,
               trainerName: npc.name,
@@ -554,7 +574,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: chapter.lines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'team',
             trainerName: member.name,
             trainerSprite: member.sprite,
@@ -584,7 +604,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: e.lines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'elite',
             trainerName: e.name,
             trainerSprite: e.sprite,
@@ -611,7 +631,7 @@ const AdventureMode: React.FC<Props> = ({
           : CHAMPION.lines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'champion',
             trainerName: CHAMPION.name,
             trainerSprite: CHAMPION.sprite,
@@ -663,7 +683,7 @@ const AdventureMode: React.FC<Props> = ({
       lines: npc.lines,
       onDone: () => {
         setDialogue(null);
-        setBattle({
+        startBattle({
           kind: npc.kind === 'master' ? 'master' : 'trainer',
           trainerName: npc.name,
           trainerSprite: npc.sprite,
@@ -712,7 +732,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: TEAM_HIDEOUT.guardLines[key] ?? [],
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'team',
             trainerName: member.name,
             trainerSprite: member.sprite,
@@ -731,7 +751,7 @@ const AdventureMode: React.FC<Props> = ({
         lines: TEAM_HIDEOUT.bossLines,
         onDone: () => {
           setDialogue(null);
-          setBattle({
+          startBattle({
             kind: 'team',
             trainerName: boss.name,
             trainerSprite: boss.sprite,
@@ -888,7 +908,7 @@ const AdventureMode: React.FC<Props> = ({
           `${BADGE_NAMES[setup.townId] ?? 'バッジ'} を 手に入れた！`,
           `これで バッジは ${new Set([...save.badges, setup.townId]).size} こ。`,
           ...(new Set([...save.badges, setup.townId]).size >= TOWNS.length
-            ? ['14この バッジが そろった！ ナンバーリーグへ 行こう！']
+            ? [`${TOWNS.length}この バッジが そろった！ ナンバーリーグへ 行こう！`]
             : []),
         ],
         onDone: () => setDialogue(null),
@@ -1163,7 +1183,7 @@ const AdventureMode: React.FC<Props> = ({
           <p className="text-lg sm:text-xl font-black text-slate-800 leading-none">{town.name}</p>
           <p className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5">{town.unit}</p>
           <div className="mt-1.5 flex items-center gap-2">
-            <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/14</span>
+            <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/{TOWNS.length}</span>
             <span className="text-xs font-black text-slate-600">⚪ {save.items.ball ?? 0}</span>
             <span className="text-xs font-black text-amber-600">MP {mathPoints}</span>
             {(save.items.teamshard ?? 0) > 0 && (

@@ -6,6 +6,7 @@
  * あまりのある答えは「24あまり3」形式(キーパッドに「あまり」キー)。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { toGuidedRetryHint } from '../utils/toGuidedRetryHint';
 
 interface TextExtra {
@@ -887,40 +888,41 @@ const bunshouWarizan2: Problem[] = [
 ];
 
 export const division1Problems: Record<string, Problem[]> = {
-  '九九のはんい': mentalBasic.map(toGuidedRetryHint),
-  'あまりのあるわり算': mentalRem.map(toGuidedRetryHint),
-  '何十のわり算': mentalTens.map(toGuidedRetryHint),
-  '何百のわり算': mentalHundreds.map(toGuidedRetryHint),
+  '九九のはんい': [...mentalBasic.map(toGuidedRetryHint), ...appRound('hissan', 'mental-basic', '九九のはんい', 3)],
+  'あまりのあるわり算': [...mentalRem.map(toGuidedRetryHint), ...appRound('hissan', 'mental-rem', 'あまりのあるわり算', 3)],
+  '何十のわり算': [...mentalTens.map(toGuidedRetryHint), ...appRound('hissan', 'mental-tens', '何十のわり算', 3)],
+  '何百のわり算': [...mentalHundreds.map(toGuidedRetryHint), ...appRound('hissan', 'mental-hundreds', '何百のわり算', 3)],
   '2けた÷1けた': hissan21,
   '3けた÷1けた': hissan31,
   '商に0がたつわり算': shouNiZero,
-  '何十÷何十': rulesTens.map(toGuidedRetryHint),
-  '何百÷何百': rulesHundreds.map(toGuidedRetryHint),
-  'あまりにちゅうい': rulesRem.map(toGuidedRetryHint),
-  'くふうして筆算': rulesKufu.map(toGuidedRetryHint),
-  'あまりのわなを見ぬけ': rulesTrap.map(toGuidedRetryHint),
-  '商が等しい式をさがせ': rulesEqual.map(toGuidedRetryHint),
-  '□にあてはまる数(わり算)': rulesBlank.map(toGuidedRetryHint),
-  'わりきれるとき': checkNodiv.map(toGuidedRetryHint),
-  'あまりのあるとき': checkRem.map(toGuidedRetryHint),
-  '大きな数でちょうせん': checkBig.map(toGuidedRetryHint),
-  'けん算の式を書く': checkShiki.map(toGuidedRetryHint),
-  'ある数をもとめる': checkFindnum.map(toGuidedRetryHint),
-  '同じ数ずつ分ける': wpShare.map(toGuidedRetryHint),
-  'いくつ分とれる': wpGroup.map(toGuidedRetryHint),
-  'あまりのあるもんだい': wpRem.map(toGuidedRetryHint),
-  'あまりを切り上げる': wpUp.map(toGuidedRetryHint),
-  'あまりを切り捨てる': wpDown.map(toGuidedRetryHint),
+  '何十÷何十': [...rulesTens.map(toGuidedRetryHint), ...appRound('hissan', 'rules-tens', '何十÷何十', 3)],
+  '何百÷何百': [...rulesHundreds.map(toGuidedRetryHint), ...appRound('hissan', 'rules-hundreds', '何百÷何百', 3)],
+  'あまりにちゅうい': [...rulesRem.map(toGuidedRetryHint), ...appRound('hissan', 'rules-rem', 'あまりにちゅうい', 3)],
+  'くふうして筆算': [...rulesKufu.map(toGuidedRetryHint), ...appRound('hissan', 'rules-kufu', 'くふうして筆算', 3)],
+  'あまりのわなを見ぬけ': [...rulesTrap.map(toGuidedRetryHint), ...appRound('hissan', 'rules-trap', 'あまりのわなを見ぬけ', 3)],
+  '商が等しい式をさがせ': [...rulesEqual.map(toGuidedRetryHint), ...appRound('hissan', 'rules-equal', '商が等しい式をさがせ', 3)],
+  '□にあてはまる数(わり算)': [...rulesBlank.map(toGuidedRetryHint), ...appRound('hissan', 'rules-blank', '□にあてはまる数(わり算)', 3)],
+  'わりきれるとき': [...checkNodiv.map(toGuidedRetryHint), ...appRound('hissan', 'check-nodiv', 'わりきれるとき', 3)],
+  'あまりのあるとき': [...checkRem.map(toGuidedRetryHint), ...appRound('hissan', 'check-rem', 'あまりのあるとき', 3)],
+  '大きな数でちょうせん': [...checkBig.map(toGuidedRetryHint), ...appRound('hissan', 'check-big', '大きな数でちょうせん', 3)],
+  'けん算の式を書く': [...checkShiki.map(toGuidedRetryHint), ...appRound('hissan', 'check-shiki', 'けん算の式を書く', 3)],
+  'ある数をもとめる': [...checkFindnum.map(toGuidedRetryHint), ...appRound('hissan', 'check-findnum', 'ある数をもとめる', 3)],
+  '同じ数ずつ分ける': [...wpShare.map(toGuidedRetryHint), ...appRound('hissan', 'wp-share', '同じ数ずつ分ける', 3)],
+  'いくつ分とれる': [...wpGroup.map(toGuidedRetryHint), ...appRound('hissan', 'wp-group', 'いくつ分とれる', 3)],
+  'あまりのあるもんだい': [...wpRem.map(toGuidedRetryHint), ...appRound('hissan', 'wp-rem', 'あまりのあるもんだい', 3)],
+  'あまりを切り上げる': [...wpUp.map(toGuidedRetryHint), ...appRound('hissan', 'wp-up', 'あまりを切り上げる', 3)],
+  'あまりを切り捨てる': [...wpDown.map(toGuidedRetryHint), ...appRound('hissan', 'wp-down', 'あまりを切り捨てる', 3)],
 };
 
 export const division2Problems: Record<string, Problem[]> = {
-  'どの位にたつ': kuraiDochira.map(toGuidedRetryHint),
-  '商は何けた': shouNoKetasu.map(toGuidedRetryHint),
-  '仮の商の見当': kariShouKentou.map(toGuidedRetryHint),
-  '□に入る数字は': wakuShisuu.map(toGuidedRetryHint),
+  'どの位にたつ': [...kuraiDochira.map(toGuidedRetryHint), ...appRound('hissan', 'est-place', 'どの位にたつ', 3)],
+  '商は何けた': [...shouNoKetasu.map(toGuidedRetryHint), ...appRound('hissan', 'est-digits', '商は何けた', 3)],
+  '仮の商の見当': [...kariShouKentou.map(toGuidedRetryHint), ...appRound('hissan', 'est-round', '仮の商の見当', 3)],
+  '□に入る数字は': [...wakuShisuu.map(toGuidedRetryHint), ...appRound('hissan', 'est-cond', '□に入る数字は', 3)],
   '2けた÷2けた': hissan22,
   '3けた÷2けた': hissan32,
   '仮の商の修正': shouShuusei.map(toGuidedRetryHint),
-  '何倍かをもとめる(わり算)': wpTimes.map(toGuidedRetryHint),
-  '大きな数のもんだい': bunshouWarizan2.map(toGuidedRetryHint),
+  '何倍かをもとめる(わり算)': [...wpTimes.map(toGuidedRetryHint), ...appRound('hissan', 'wp-times', '何倍かをもとめる(わり算)', 3)],
+  '大きな数のもんだい': [...bunshouWarizan2.map(toGuidedRetryHint), ...appRound('hissan', 'wp-big', '大きな数のもんだい', 3)],
+  'わり算のまちがい探し': appRound('hissan', 'error', 'わり算のまちがい探し'),
 };

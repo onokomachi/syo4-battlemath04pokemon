@@ -12,6 +12,7 @@ import { MONSTER_ROSTER, type RosterRow } from './monsterRoster';
 import { EVOLUTION_BY_SUBTOPIC } from './evolutions';
 import { ALL_LEGENDS } from './legends';
 import type { AbilityId, ArtTier, MonsterDef } from './adventureTypes';
+import { LEGACY_DEX_ORDER, ADDED_DEX_ORDER } from './legacyDex';
 
 const ABILITY_ORDER: AbilityId[] = ['hint', 'power', 'guard', 'lucky', 'heal', 'first'];
 
@@ -38,15 +39,21 @@ const ROSTER_BY_SUBTOPIC: Record<string, RosterRow> = (() => {
  * ロスターに無いサブトピックが出てきても落ちないよう、名前と説明は
  * 自動生成でうめる(問題を追加したときに図鑑が壊れないようにするため)。
  */
+const LEGACY_NO: Record<string, number> = Object.fromEntries(
+  [...LEGACY_DEX_ORDER, ...ADDED_DEX_ORDER].map((t, i) => [t, i + 1]),
+);
+
 const buildDex = (): MonsterDef[] => {
   const list: MonsterDef[] = [];
-  let no = 0;
+  // 図鑑番号は legacyDex.ts の名簿で決まる（はじめの151体＋あとから足した順）。単元の途中に足しても、
+  // 前からの絵とつかまえた記録がずれないように。名簿に無いものは その後ろに仮に振る
+  let nextNo = LEGACY_DEX_ORDER.length + ADDED_DEX_ORDER.length;
 
   for (const category of MATH_CATEGORIES) {
     const type: ElementId = UNIT_TO_ELEMENT[category.name] ?? 'kazu';
     for (const group of category.groups) {
       for (const subtopic of group.subtopics) {
-        no += 1;
+        const no = LEGACY_NO[subtopic] ?? ++nextNo;
         const row = ROSTER_BY_SUBTOPIC[subtopic];
         const difficulty = difficultyMap[subtopic] ?? 2;
         const tier = tierOf(difficulty);
@@ -100,6 +107,8 @@ const BOSS_ROWS: Array<[string, string, string, string, ArtTier]> = [
   ['変わり方調べ', 'トキメクリ', 'a violet clock-tower owl spirit with slowly turning gear rings around it', '時計塔のぬし。2つの数のかんけいを時をこえて見せる。', 'knight'],
   ['直方体と立方体', 'キューブロス', 'an ancient golden cube-sphinx of carved sandstone with glowing edges', '砂漠の遺跡を守る立方体の番人。展開すると地図になる。', 'knight'],
   ['倍の見方', 'バイジュノキ', 'a colossal green ancient tree dragon with glowing growth rings and vast roots', '巨大樹の森のぬし。何ばいにでも大きくなれるという。', 'dragon'],
+  // ↓ 2026-10 に足した町のボス。ボスの番号（boss-NNN＝絵のファイル名）がずれないよう、いつも いちばん後ろに足す
+  ['垂直・平行と四角形', 'パラレオン', 'a grand white stone guardian golem with perfectly parallel pillar arms and a right-angle crest', '台地の道を すべて 垂直と平行に しいた、石の守り手。', 'knight'],
 ];
 
 const buildBosses = (): MonsterDef[] =>

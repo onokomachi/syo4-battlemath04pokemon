@@ -6,12 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "platform": "learning-app-kit-platform check",
+    "prebuild": "npm run platform",
+    "check": "npm run platform && npx tsc --noEmit && node scripts/verify-app-rounds.mjs && npm run build && node scripts/audit-problems.mjs",
+    "sync-apps": "node scripts/sync-app-sources.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
-    "firebase": "^12.2.1",
+    "@supabase/realtime-js": "2.116.0",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
+    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/f82d0b6be92aee5806550b8058a33551983f66f8.tar.gz",
+    "lucide-react": "^1.61.0",
+    "motion": "^14.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0",
@@ -29,5 +38,8 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.3.5"
+  },
+  "learningApp": {
+    "family": "standalone"
   }
 }

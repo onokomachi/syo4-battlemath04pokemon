@@ -13,6 +13,7 @@ import GuidedRetryHintEngine from './GuidedRetryHintEngine';
 import DivisionErrorHunter from './DivisionErrorHunter';
 import DecimalColumnCalculator from './DecimalColumnCalculator';
 import MultiplicationColumnSimulator from './MultiplicationColumnSimulator';
+import AppRoundHost from './AppRoundHost';
 
 interface Props {
   problem: Problem;
@@ -32,6 +33,8 @@ const GuidedAnswerHost: React.FC<Props> = ({ problem, onComplete }) => {
       return <DecimalColumnCalculator data={data} onComplete={onComplete} />;
     case 'multiplication-hissan':
       return <MultiplicationColumnSimulator data={data} onComplete={onComplete} />;
+    case 'app-round':
+      return <AppRoundHost data={data} onComplete={onComplete} />;
     case 'retry-hint':
       return <GuidedRetryHintEngine data={data} onComplete={onComplete} />;
     default:

@@ -14,12 +14,12 @@ import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect,
   getRedirectResult, signOut,
   type User
-} from 'firebase/auth';
+} from './services/firebaseOff';
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, increment,
   collection, onSnapshot, query, serverTimestamp,
   runTransaction, where,
-} from 'firebase/firestore';
+} from './services/firebaseOff';
 import { auth, db, googleProvider } from './firebase';
 import type { GameState, Room, BattleMode, BattleFormat, StudentProfile } from './types';
 import {
@@ -33,7 +33,10 @@ import PracticeMode from './components/PracticeMode';
 import LevelUpModal from './components/LevelUpModal';
 import AdminPasswordModal from './components/AdminPasswordModal';
 import GravityBackground from './components/GravityBackground';
-import LoginScreen from './components/LoginScreen';
+import PortalLoginScreen from './components/PortalLoginScreen';
+import PortalStatusBar from './components/PortalStatusBar';
+import { useSanmonPortal } from './hooks/useSanmonPortal';
+import { syncLearningToPortal, pushSave, pullSaveIfNewer } from './services/portal';
 import Matchmaking from './components/Matchmaking';
 import GameMaster from './components/GameMaster';
 import QuestPanel from './components/QuestPanel';
@@ -41,7 +44,7 @@ import BadgeNotification from './components/BadgeNotification';
 import LoginBonusModal, { getLoginReward } from './components/LoginBonusModal';
 import ClassBattleBoard from './components/ClassBattleBoard';
 import { checkAnswer } from './utils/answerChecker';
-import { recordProblemLog, type TestBests } from './services/learningLogService';
+import { recordProblemLog, setLearningLogListener, type TestBests } from './services/learningLogService';
 import { fetchLockedUnits } from './services/unitLockService';
 import { fetchAdminEmails } from './services/adminAccessService';
 import { getEquippedBackground, setEquippedBackground, badgeRatio, isBackgroundUnlocked, type BackgroundId } from './utils/backgroundUnlock';
@@ -50,7 +53,7 @@ import MockTestMode from './components/MockTestMode';
 import LearningLogScreen from './components/LearningLogScreen';
 import {
   SPEED_DUEL_TIME_LIMIT_SEC, SPEED_DUEL_COUNTDOWN_MS, SPEED_CPU,
-  speedCpuAccuracy, SPEED_DUEL_REWARDS,
+  speedCpuAccuracy, SPEED_DUEL_REWARDS, CLASS_DUEL_MP_PER_CORRECT,
 } from './constants/gameBalance';
 import { addIncorrectToSrs, getDueCount } from './services/spacedRepetitionService';
 import { recordAttempt, getCategoryWeights } from './services/weaknessAnalysisService';
@@ -74,6 +77,8 @@ import {
 // 3Dアドベンチャーは three.js を含み重いので、選ばれたときだけ読みこむ
 // (練習モードしか使わない児童の初期読み込みを遅くしないため)
 const AdventureMode = lazy(() => import('./components/adventure/AdventureMode'));
+// クラス対戦（Supabase のリアルタイム合図を使う）。開いたときだけ読み込む
+const ClassDuel = lazy(() => import('./components/duel/ClassDuel'));
 
 // 採点は utils/answerChecker.ts に一本化（3Dバトル・スピード対戦・練習モード共通）
 
@@ -153,6 +158,8 @@ const App: React.FC = () => {
   // --- Monster Duel State(スピードデュエルと同じ仕組みに、モンスターの見た目だけを重ねる) ---
   // 選んだモンスターは表示専用。HP・レベル・タイプ相性は勝敗計算に一切使わない。
   const [monsterDuelMyMonsterId, setMonsterDuelMyMonsterId] = useState<string | null>(null);
+  /** クラス対戦に つれていくモンスターと形式 */
+  const [classDuel, setClassDuel] = useState<{ monsterIds: string[]; format: BattleFormat } | null>(null);
   const [monsterDuelOpponentId, setMonsterDuelOpponentId] = useState<string | null>(null);
   const [speedProblems, setSpeedProblems] = useState<SpeedProblem[]>([]);
   const [speedRound, setSpeedRound] = useState(1);
@@ -198,6 +205,32 @@ const App: React.FC = () => {
   // 合わせる機能なので、クラスに属さないおためしプレイでは全ステージを開放する。
   const EMPTY_LOCKED_UNITS = useMemo(() => new Set<string>(), []);
   const effectiveLockedUnits = user ? lockedUnits : EMPTY_LOCKED_UNITS;
+
+  // --- 学級ポータル（名乗り・町の解放・スタミナ・記録・セーブデータ） ---
+  // 町（ぼうけん・スピードデュエル）は、単元アプリで がんばると開く（learning-app-kit/sanmon）。
+  // れんしゅう・ふくしゅう・本番テストは 学習そのものなので、町が開いていなくても使える。
+  const portal = useSanmonPortal();
+  const requestBattle = portal.spendForBattle;
+  const [portalNotice, setPortalNotice] = useState<string | null>(null);
+  useEffect(() => {
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    setLearningLogListener(() => {
+      syncLearningToPortal();
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { void pushSave(); }, 10000);
+    });
+    syncLearningToPortal(500);
+    const onHide = () => { if (document.hidden) { syncLearningToPortal(0); void pushSave(); } };
+    document.addEventListener('visibilitychange', onHide);
+    const iv = setInterval(() => { void pushSave(); }, 60000);
+    return () => { setLearningLogListener(null); document.removeEventListener('visibilitychange', onHide); clearInterval(iv); if (saveTimer) clearTimeout(saveTimer); };
+  }, []);
+  // 名乗りが決まったら：別の端末で遊んだ続きがあれば取りこむ（取りこんだら読みなおす）。たまっていた記録も送る
+  useEffect(() => {
+    if (!portal.student) return;
+    void pullSaveIfNewer().then((pulled) => { if (pulled) window.location.reload(); else void pushSave(); });
+    syncLearningToPortal(500);
+  }, [portal.student?.studentId]);
 
   // --- 追加された管理者(先生が管理画面から追加・削除。固定のADMIN_EMAILSに加算) ---
   const [firestoreAdminEmails, setFirestoreAdminEmails] = useState<string[]>([]);
@@ -901,16 +934,8 @@ const App: React.FC = () => {
     return () => { if (speedCpuTimerRef.current) clearTimeout(speedCpuTimerRef.current); };
   }, [gameState, speedPhase, speedRound, gameMode, speedProblems, userLevelStats]);
 
-  const handleSpeedAnswer = useCallback(async (answer: string) => {
-    if (speedPhase !== 'answering' || speedPlayerAnswered) return;
-    const problem = speedProblems[speedRound - 1];
-    if (!problem) return;
-
-    setSpeedPlayerAnswered(true);
-
-    // Check correctness (カードバトルと同一の採点ロジック)
-    const isCorrect = checkAnswer(answer, problem.answer, { multiple: !!(problem.data as any)?.multiple, requireForm: (problem.data as any)?.requireForm });
-
+  // 早押し対戦（CPU のスピードデュエル・クラス対戦）で1問答えたときの学習の記録。どちらの対戦も同じ記録にする
+  const recordDuelLearning = useCallback((problem: SpeedProblem, answer: string, isCorrect: boolean) => {
     // ゲーミフィケーション統合: チェイン・バッジ・クエスト・セッション統計
     recordAnswerOutcome(isCorrect);
     // 学習記録: 弱点分析と間隔反復(SRS)はカードバトル・練習モードと同様に蓄積する
@@ -934,6 +959,19 @@ const App: React.FC = () => {
       userAnswer: answer,
       correct: isCorrect,
     });
+  }, [recordAnswerOutcome]);
+
+  const handleSpeedAnswer = useCallback(async (answer: string) => {
+    if (speedPhase !== 'answering' || speedPlayerAnswered) return;
+    const problem = speedProblems[speedRound - 1];
+    if (!problem) return;
+
+    setSpeedPlayerAnswered(true);
+
+    // Check correctness (カードバトルと同一の採点ロジック)
+    const isCorrect = checkAnswer(answer, problem.answer, { multiple: !!(problem.data as any)?.multiple, requireForm: (problem.data as any)?.requireForm });
+
+    recordDuelLearning(problem, answer, isCorrect);
 
     if (gameMode === 'pvp' && currentRoomId && db) {
       // PvP: write answer to Firestore, use transaction for atomicity
@@ -972,7 +1010,7 @@ const App: React.FC = () => {
       setSpeedPhase('round_result');
     }
     // If wrong, player can't retry - wait for CPU or timeout
-  }, [speedPhase, speedPlayerAnswered, speedProblems, speedRound, recordAnswerOutcome, gameMode, currentRoomId, db]);
+  }, [speedPhase, speedPlayerAnswered, speedProblems, speedRound, recordDuelLearning, gameMode, currentRoomId, db]);
 
   const handleSpeedNextRound = useCallback(() => {
     const required = getSpeedRequiredWins(battleFormat);
@@ -1056,6 +1094,17 @@ const App: React.FC = () => {
     if (gameMode === 'pvp') handleQuestProgress('pvp_match');
     flushSessionData().catch(() => {});
   }, [speedPhase, speedGameResult, gameMode, addExp, addBoostedMp, incrementTotalWins, saveUserToFirestore, handleQuestProgress, flushSessionData]);
+
+  // クラス対戦のごほうび（対戦が終わったとき1回だけ）。勝ち負けのごほうび＋せいかい1問ごとの MP（負けても もらえる）
+  const finishClassDuel = useCallback((result: 'win' | 'lose' | 'draw', myCorrect: number) => {
+    const reward = SPEED_DUEL_REWARDS[result];
+    addExp(reward.exp);
+    const mp = reward.mp + myCorrect * CLASS_DUEL_MP_PER_CORRECT;
+    if (mp > 0) addBoostedMp(mp);
+    if (result === 'win') incrementTotalWins();
+    handleQuestProgress('pvp_match');
+    flushSessionData().catch(() => {});
+  }, [addExp, addBoostedMp, incrementTotalWins, handleQuestProgress, flushSessionData]);
 
   // ============================
   // PvP再接続
@@ -1169,21 +1218,13 @@ const App: React.FC = () => {
     switch (gameState) {
       case 'login_screen':
         return (
-          <LoginScreen
-            currentUser={user}
-            onLogin={handleLogin}
-            onGuestPlay={handleGuestPlay}
-            onLogout={handleLogout}
-            onOpenGameMaster={handleOpenGameMaster}
-            mathPoints={mathPoints}
-            playerLevel={playerLevel}
-            studentProfile={studentProfile}
-            onStudentProfileSet={handleStudentProfileSet}
-          />
+          <PortalLoginScreen portal={portal} onStart={handleGuestPlay} />
         );
 
       case 'main_menu':
         return (
+          <>
+          <PortalStatusBar portal={portal} />
           <MainMenu
             onSelectMode={mode => setGameState(mode)}
             playerLevel={playerLevel}
@@ -1191,12 +1232,10 @@ const App: React.FC = () => {
             expForNextLevel={expForNextLevel(playerLevel)}
             user={user}
             mathPoints={mathPoints}
-            onLogout={handleLogout}
             loginStreak={loginStreak}
             onOpenQuests={() => setShowQuestPanel(true)}
             onOpenLoginBonus={() => setShowLoginBonus(true)}
-            canAccessGameMaster={canAccessGameMaster}
-            onOpenGameMaster={handleOpenGameMaster}
+            canAccessGameMaster={false}
             dailyQuestDefs={DAILY_QUEST_DEFS}
             dailyQuestProgress={dailyQuestProgress}
             dailyQuestDone={dailyQuestDone}
@@ -1207,14 +1246,16 @@ const App: React.FC = () => {
             onOpenItemShop={() => setShowItemShop(true)}
             equippedTitleName={equippedTitle ? (TITLE_DEFS.find(t => t.id === equippedTitle)?.name || SHOP_ITEMS.find(i => i.id === equippedTitle)?.name || null) : null}
           />
+          </>
         );
 
       case 'adventure':
         return (
           <Suspense fallback={<AdventureLoading />}>
           <AdventureMode
-            onExit={() => { flushSessionData().catch(() => {}); setGameState('main_menu'); }}
-            lockedUnits={effectiveLockedUnits}
+            onExit={() => { flushSessionData().catch(() => {}); void portal.refresh(); setGameState('main_menu'); }}
+            lockedUnits={portal.lockedUnitNames}
+            onRequestBattle={requestBattle}
             mathPoints={mathPoints}
             onAddMathPoints={n => addMathPoints(n)}
             onSpendMathPoints={n => {
@@ -1284,11 +1325,14 @@ const App: React.FC = () => {
         return (
           <SpeedDuelSetup
             onStart={(categories, format, mode) => {
-              startSpeedDuel(categories, format, mode, 'speed_duel');
+              void requestBattle('speed_duel').then((r) => {
+                if (r.ok) startSpeedDuel(categories, format, mode, 'speed_duel');
+                else setPortalNotice(r.message ?? 'スタミナが たりないよ');
+              });
             }}
             onBack={() => setGameState('main_menu')}
             isLoggedIn={!!user}
-            lockedUnits={effectiveLockedUnits}
+            lockedUnits={portal.lockedUnitNames}
           />
         );
 
@@ -1300,12 +1344,37 @@ const App: React.FC = () => {
                 monsterDefIds.map(id => getMonster(id)?.subtopic).filter((s): s is string => !!s),
               ));
               setMonsterDuelMyMonsterId(monsterDefIds[0] ?? null);
-              startSpeedDuel(subtopics, format, mode, 'monster_duel');
+              if (mode === 'pvp') {
+                // クラス対戦: スタミナは へやに入ったときにサーバが2人ぶん使う
+                setClassDuel({ monsterIds: monsterDefIds, format });
+                setGameState('class_duel');
+                return;
+              }
+              void requestBattle('monster_duel').then((r) => {
+                if (r.ok) startSpeedDuel(subtopics, format, mode, 'monster_duel');
+                else setPortalNotice(r.message ?? 'スタミナが たりないよ');
+              });
             }}
             onBack={() => setGameState('main_menu')}
-            isLoggedIn={!!user}
+            pvpReady={!!portal.student}
           />
         );
+
+      case 'class_duel':
+        return portal.student && classDuel ? (
+          <Suspense fallback={<AdventureLoading />}>
+            <ClassDuel
+              studentId={portal.student.studentId}
+              myNumber={portal.student.number}
+              monsterIds={classDuel.monsterIds}
+              format={classDuel.format}
+              onExit={() => { void portal.refresh(); setGameState('monster_duel_setup'); }}
+              onRecord={recordDuelLearning}
+              onFinish={finishClassDuel}
+              onStaminaChanged={() => { void portal.refresh(); }}
+            />
+          </Suspense>
+        ) : null;
 
       case 'speed_duel': {
         const playerMonsterDef = battleType === 'monster_duel' && monsterDuelMyMonsterId
@@ -1438,6 +1507,16 @@ const App: React.FC = () => {
                   破棄（投了）
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+        {/* スタミナが足りない などの お知らせ（window.alert は一部の端末で出ないので アプリ内で出す） */}
+        {portalNotice && (
+          <div className="fixed inset-0 z-[300] bg-black/60 flex items-center justify-center p-6" onClick={() => setPortalNotice(null)}>
+            <div className="hud-panel rounded-2xl p-6 max-w-sm w-full text-center text-white" onClick={(e) => e.stopPropagation()}>
+              <p className="text-3xl mb-2">⚡</p>
+              <p className="font-bold leading-relaxed mb-4">{portalNotice}</p>
+              <button onClick={() => setPortalNotice(null)} className="w-full btn-tactical py-3 rounded-xl font-bold">とじる</button>
             </div>
           </div>
         )}

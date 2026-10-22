@@ -14,6 +14,7 @@
  * CARD_DEFINITIONS が一致することを保証する。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { numberLineSvg, stackedNumberLinesSvg, literSvg, tapeSvg } from '../utils/fractionSvg';
 
 interface TextExtra {
@@ -827,52 +828,59 @@ const seisuNiNaru: Problem[] = [
 
 export const fractionBasicsProblems: Record<string, Problem[]> = {
   '分数のよみかき': yomikaki,
-  '単位分数のいくつ分': ikutsubun,
+  '単位分数のいくつ分': [...ikutsubun, ...appRound('bunsuu4', 'unit', '単位分数のいくつ分', 3)],
   '1をつくる分数': ichiWoTsukuru,
   'たし算のふくしゅう': tashizanFukushu,
   'ひき算のふくしゅう': hikizanFukushu,
 };
 
 export const fractionKindsProblems: Record<string, Problem[]> = {
-  '真分数・仮分数・帯分数': nakamawake,
+  '真分数・仮分数・帯分数': [...nakamawake, ...appRound('bunsuu4', 'kind', '真分数・仮分数・帯分数', 3)],
   '帯分数のよみとり': taibunsuYomitori,
   '数直線をよむ(1まで)': suuchokusenYomu1,
-  '数直線をよむ(1より大きい)': suuchokusenYomu2,
+  '数直線をよむ(1より大きい)': [...suuchokusenYomu2, ...appRound('bunsuu4', 'line', '数直線をよむ(1より大きい)', 3)],
 };
 
 export const fractionConversionProblems: Record<string, Problem[]> = {
   '仮分数を帯分数に(基本)': kaToTaiKihon,
-  '仮分数を帯分数に(標準)': kaToTaiHyojun,
+  '仮分数を帯分数に(標準)': [...kaToTaiHyojun, ...appRound('bunsuu4', 'toMixed', '仮分数を帯分数に(標準)', 3)],
   '仮分数と整数': kaToSeisu,
   '帯分数を仮分数に(基本)': taiToKaKihon,
-  '帯分数を仮分数に(標準)': taiToKaHyojun,
+  '帯分数を仮分数に(標準)': [...taiToKaHyojun, ...appRound('bunsuu4', 'toImp', '帯分数を仮分数に(標準)', 3)],
 };
 
 export const fractionSizeProblems: Record<string, Problem[]> = {
-  '同じ分母の大小': onajiBunboDaisho,
+  '同じ分母の大小': [...onajiBunboDaisho, ...appRound('bunsuu4', 'cmpSame', '同じ分母の大小', 3)],
   '仮分数と帯分数の大小': kaTaiDaisho,
   '単位分数の大小': tanniBunsuDaisho,
-  '等しい分数(数直線)': hitoshiiBunsu,
+  '等しい分数(数直線)': [...hitoshiiBunsu, ...appRound('bunsuu4', 'eqLine', '等しい分数(数直線)', 3)],
 };
 
 export const fractionAdditionProblems: Record<string, Problem[]> = {
-  '和が1をこえるたし算': waGa1Koeru,
-  '和が整数になるたし算': waGaSeisu,
+  '和が1をこえるたし算': [...waGa1Koeru, ...appRound('bunsuu4', 'addBasic', '和が1をこえるたし算', 3)],
+  '和が整数になるたし算': [...waGaSeisu, ...appRound('bunsuu4', 'addOne', '和が整数になるたし算', 3)],
   '帯分数+真分数': taiPlusShin,
-  '帯分数+帯分数': taiPlusTai,
-  'くり上がりのあるたし算': kuriagariTashizan,
+  '帯分数+帯分数': [...taiPlusTai, ...appRound('bunsuu4', 'addMixed', '帯分数+帯分数', 3)],
+  'くり上がりのあるたし算': [...kuriagariTashizan, ...appRound('bunsuu4', 'addCarry', 'くり上がりのあるたし算', 3)],
 };
 
 export const fractionSubtractionProblems: Record<string, Problem[]> = {
-  '1や整数からひく': seisuKaraHiku,
-  '帯分数−真分数': taiMinusShin,
-  'くり下がりのあるひき算': kurisagariHikizan,
-  '仮分数のひき算': kabunsuHikizan,
+  '1や整数からひく': [...seisuKaraHiku, ...appRound('bunsuu4', 'subFrom', '1や整数からひく', 3)],
+  '帯分数−真分数': [...taiMinusShin, ...appRound('bunsuu4', 'subMixed', '帯分数−真分数', 3)],
+  'くり下がりのあるひき算': [...kurisagariHikizan, ...appRound('bunsuu4', 'subBorrow', 'くり下がりのあるひき算', 3)],
+  '仮分数のひき算': [...kabunsuHikizan, ...appRound('bunsuu4', 'subBasic', '仮分数のひき算', 3)],
 };
 
 export const fractionApplicationProblems: Record<string, Problem[]> = {
-  'たし算の文しょうだい': tashizanBunsho,
-  'ひき算の文しょうだい': hikizanBunsho,
-  'まちがい探し': machigaiSagashi,
+  'たし算の文しょうだい': [...tashizanBunsho, ...appRound('bunsuu4', 'wpAdd', 'たし算の文しょうだい', 3)],
+  'ひき算の文しょうだい': [...hikizanBunsho, ...appRound('bunsuu4', 'wpSub', 'ひき算の文しょうだい', 3)],
+  'まちがい探し': [...machigaiSagashi, ...appRound('bunsuu4', 'error', 'まちがい探し', 3)],
   '整数になる分数': seisuNiNaru,
+  // ↓ アプリ（bunsuu4）の まとまりごとに足したモンスター。問題は アプリと同じ画面で出す
+  '分数を図であらわそう': appRound('bunsuu4', 'figure', '分数を図であらわそう'),
+  'わり算で帯分数に': appRound('bunsuu4', 'divMixed', 'わり算で帯分数に'),
+  '等しい分数を見つけよう': appRound('bunsuu4', 'equiv', '等しい分数を見つけよう'),
+  '分子が同じ分数の大小': appRound('bunsuu4', 'cmpNum', '分子が同じ分数の大小'),
+  '整数と帯分数の計算': appRound('bunsuu4', 'whole', '整数と帯分数の計算'),
+  'どこまで進んだ？': appRound('bunsuu4', 'prog', 'どこまで進んだ？'),
 };

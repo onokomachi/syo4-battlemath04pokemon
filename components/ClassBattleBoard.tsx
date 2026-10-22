@@ -13,7 +13,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   collection, getDocs, doc, getDoc, setDoc, query, where, type Firestore,
-} from 'firebase/firestore';
+} from '../services/firebaseOff';
 import { getCurrentSchoolYear, SCHOOL_NAME } from '../constants';
 
 interface SchoolStats {

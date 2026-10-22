@@ -6,7 +6,7 @@
  * （既存ユーザーのデータを維持）。
  */
 import { create } from 'zustand';
-import { doc, getDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, arrayUnion } from '../services/firebaseOff';
 import { db } from '../firebase';
 import type { ProblemCard, BadgeDef, ActiveBooster, ShopItemDef } from '../types';
 import {

@@ -5,6 +5,7 @@
  * 「もとにする量を1とみる」見方をテープ図SVGで足場掛けする。
  */
 import type { Problem } from '../types';
+import { appRound } from './appRounds';
 import { toGuidedRetryHint } from '../utils/toGuidedRetryHint';
 import { ratioTapeSvg } from '../utils/mathSvg';
 
@@ -562,17 +563,20 @@ const machigaiNaosou: Problem[] = [
 ];
 
 export const ratioProblems: Record<string, Problem[]> = {
-  '何倍かを求める(きほん)': nanbaiKihon.map(toGuidedRetryHint),
-  '何倍かを求める(大きな数)': nanbaiOoki.map(toGuidedRetryHint),
-  'くらべられる量を求める(きほん)': kuraberareruKihon.map(toGuidedRetryHint),
-  'くらべられる量を求める(大きな数)': kuraberareruOoki.map(toGuidedRetryHint),
-  'もとにする量を求める(きほん)': motonisuruKihon.map(toGuidedRetryHint),
-  'もとにする量を求める(大きな数)': motonisuruOoki.map(toGuidedRetryHint),
-  '割合でくらべる(きほん)': wariaiKihon.map(toGuidedRetryHint),
-  '割合でくらべる(差のわな)': wariaiWana.map(toGuidedRetryHint),
-  '倍の文章題(何倍か)': bunshouTimes.map(toGuidedRetryHint),
-  '倍の文章題(くらべられる量)': bunshouCompare.map(toGuidedRetryHint),
-  '倍の文章題(もとにする量)': bunshouBase.map(toGuidedRetryHint),
-  '倍の文章題(割合でくらべる)': bunshouRatio.map(toGuidedRetryHint),
-  'まちがいをなおそう(倍の見方)': machigaiNaosou.map(toGuidedRetryHint),
+  '何倍かを求める(きほん)': [...nanbaiKihon.map(toGuidedRetryHint), ...appRound('bai', 'times-basic', '何倍かを求める(きほん)', 3)],
+  '何倍かを求める(大きな数)': [...nanbaiOoki.map(toGuidedRetryHint), ...appRound('bai', 'times-big', '何倍かを求める(大きな数)', 3)],
+  'くらべられる量を求める(きほん)': [...kuraberareruKihon.map(toGuidedRetryHint), ...appRound('bai', 'compare-basic', 'くらべられる量を求める(きほん)', 3)],
+  'くらべられる量を求める(大きな数)': [...kuraberareruOoki.map(toGuidedRetryHint), ...appRound('bai', 'compare-big', 'くらべられる量を求める(大きな数)', 3)],
+  'もとにする量を求める(きほん)': [...motonisuruKihon.map(toGuidedRetryHint), ...appRound('bai', 'base-basic', 'もとにする量を求める(きほん)', 3)],
+  'もとにする量を求める(大きな数)': [...motonisuruOoki.map(toGuidedRetryHint), ...appRound('bai', 'base-big', 'もとにする量を求める(大きな数)', 3)],
+  '割合でくらべる(きほん)': [...wariaiKihon.map(toGuidedRetryHint), ...appRound('bai', 'ratio-compare-basic', '割合でくらべる(きほん)', 3)],
+  '割合でくらべる(差のわな)': [...wariaiWana.map(toGuidedRetryHint), ...appRound('bai', 'ratio-compare-diff', '割合でくらべる(差のわな)', 3)],
+  '倍の文章題(何倍か)': [...bunshouTimes.map(toGuidedRetryHint), ...appRound('bai', 'wp-times', '倍の文章題(何倍か)', 3)],
+  '倍の文章題(くらべられる量)': [...bunshouCompare.map(toGuidedRetryHint), ...appRound('bai', 'wp-compare', '倍の文章題(くらべられる量)', 3)],
+  '倍の文章題(もとにする量)': [...bunshouBase.map(toGuidedRetryHint), ...appRound('bai', 'wp-base', '倍の文章題(もとにする量)', 3)],
+  '倍の文章題(割合でくらべる)': [...bunshouRatio.map(toGuidedRetryHint), ...appRound('bai', 'wp-ratio', '倍の文章題(割合でくらべる)', 3)],
+  'まちがいをなおそう(倍の見方)': [...machigaiNaosou.map(toGuidedRetryHint), ...appRound('bai', 'error', 'まちがいをなおそう(倍の見方)', 3)],
+  'テープ図でくらべられる量': appRound('bai', 'kihon-find-compare', 'テープ図でくらべられる量'),
+  'テープ図で何倍か': appRound('bai', 'kihon-find-times', 'テープ図で何倍か'),
+  'テープ図でもとにする量': appRound('bai', 'kihon-find-base', 'テープ図でもとにする量'),
 };

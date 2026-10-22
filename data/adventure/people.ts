@@ -75,6 +75,8 @@ export const NPC_SPRITES: NpcSpriteDef[] = [
   // 作り直すたびに再発した。実際に使っている絵は、元の生成でたまたま
   // 出た緑の着物の女の子(手用意の絵として manual-sprites.json に固定)。
   master('14', 'a girl in a green kimono-style robe with a cord belt'),
+  // 2026-10 に足した町（ヘイコウ台地）のマスター。絵は仮（master-04 の色ちがい）
+  master('15', 'an elderly architect in a white coat holding two large triangle rulers'),
 
   // --- 物語の人物 ---
   { id: 'prof', motif: 'a friendly professor with round glasses, a white lab coat and wild grey hair, holding a clipboard' },

@@ -56,6 +56,10 @@ interface SpeedDuelBoardProps {
   /** モンスター対戦のときだけ渡す。見た目の演出のみで、勝敗には影響しない */
   playerMonster?: DuelMonster | null;
   opponentMonster?: DuelMonster | null;
+  /** 1ラウンドの秒数（時間のバーの長さ）。クラス対戦は45秒 */
+  timeLimit?: number;
+  /** クラス対戦: ラウンドの結果のあと、サーバが決めた時刻に自動で次へ進む（「次のラウンドへ」を出さない） */
+  autoNext?: boolean;
 }
 
 const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
@@ -78,6 +82,8 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
   gameResult,
   playerMonster,
   opponentMonster,
+  timeLimit = 30,
+  autoNext = false,
 }) => {
   const [answer, setAnswer] = useState('');
   const problemViewRef = useRef<ProblemViewRef>(null);
@@ -337,7 +343,7 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
           <div className="w-full bg-slate-800 rounded-full h-2">
             <div
               className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5 ? 'bg-red-500' : timeLeft <= 10 ? 'bg-amber-500' : 'bg-orange-500'}`}
-              style={{ width: `${(timeLeft / 30) * 100}%` }}
+              style={{ width: `${(timeLeft / timeLimit) * 100}%` }}
             />
           </div>
         </div>
@@ -419,12 +425,16 @@ const SpeedDuelBoard: React.FC<SpeedDuelBoardProps> = ({
             <p className="text-lg text-orange-400 font-bold mb-6">
               {playerScore} - {opponentScore}
             </p>
-            <button
-              onClick={onNextRound}
-              className="btn-tactical px-8 py-3 rounded-xl text-sm font-bold"
-            >
-              次のラウンドへ
-            </button>
+            {autoNext ? (
+              <p className="text-sm text-gray-400 font-bold animate-pulse">つぎの もんだいが はじまるよ…</p>
+            ) : (
+              <button
+                onClick={onNextRound}
+                className="btn-tactical px-8 py-3 rounded-xl text-sm font-bold"
+              >
+                次のラウンドへ
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Room, BattleType } from '../types';
-import type { User } from 'firebase/auth';
+import type { User } from '../services/firebaseOff';
 
 interface MatchmakingProps {
   rooms: Room[];
