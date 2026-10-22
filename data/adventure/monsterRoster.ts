@@ -105,6 +105,8 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['仮の商の修正', 'ナオシー', 'a copper clockwork hound turning a correction key on its own shoulder', '大きすぎた商を、けしごむでそっと直してくれる。'],
     ['何倍かをもとめる(わり算)', 'ナンバイ', 'a copper clockwork hound with a telescoping measuring arm', '2つの高さをくらべて、何ばいかを言いあてる。'],
     ['大きな数のもんだい', 'キョダイン', 'a massive copper clockwork hound in heavy plated armor', '大きい数のもんだいほど、目をかがやかせる。'],
+    // ↓ 単元アプリ「わり算の筆算」にそろえて足した1体（2026-10）。絵は仮（色ちがい）
+    ["わり算のまちがい探し", "ワリミケン", "a small stone owl golem holding a magnifying glass over a long division bracket", "筆算の まちがいを、大きな目で 見ぬいてしまう。"],
   ],
 
   'がい数': [

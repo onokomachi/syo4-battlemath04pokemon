@@ -180,6 +180,30 @@
         "lib/sound.ts",
         "store/progressStore.ts"
       ]
+    },
+    "hissan": {
+      "repo": "wari-hissann3",
+      "files": [
+        "lib/problems.ts",
+        "components/shared/AnswerEntry.tsx",
+        "components/shared/Keypad.tsx",
+        "components/shared/QuotRemEntry.tsx",
+        "components/shared/HissanBracket.tsx",
+        "components/modules/MentalModule.tsx",
+        "components/modules/RulesModule.tsx",
+        "components/modules/CheckModule.tsx",
+        "components/modules/EstimateModule.tsx",
+        "components/modules/WordProblemModule.tsx",
+        "components/modules/ErrorHunterModule.tsx"
+      ],
+      "shims": [
+        "components/ui/primitives.tsx",
+        "components/shared/AppShell.tsx",
+        "components/shared/AdaptiveBar.tsx",
+        "lib/useAdaptive.ts",
+        "lib/sound.ts",
+        "store/progressStore.ts"
+      ]
     }
   }
 }
