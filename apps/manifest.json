@@ -93,7 +93,15 @@
         "components/modules/DecimalMulDivModule.tsx",
         "components/modules/WordProblemModule.tsx",
         "components/shared/AnswerEntry.tsx",
-        "components/shared/Keypad.tsx"
+        "components/shared/Keypad.tsx",
+        "lib/numberLine.ts",
+        "lib/placeValue.ts",
+        "lib/errorHunter.ts",
+        "lib/missTags.ts",
+        "components/modules/DecimalAddSubModule.tsx",
+        "components/modules/NumberLineModule.tsx",
+        "components/modules/PlaceValueLab.tsx",
+        "components/modules/ErrorHunterModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",

@@ -93,6 +93,10 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['小数のひき算(空位に注意)', 'クウイン', 'a pale blue jellyfish with one hollow transparent gap in its bell', '体にあいた空っぽの位に、そっと0を入れてあげよう。'],
     ['小数のたし算の文章題', 'タシモン', 'a blue jellyfish trailing two ribbon tentacles joined at the tips', 'お話を読んでから、どこをたすのかを考えるのがすき。'],
     ['小数のひき算の文章題', 'ヒキモン', 'a blue jellyfish with one tentacle noticeably shorter than the others', 'お話のなかの「のこりは？」を見つけるのがとくい。'],
+    // ↓ 単元アプリ「小数のしくみ」にそろえて足した3体（2026-10）。絵は仮（色ちがい）
+    ["小数を分けて表そう", "ブンカイル", "a tiny crystal dragonfly whose wings split into ones, tenths and hundredths panels", "1つの小数を、1と0.1と0.01に きれいに 分けてしまう。"],
+    ["単位をまぜて小数で", "メトログラム", "a small crystal beetle carrying a ruler on one side and a balance scale on the other", "mとkgを 行ったり来たりして、小数に なおしてくれる。"],
+    ["小数のまちがい探し", "テンミスカ", "a misty crystal fox with a glowing decimal point on its forehead", "小数点の ずれを、すぐに かぎつける。"],
   ],
 
   'わり算の筆算(÷2けた)': [
