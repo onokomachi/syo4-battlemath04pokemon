@@ -44,6 +44,7 @@ import BadgeNotification from './components/BadgeNotification';
 import LoginBonusModal, { getLoginReward } from './components/LoginBonusModal';
 import ClassBattleBoard from './components/ClassBattleBoard';
 import { checkAnswer } from './utils/answerChecker';
+import { APP_ROUND_SUBTOPICS, isAppRoundProblem } from './data';
 import { recordProblemLog, setLearningLogListener, type TestBests } from './services/learningLogService';
 import { fetchLockedUnits } from './services/unitLockService';
 import { fetchAdminEmails } from './services/adminAccessService';
@@ -822,7 +823,9 @@ const App: React.FC = () => {
   const generateSpeedProblems = useCallback((subtopics: string[], count: number): SpeedProblem[] => {
     // Support both subtopic names (granular) and main category names (legacy)
     const subtopicSet = new Set(subtopics);
-    const eligible = CARD_DEFINITIONS.filter(c => (subtopicSet.has(c.category) || subtopicSet.has(c.mainCategory)) && !effectiveLockedUnits.has(c.mainCategory));
+    // アプリと同じ答え方の問題があるサブトピックは それだけを出す（ぼうけんと同じ battleProblems の決まり）
+    const eligible = CARD_DEFINITIONS.filter(c => (subtopicSet.has(c.category) || subtopicSet.has(c.mainCategory)) && !effectiveLockedUnits.has(c.mainCategory)
+      && (!APP_ROUND_SUBTOPICS.has(c.category) || isAppRoundProblem(c.problem)));
     const shuffled = shuffleDeck(eligible);
     // 単元・難易度を保持（弱点分析/SRS記録・CPUのDDAに使用）
     return shuffled.slice(0, Math.min(count, shuffled.length))

@@ -42,3 +42,22 @@ export const ALL_PROBLEM_SETS: Record<string, Problem[]> = {
   ...solidProblems,
   ...ratioProblems,
 };
+
+/** アプリと同じ答え方の問題（appRound）か */
+export const isAppRoundProblem = (p: Problem): boolean =>
+  p.type === 'guided' && (p.data as { guidedKind?: string } | undefined)?.guidedKind === 'app-round';
+
+/** アプリと同じ答え方の問題を1つでも持つサブトピック */
+export const APP_ROUND_SUBTOPICS: ReadonlySet<string> = new Set(
+  Object.entries(ALL_PROBLEM_SETS).filter(([, ps]) => ps.some(isAppRoundProblem)).map(([sub]) => sub),
+);
+
+/**
+ * バトル（ぼうけん・スピードデュエル・クラス対戦）で出す問題。
+ * アプリと同じ答え方の問題があるサブトピックは、それだけを出す（2026-10-22 先生の判断。前は SANMON の問題 約30問に3問まざるだけで、
+ * アプリの答え方は1割しか出なかった）。SANMON にしかない問題は、れんしゅう・ふくしゅう・本番テストで出る。
+ */
+export function battleProblems(subtopic: string): Problem[] {
+  const all = ALL_PROBLEM_SETS[subtopic] ?? [];
+  return APP_ROUND_SUBTOPICS.has(subtopic) ? all.filter(isAppRoundProblem) : all;
+}

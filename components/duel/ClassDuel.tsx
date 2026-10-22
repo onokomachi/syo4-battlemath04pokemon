@@ -12,6 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BattleFormat, SpeedProblem } from '../../types';
 import { CARD_DEFINITIONS } from '../../constants';
+import { APP_ROUND_SUBTOPICS, isAppRoundProblem } from '../../data';
 import { getMonster, getMonsterSprite } from '../../data/adventure/monsters';
 import { checkAnswer } from '../../utils/answerChecker';
 import SpeedDuelBoard from '../SpeedDuelBoard';
@@ -50,7 +51,8 @@ const monsterView = (id?: string | null) => {
 
 /** ラウンドの問題（2人が同じものを選ぶ） */
 function problemFor(topic: string, subtopic: string, round: number): SpeedProblem | null {
-  const pool = CARD_DEFINITIONS.filter((c) => c.category === subtopic);
+  // アプリと同じ答え方の問題があれば それだけ（ぼうけんと同じ battleProblems の決まり）
+  const pool = CARD_DEFINITIONS.filter((c) => c.category === subtopic && (!APP_ROUND_SUBTOPICS.has(subtopic) || isAppRoundProblem(c.problem)));
   if (pool.length === 0) return null;
   const card = pool[pickIndex(topic, subtopic, round, pool.length)]!;
   return { ...card.problem, category: card.category, difficulty: card.difficulty };

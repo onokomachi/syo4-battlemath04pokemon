@@ -12,7 +12,7 @@ import type {
 import type { ItemId } from '../../data/adventure/adventureTypes';
 import { TOWNS, SPAWN, BADGE_NAMES, getTown } from '../../data/adventure/towns';
 import { MONSTERS_BY_UNIT, getMonster, getMonsterSprite } from '../../data/adventure/monsters';
-import { ALL_PROBLEM_SETS } from '../../data';
+import { battleProblems } from '../../data';
 import { ELEMENTS } from '../../data/adventure/elements';
 import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure/people';
 import {
@@ -419,7 +419,10 @@ const AdventureMode: React.FC<Props> = ({
   const SLOW_GUIDED_KINDS = new Set(['division-hissan', 'multiplication-hissan', 'decimal-addsub', 'decimal-muldiv']);
   const isSlowGuidedSubtopic = useCallback((subtopic: string | undefined): boolean => {
     if (!subtopic) return false;
-    const guidedKind = (ALL_PROBLEM_SETS[subtopic]?.[0]?.data as { guidedKind?: string } | undefined)?.guidedKind;
+    // バトルで出す問題（アプリと同じ答え方の問題があれば それ）で見る。アプリの筆算シミュレーターも重い
+    const data = battleProblems(subtopic)[0]?.data as { guidedKind?: string; round?: string } | undefined;
+    const guidedKind = data?.guidedKind;
+    if (guidedKind === 'app-round') return /^hissan-/.test(data?.round ?? '');
     return !!guidedKind && SLOW_GUIDED_KINDS.has(guidedKind);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

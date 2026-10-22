@@ -202,7 +202,12 @@
         "components/modules/CheckModule.tsx",
         "components/modules/EstimateModule.tsx",
         "components/modules/WordProblemModule.tsx",
-        "components/modules/ErrorHunterModule.tsx"
+        "components/modules/ErrorHunterModule.tsx",
+        "types.ts",
+        "lib/hissanSteps.ts",
+        "components/ProblemGenerator.ts",
+        "components/DivisionSimulator.tsx",
+        "components/MasterDivisionBoard.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",

@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Problem, ProblemViewRef } from '../../types';
 import type { BattleSetup, BattleResultSummary, MonsterDef } from '../../data/adventure/adventureTypes';
-import { ALL_PROBLEM_SETS } from '../../data';
+import { battleProblems } from '../../data';
 import { getMonster, getMonsterSprite, statsAtLevel } from '../../data/adventure/monsters';
 import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adventure/elements';
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
@@ -51,10 +51,10 @@ interface Props {
   onFinish: (result: BattleResultSummary) => void;
 }
 
-/** 相手モンスターのサブトピックから問題を引く。足りなければ何周でも回す。 */
+/** 相手モンスターのサブトピックから問題を引く（アプリと同じ答え方の問題があれば それだけ: battleProblems）。足りなければ何周でも回す。 */
 const pickProblems = (subtopics: string[], count: number): Array<Problem & { subTopic: string }> => {
   const pool = subtopics.flatMap(st =>
-    (ALL_PROBLEM_SETS[st] ?? []).map(p => ({ ...p, subTopic: st })),
+    battleProblems(st).map(p => ({ ...p, subTopic: st })),
   );
   if (pool.length === 0) return [];
   const out: Array<Problem & { subTopic: string }> = [];

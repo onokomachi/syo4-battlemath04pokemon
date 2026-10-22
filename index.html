@@ -139,6 +139,12 @@ body {
         background: #eef2f7; color: #1e293b; text-shadow: none; letter-spacing: normal;
         font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
       }
+      /* わり算の筆算シミュレーター（apps/hissan）は、広い画面で 問題の左の外に「たてる・かける…」の段を出す（-left-28）。
+         SANMON の紙はアプリの画面より せまく、その段が半分切れて見えるので出さない（右のヒントに いまの手順が出る） */
+      .app-paper .simulator-container .\-left-28 { display: none; }
+      /* 同じく、SANMON では はたらかない「もどる」（上）と「さいしょから／もう１問」（下）は出さない（次の問題は SANMON が出す） */
+      .app-paper .simulator-container > div:first-child > button:first-child { visibility: hidden; }
+      .app-paper .simulator-container button.border-t { display: none; }
 </style>
 </head>
   <body>
