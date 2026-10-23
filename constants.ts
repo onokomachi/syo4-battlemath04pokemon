@@ -553,17 +553,17 @@ export const WEEKLY_QUEST_DEFS: DailyQuestDef[] = [
  *   消費先がないとインフレ → モチベーション低下
  */
 export const SHOP_ITEMS: ShopItemDef[] = [
-  // ストリークシールド（ログイン連続日数を1回保護）
-  { id: 'streak_shield', name: 'ストリークシールド', description: 'ログイン途切れを1回だけ防ぐ', cost: 2000, icon: '🛡️', type: 'streak_shield' },
-  // バトルテーマ
-  { id: 'theme_fire', name: '炎のテーマ', description: 'バトル画面が炎に包まれる', cost: 4000, icon: '🔴', type: 'theme' },
-  { id: 'theme_ice', name: '氷のテーマ', description: '冷徹な戦場で戦う', cost: 4000, icon: '🔵', type: 'theme' },
-  { id: 'theme_gold', name: '黄金のテーマ', description: '栄光のゴールドバトル', cost: 8000, icon: '🟡', type: 'theme' },
-  // 消耗品
-  { id: 'mp_booster', name: '2倍MPブースター', description: '1時間MPの獲得量が2倍になる', cost: 3000, icon: '⚡', type: 'mp_booster', durationMs: 3600000 },
-  { id: 'hint_token', name: 'ヒントトークン', description: 'バトル中に1問ヒントが使える（1個）', cost: 500, icon: '💡', type: 'hint_token' },
-  { id: 'exp_booster', name: '経験値ブースター', description: '次のバトルで獲得EXPが2倍', cost: 1500, icon: '🌟', type: 'exp_booster' },
+  // ストリークシールド・テーマ3種・ヒントトークンは 2026-10 に販売をやめた（どれも効き目が画面やバトルに届いていなかった）。
+  // 買っていた子には、progressionStore の refundRetiredShopItems で払ったMPを1回だけ返す。
+  { id: 'mp_booster', name: '2倍MPブースター', description: '1時間、もらえるMPが2倍になる（ぼうけん・デュエルなど）', cost: 3000, icon: '⚡', type: 'mp_booster', durationMs: 3600000 },
+  { id: 'exp_booster', name: '経験値ブースター', description: 'つぎに トレーナーレベルの けいけんちを もらうとき 2倍（モンスターの けいけんちではない）', cost: 1500, icon: '🌟', type: 'exp_booster' },
 ];
+
+/** 販売をやめた商品と、そのときの値段（返金に使う） */
+export const RETIRED_SHOP_ITEMS: Record<string, number> = {
+  streak_shield: 2000, theme_fire: 4000, theme_ice: 4000, theme_gold: 8000,
+};
+export const RETIRED_HINT_TOKEN_COST = 500;
 
 /**
  * バトルテーマ設定

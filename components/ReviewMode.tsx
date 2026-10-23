@@ -5,6 +5,8 @@ import {
   getDueItems, getTotalSrsCount, markSrsCorrect, type SrsItem,
 } from '../services/spacedRepetitionService';
 import { shuffleDeck } from '../utils/shuffle';
+import { useAdventureStore } from '../store/adventureStore';
+import { notifyRewards } from '../services/rewardToast';
 import ProblemScreen from './ProblemScreen';
 
 interface ReviewModeProps {
@@ -59,6 +61,8 @@ const ReviewMode: React.FC<ReviewModeProps> = ({ onExit }) => {
     if (!correct) return; // 不正解時の間隔リセットは ProblemScreen 内の addIncorrectToSrs が行う
     const entry = entries.find(e => e.problem === problem);
     if (entry) markSrsCorrect(entry.srsItem.category, entry.srsItem.answer);
+    // まちがえた問題を直せたら、ヒントのしおり・ふくしゅうのおまもり・ガチャコイン（gacha.ts の LEARNING_REWARDS）
+    notifyRewards(useAdventureStore.getState().rewardForCorrect('review', entry?.srsItem.category ?? String((problem as any).category ?? '')));
   };
 
   if (inSession && problems.length > 0) {

@@ -16,7 +16,7 @@ import type { Problem, ProblemViewRef } from '../../types';
 import type { BattleSetup, BattleResultSummary, MonsterDef } from '../../data/adventure/adventureTypes';
 import { battleProblems } from '../../data';
 import { getMonster, getMonsterSprite, statsAtLevel } from '../../data/adventure/monsters';
-import { GROWTH_RULES } from '../../data/adventure/growth';
+import { GROWTH_RULES, expPerCorrect } from '../../data/adventure/growth';
 import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adventure/elements';
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
 import { getNpcSprite } from '../../data/adventure/people';
@@ -44,6 +44,7 @@ type Phase =
   | 'result'       // 正誤の表示
   | 'catch'        // ボールを投げている
   | 'faint'        // 相手をたおした
+  | 'escape'       // 問題を使いきった（相手がにげた・勝負がつかなかった）
   | 'win'
   | 'lose';
 
@@ -176,6 +177,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       hps, activeIdx, aliveCount, phase,
       activeName: active?.def.name ?? null,
       partyNames: party.map(p => p.def.name),
+      // 自動テストで正解を入れるため（開発ビルドだけ）
+      answer: problems[qIndex]?.answer ?? null,
+      problemType: problems[qIndex]?.type ?? null,
     });
   });
 
@@ -198,6 +202,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // window.confirm() ではなくアプリ内モーダルでいちど確認する
   // (window.confirm はスマホ・WebViewで無言失敗することがあるため使わない)。
   const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
+  /** どうぐぶくろ（ボール / どうぐ）を開いているか */
+  const [bag, setBag] = useState<'none' | 'ball' | 'tool'>('none');
+  /** ふくしゅうのおまもりは、1回のバトルで1こまで（じどうで使う） */
+  const usedCharm = useRef(false);
+  /** まぜこぜの巻物は、1回のバトルで1まいまで */
+  const [scrollUsed, setScrollUsed] = useState(false);
   const problemViewRef = useRef<ProblemViewRef | null>(null);
   const startedAt = useRef(Date.now());
 
@@ -207,6 +217,10 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const streak = useRef(0);
 
   const stats = useRef({ correct: 0, incorrect: 0, mp: 0, exp: 0 });
+  /** 交代したときに問題を使いきっていたら、交代のセリフのあとで相手がにげる */
+  const runOutAfterSwitch = useRef(false);
+  /** まぜこぜの巻物を使ったバトルは、けいけんちが ふえる */
+  const expMult = useRef(1);
   const leveled = useRef<string[]>([]);
   /** いまの相手に正解した数（分野ごと）。たおしたとき、その分野のモンスターに けいけんちが入る（growth.ts） */
   const correctsByTopic = useRef<Record<string, number>>({});
@@ -292,6 +306,14 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
    * ここで初めて実際の分岐にする: 「ものしり」の1回ぶんはペナルティなし、
    * それ以外(または使いきったあと)はこの問題のこうげきが弱くなる。
    */
+  /** ヒントのしおりを1まい使って、ペナルティなしでヒントを見る */
+  const openHintWithBook = () => {
+    if (!store.useItem('hintbook')) return;
+    setHintOpen(true);
+  };
+  /** いまヒントを見ると こうげきが弱くなるか（しおりを出すかどうか） */
+  const hintWouldPenalize = !hintPenalty && !isRetry && !(ability === 'hint' && !usedAbility.current.hint);
+
   const openHintVoluntarily = () => {
     if (ability === 'hint' && !usedAbility.current.hint) {
       usedAbility.current.hint = true;
@@ -322,13 +344,21 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     return Math.max(4, Math.round(d));
   };
 
-  const damageToPlayer = (): number => {
+  /** charmOk = 自分で答えてまちがえたとき（「わからない」では おまもりを使わない） */
+  const damageToPlayer = (charmOk = false): number => {
     if (ability === 'guard' && !usedAbility.current.guard) {
       usedAbility.current.guard = true;
       return 0;
     }
+    if (charmOk && !usedCharm.current && store.useItem('charm')) {
+      usedCharm.current = true;
+      charmFired.current = true;
+      return 0;
+    }
     return Math.max(3, Math.round(oppStats.atk * 0.8));
   };
+  /** この答えで おまもりが ダメージを ふせいだか（結果の表示に使う） */
+  const charmFired = useRef(false);
 
   // ---- 採点 ----
   const submit = useCallback(() => {
@@ -379,7 +409,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           problem.type,
         );
       }
-      const dmg = damageToPlayer();
+      charmFired.current = false;
+      const dmg = damageToPlayer(true);
       setHp(v => Math.max(0, v - dmg));
       setFlash('hurt');
       window.setTimeout(() => setFlash('none'), 520);
@@ -457,7 +488,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         if (problem) {
           addIncorrectToSrs(problem.subTopic, (problem.data as any)?.question ?? problem.subTopic, problem.answer, problem.type);
         }
-        setHp(v => Math.max(0, v - damageToPlayer()));
+        charmFired.current = false;
+        setHp(v => Math.max(0, v - damageToPlayer(true)));
         setFlash('hurt');
         window.setTimeout(() => setFlash('none'), 520);
       }
@@ -493,9 +525,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setHintPenalty(false);
     const next = qIndex + 1;
     if (next >= problems.length) {
-      // 問題を使いきったら、相手の攻撃をしのぎきったことにして勝ち扱い
-      setOppHp(0);
-      handleFaint();
+      // 問題を使いきっても、勝ちにはしない（相手がにげる）。
+      // 以前は「しのぎきった」として勝ち扱いにしていたが、ダメージが小さいので
+      // 「わからない」を押しつづけるだけで野生・トレーナー戦に勝て、けいけんちとMPが入っていた。
+      // 正解したぶんのけいけんちは finish() で必ず入る。
+      handleRunOut();
       return;
     }
     setQIndex(next);
@@ -533,6 +567,20 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     const downName = active?.def.name ?? 'なかま';
     const nextMon = party[nextIdx];
     setActiveIdx(nextIdx);
+    // まちがえて たおれたときは、その問題の「答えを見せている」状態が残っている。
+    // そのまま次の子で問題に入ると、こうげき・わからない が ずっと押せなくなっていた
+    // （showAnswer=true のまま。トレーナー戦の2体目で入力できなくなったのと同じ型）。
+    // 答えを見た問題には もどらず、つぎの問題へ進める。
+    if (showAnswer) {
+      setShowAnswer(false);
+      setUserAnswer('');
+      setWasCorrect(false);
+      setIsRetry(false);
+      setHintPenalty(false);
+      setHintOpen(false);
+      if (qIndex + 1 < problems.length) setQIndex(qIndex + 1);
+      else runOutAfterSwitch.current = true;
+    }
     // 交代したら「1回だけ」系のとくせいは次の子のぶんとして復活させる
     usedAbility.current = { hint: false, guard: false, first: true };
     setMessage([
@@ -543,6 +591,41 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     return true;
   };
 
+  /** 問題を使いきって、相手のHPが残っているとき */
+  const handleRunOut = () => {
+    const name = oppDef?.name ?? 'あいて';
+    const gotSome = Object.keys(correctsByTopic.current).length > 0;
+    setMessage([
+      setup.kind === 'wild'
+        ? `${name} は にげていった……`
+        : `${setup.trainerName ?? 'あいて'}「きょうは ここまで！ また しょうぶしよう」`,
+      gotSome
+        ? 'せいかいした ぶんの けいけんちは もらえたよ。'
+        : 'つぎは 1もんでも せいかいして、こうげきを あてよう！',
+    ]);
+    setPhase('escape');
+  };
+
+  /**
+   * まだ たおしていない相手に正解したぶんを、けいけんちにする（にげた・負けた・使いきったとき）。
+   * 正解1問ぶんは、れんしゅうモードと同じ expPerCorrect。正解0問なら何も入らない。
+   */
+  const growPendingCorrects = () => {
+    const byTopic = Object.entries(correctsByTopic.current);
+    correctsByTopic.current = {};
+    for (const [sub, n] of byTopic) {
+      const def = getMonster(opponents.find(o => getMonster(o.defId)?.subtopic === sub)?.defId ?? '')
+        ?? oppDef;
+      const exp = Math.round(n * expPerCorrect(def?.difficulty ?? 2) * expMult.current);
+      // たおしたときと同じく、ほかの手持ちにも2割（GROWTH_RULES.othersShare）
+      const results = store.growBySubtopic(sub, n, exp, { shareParty: true });
+      for (const r of results) {
+        stats.current.exp += r.gained;
+        if (r.leveled && !leveled.current.includes(r.uid)) leveled.current.push(r.uid);
+      }
+    }
+  };
+
   const handleFaint = () => {
     const gained = Math.round(12 + oppLevel * 3.5 + (oppDef?.difficulty ?? 2) * 4);
     stats.current.exp += gained;
@@ -550,14 +633,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     const leveledBefore = leveled.current.length;
     // けいけんちは、正解した問題の出どころのモンスター（同じ種類）に満額。ほかの手持ちは2割（growth.ts）
     const beforeMax = party.map(p => monsterMaxHp(p.owned));
+    // 正解0問なら、だれにも けいけんちは入らない（以前は相手の分野に1問ぶん足していた）
     const byTopic = Object.entries(correctsByTopic.current);
-    if (byTopic.length === 0 && oppDef?.subtopic) byTopic.push([oppDef.subtopic, 1]);
-    const totalCorrect = byTopic.reduce((a, [, n]) => a + n, 0) || 1;
+    const totalCorrect = byTopic.reduce((a, [, n]) => a + n, 0);
     correctsByTopic.current = {};
-    const results = byTopic.flatMap(([sub, n]) => store.growBySubtopic(sub, n, Math.round((gained * n) / totalCorrect)));
+    const results = totalCorrect === 0
+      ? []
+      : byTopic.flatMap(([sub, n]) => store.growBySubtopic(sub, n, Math.round((gained * expMult.current * n) / totalCorrect)));
     const grownUids = new Set(results.map(r => r.uid));
     for (const p of party) {
-      if (grownUids.has(p.owned.uid)) continue;
+      if (totalCorrect === 0 || grownUids.has(p.owned.uid)) continue;
       const r = store.addExp(p.owned.uid, Math.round(gained * GROWTH_RULES.othersShare));
       results.push({ uid: p.owned.uid, defId: p.owned.defId, gained: 0, source: false, ...r });
     }
@@ -648,24 +733,40 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     }, 1400);
   };
 
-  const useItem = (id: 'potion' | 'hintbook') => {
+  /** バトル中に使う どうぐ（ドリンク・かけら・巻物）。target は げんきのかけらで ふっかつさせる子 */
+  const useTool = (id: 'potion' | 'revive' | 'scroll', target?: number) => {
+    if (id === 'potion' && hp >= activeMaxHp) return;
+    if (id === 'revive' && (target === undefined || (hps[target] ?? 1) > 0)) return;
+    if (id === 'scroll' && scrollUsed) return;
     if (!store.useItem(id)) return;
+    setBag('none');
     if (id === 'potion') {
       // いま出ている1体だけを回復する(全員まとめて回復するのは町のかいふく所)
       setHp(v => v + 30);
       setMessage([`げんきドリンクを つかった！ ${active?.def.name ?? 'なかま'} の HPが かいふくした。`]);
-      setPhase('faint');
+    } else if (id === 'revive' && target !== undefined) {
+      const mon = party[target];
+      const half = Math.max(1, Math.round(monsterMaxHp(mon.owned) / 2));
+      setHps(prev => prev.map((h, i) => (i === target ? half : h)));
+      setMessage([`げんきのかけらを つかった！ ${mon.def.name} が ふっかつした！`]);
     } else {
-      setHintOpen(true);
-      setPhase('question');
+      expMult.current = 1.5;
+      setScrollUsed(true);
+      setMessage(['まぜこぜの巻物を ひらいた！', 'このバトルで もらう けいけんちが 1.5ばいに なる。']);
     }
+    setPhase('faint');
   };
 
   const flee = () => {
     finish(false, true);
   };
 
-  const finish = (won: boolean, fled = false, healAll = false) => {
+  /**
+   * バトルを終える。escaped = 問題を使いきって相手がにげた（自分からにげたのではないので、たおした相手のMPは残す）。
+   * どの終わり方でも、まだ たおしていない相手に正解したぶんの けいけんちは入る。
+   */
+  const finish = (won: boolean, fled = false, healAll = false, escaped = false) => {
+    growPendingCorrects();
     if (healAll) {
       // 負けたときは かいふく所に運ばれる扱いで、手持ち全員を全回復する
       store.healFull();
@@ -681,10 +782,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       correct: stats.current.correct,
       incorrect: stats.current.incorrect,
       caughtDefId: caught.current,
-      mpGained: fled ? 0 : stats.current.mp,
+      mpGained: fled && !escaped ? 0 : stats.current.mp,
       expGained: stats.current.exp,
       leveledUp: leveled.current,
-      fled,
+      // 使いきって終わったときも「にげた」と同じあつかい（テキトウ団にさらわれない・負けの回復もしない）
+      fled: fled || escaped,
       recognized: recognized.current,
     });
   };
@@ -692,6 +794,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // 相手を倒したあとの分岐(ダイアログを閉じたとき)
   const afterFaint = () => {
     if (hp <= 0) { handleActiveDown(); return; }
+    if (runOutAfterSwitch.current) { runOutAfterSwitch.current = false; handleRunOut(); return; }
     if (oppHp <= 0) { advanceOpponent(); return; }
     setPhase('command');
   };
@@ -831,6 +934,82 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     </div>
   );
 
+  const ballCount = (save.items.ball ?? 0) + (save.items.greatball ?? 0);
+  const toolCount = (save.items.potion ?? 0) + (save.items.revive ?? 0) + (save.items.scroll ?? 0);
+  const downIdx = hps.map((h, i) => (h <= 0 ? i : -1)).filter(i => i >= 0);
+
+  /** どうぐぶくろ（ボールを えらぶ / どうぐを えらぶ） */
+  const BagPanel = bag === 'none' ? null : (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-3" onClick={() => setBag('none')}>
+      <div className="w-full max-w-xl rounded-3xl bg-white p-4 sm:p-5 shadow-2xl space-y-3" onClick={e => e.stopPropagation()}>
+        <h3 className="text-xl font-black text-slate-800">{bag === 'ball' ? '⚪ どのボールを なげる？' : '🎒 どうぐを えらぶ'}</h3>
+        {bag === 'ball' && (['ball', 'greatball'] as const).map(id => (
+          <button
+            key={id}
+            onClick={() => { setBag('none'); throwBall(id); }}
+            disabled={(save.items[id] ?? 0) <= 0}
+            className="w-full flex items-center gap-3 rounded-2xl border-4 border-amber-200 bg-amber-50 disabled:opacity-40 p-3 text-left active:scale-[0.98]"
+          >
+            <span className="text-3xl">{ITEMS[id].icon}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-black text-slate-800">{ITEMS[id].name}（{save.items[id] ?? 0}こ）</span>
+              <span className="block text-xs font-bold text-slate-500">{id === 'greatball' ? 'サンスウボールより つかまえやすい' : 'いちばん ふつうの ボール'}</span>
+            </span>
+          </button>
+        ))}
+        {bag === 'tool' && (
+          <>
+            <button
+              onClick={() => useTool('potion')}
+              disabled={(save.items.potion ?? 0) <= 0 || hp >= activeMaxHp}
+              className="w-full flex items-center gap-3 rounded-2xl border-4 border-emerald-200 bg-emerald-50 disabled:opacity-40 p-3 text-left active:scale-[0.98]"
+            >
+              <span className="text-3xl">{ITEMS.potion.icon}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-black text-slate-800">{ITEMS.potion.name}（{save.items.potion ?? 0}こ）</span>
+                <span className="block text-xs font-bold text-slate-500">{hp >= activeMaxHp ? 'HPは まんたんだよ' : `${active?.def.name ?? 'なかま'} の HPを 30 かいふく`}</span>
+              </span>
+            </button>
+            {downIdx.length === 0 ? (
+              <div className="flex items-center gap-3 rounded-2xl border-4 border-sky-100 bg-sky-50 opacity-40 p-3">
+                <span className="text-3xl">{ITEMS.revive.icon}</span>
+                <span className="font-black text-slate-800">{ITEMS.revive.name}（{save.items.revive ?? 0}こ）— たおれた なかまが いない</span>
+              </div>
+            ) : downIdx.map(i => (
+              <button
+                key={i}
+                onClick={() => useTool('revive', i)}
+                disabled={(save.items.revive ?? 0) <= 0}
+                className="w-full flex items-center gap-3 rounded-2xl border-4 border-sky-200 bg-sky-50 disabled:opacity-40 p-3 text-left active:scale-[0.98]"
+              >
+                <span className="text-3xl">{ITEMS.revive.icon}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-black text-slate-800">{ITEMS.revive.name}（{save.items.revive ?? 0}こ）</span>
+                  <span className="block text-xs font-bold text-slate-500">{party[i]?.def.name} を HP はんぶんで ふっかつ</span>
+                </span>
+              </button>
+            ))}
+            <button
+              onClick={() => useTool('scroll')}
+              disabled={(save.items.scroll ?? 0) <= 0 || scrollUsed}
+              className="w-full flex items-center gap-3 rounded-2xl border-4 border-violet-200 bg-violet-50 disabled:opacity-40 p-3 text-left active:scale-[0.98]"
+            >
+              <span className="text-3xl">{ITEMS.scroll.icon}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-black text-slate-800">{ITEMS.scroll.name}（{save.items.scroll ?? 0}こ）</span>
+                <span className="block text-xs font-bold text-slate-500">{scrollUsed ? 'このバトルでは もう つかった' : 'このバトルの けいけんちが 1.5ばい'}</span>
+              </span>
+            </button>
+            {(save.items.charm ?? 0) > 0 && (
+              <p className="text-xs font-bold text-slate-500">🧿 ふくしゅうのおまもり {save.items.charm}こ：まちがえたとき じどうで 1回 まもってくれるよ</p>
+            )}
+          </>
+        )}
+        <button onClick={() => setBag('none')} className="w-full py-3 rounded-2xl bg-slate-200 font-black text-slate-700">もどる</button>
+      </div>
+    </div>
+  );
+
   const CommandMenu = (
     <div className="grid grid-cols-2 gap-3 p-3 sm:p-4">
       <button
@@ -841,23 +1020,23 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         <span className="block text-xs font-bold opacity-90 mt-1">もんだいに こたえる</span>
       </button>
       <button
-        onClick={() => throwBall('ball')}
-        disabled={!setup.catchable || (save.items.ball ?? 0) <= 0}
+        onClick={() => setBag('ball')}
+        disabled={!setup.catchable || ballCount <= 0}
         className="rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:bg-slate-300 disabled:text-slate-500 active:scale-95 transition text-amber-950 font-black text-2xl sm:text-3xl py-5 shadow-lg border-4 border-white/70"
       >
         ⚪ ボール
         <span className="block text-xs font-bold opacity-90 mt-1">
-          {setup.catchable ? `のこり ${save.items.ball ?? 0}こ` : 'ここでは つかえない'}
+          {setup.catchable ? `のこり ${ballCount}こ` : 'ここでは つかえない'}
         </span>
       </button>
       <button
-        onClick={() => useItem('potion')}
-        disabled={(save.items.potion ?? 0) <= 0}
+        onClick={() => setBag('tool')}
+        disabled={toolCount <= 0}
         className="rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-300 disabled:text-slate-500 active:scale-95 transition text-white font-black text-xl sm:text-2xl py-4 shadow-lg border-4 border-white/70"
       >
         🧃 どうぐ
         <span className="block text-xs font-bold opacity-90 mt-1">
-          げんきドリンク {save.items.potion ?? 0}こ
+          {toolCount > 0 ? `${toolCount}こ もっている` : 'どうぐが ない'}
         </span>
       </button>
       <button
@@ -986,6 +1165,15 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             💡 ヒント{hintPenalty ? '(使用ずみ)' : ''}
           </button>
         )}
+        {hint && hintWouldPenalize && (save.items.hintbook ?? 0) > 0 && (
+          <button
+            onClick={openHintWithBook}
+            title="ヒントのしおりを 1まい つかうと、こうげきが よわくならないよ"
+            className="px-3 py-3 rounded-xl bg-emerald-400 text-emerald-950 font-black text-xs sm:text-sm shadow active:scale-95 shrink-0"
+          >
+            🔖 しおりで ヒント（{save.items.hintbook}）
+          </button>
+        )}
         {problem?.type !== 'guided' && (
           <button
             onClick={submit}
@@ -1039,6 +1227,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             {hintPenalty && !isRetry
               ? '💡 ヒントを見たので、こうげきが 弱くなったよ。'
               : '🔄 もういちどの ちょうせんなので、こうげきが 弱くなったよ。'}
+          </p>
+        )}
+        {!wasCorrect && charmFired.current && (
+          <p className="mt-1 text-center text-sm font-black text-sky-600">
+            🧿 ふくしゅうのおまもりが まもってくれた！ ダメージを うけなかったよ。
           </p>
         )}
 
@@ -1112,6 +1305,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       )}
 
       {phase === 'result' && ResultOverlay}
+      {phase === 'command' && BagPanel}
 
       {phase === 'intro' && (
         <DialogueBox
@@ -1124,6 +1318,15 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       )}
       {phase === 'faint' && (
         <DialogueBox lines={message} accent={accent} onDone={afterFaint} />
+      )}
+      {phase === 'escape' && (
+        <DialogueBox
+          lines={message}
+          speaker={setup.kind === 'wild' ? undefined : setup.trainerName}
+          portrait={setup.trainerSprite ? getNpcSprite(setup.trainerSprite) : undefined}
+          accent={accent}
+          onDone={() => finish(false, false, false, true)}
+        />
       )}
       {phase === 'win' && (
         <DialogueBox

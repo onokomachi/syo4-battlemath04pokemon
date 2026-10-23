@@ -36,6 +36,8 @@ import { DialogueBox } from './ui/DialogueBox';
 import BattleScreen from './BattleScreen';
 import TitleScreen from './TitleScreen';
 import { DexScreen, MapScreen, PartyScreen, ShopScreen, TrainerCardScreen } from './MenuScreens';
+import { GachaScreen } from './GachaScreen';
+import { LEARNING_REWARDS } from '../../data/adventure/gacha';
 import SaveSlotsModal from './SaveSlotsModal';
 
 interface Props {
@@ -57,7 +59,7 @@ interface Props {
   onRequestBattle?: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
 
-type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save';
+type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save' | 'gacha';
 
 interface Dialogue {
   speaker?: string;
@@ -904,11 +906,15 @@ const AdventureMode: React.FC<Props> = ({
     }
 
     if (result.won && setup.grantsBadge && setup.townId) {
+      // はじめてバッジをとったときだけ、ガチャコイン（同じマスターに何度勝っても ふえない）
+      const firstBadge = !save.badges.includes(setup.townId);
       store.awardBadge(setup.townId);
+      if (firstBadge) store.addGachaCoins(LEARNING_REWARDS.coinMasterWin);
       after.push({
         accent: '#facc15',
         lines: [
           `${BADGE_NAMES[setup.townId] ?? 'バッジ'} を 手に入れた！`,
+          ...(firstBadge ? [`🪙 ガチャコインを ${LEARNING_REWARDS.coinMasterWin}まい もらった！`] : []),
           `これで バッジは ${new Set([...save.badges, setup.townId]).size} こ。`,
           ...(new Set([...save.badges, setup.townId]).size >= TOWNS.length
             ? [`${TOWNS.length}この バッジが そろった！ ナンバーリーグへ 行こう！`]
@@ -1293,6 +1299,7 @@ const AdventureMode: React.FC<Props> = ({
             ['📕 ずかん', () => setOverlay('dex')],
             ['🐾 てもち', () => setOverlay('party')],
             ['🪪 カード', () => setOverlay('card')],
+            ['🎰 ガチャ', () => setOverlay('gacha')],
             ['🏠 もどる', onExit],
           ] as const).map(([label, fn]) => (
             <button
@@ -1381,6 +1388,9 @@ const AdventureMode: React.FC<Props> = ({
       {overlay === 'party' && <PartyScreen onClose={() => setOverlay('none')} />}
       {overlay === 'shop' && (
         <ShopScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onBuy={handleBuy} />
+      )}
+      {overlay === 'gacha' && (
+        <GachaScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onSpendMathPoints={onSpendMathPoints} />
       )}
       {overlay === 'map' && (
         <MapScreen

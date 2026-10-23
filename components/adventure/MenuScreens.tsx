@@ -566,7 +566,7 @@ export const ShopScreen: React.FC<{
   onBuy: (item: ItemId, cost: number) => void;
 }> = ({ onClose, mathPoints, onBuy }) => {
   const save = useAdventureStore(s => s.save);
-  const order: ItemId[] = ['ball', 'greatball', 'potion', 'hintbook'];
+  const order: ItemId[] = ['ball', 'greatball', 'potion', 'revive', 'hintbook'];
 
   return (
     <Panel title={`ショップ  もっているMP: ${mathPoints}`} onClose={onClose} accent="#7c3aed">

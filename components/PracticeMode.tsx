@@ -9,6 +9,8 @@ import RecordsScreen from './RecordsScreen';
 import MixPracticeSetup from './MixPracticeSetup';
 import { saveRecord } from '../services/recordService';
 import { getMixedProblemSet } from '../services/problemService';
+import { useAdventureStore } from '../store/adventureStore';
+import { notifyRewards } from '../services/rewardToast';
 
 interface PracticeModeProps {
   onSessionComplete: (score: number) => void;
@@ -118,6 +120,10 @@ const PracticeMode: React.FC<PracticeModeProps> = ({ onSessionComplete, db, user
         category={MIX_PRACTICE_CATEGORY}
         subTopic={MIX_PRACTICE_CATEGORY}
         problemsOverride={stableMixProblems}
+        onProblemResult={(problem, correct) => {
+          // ミックスれんしゅうの正解で、まぜこぜの巻物・ガチャコイン（gacha.ts の LEARNING_REWARDS）
+          if (correct) notifyRewards(useAdventureStore.getState().rewardForCorrect('mix', String((problem as any).category ?? '')));
+        }}
         onBack={handleMixSessionBack}
         onHome={handleGoHome}
       />
