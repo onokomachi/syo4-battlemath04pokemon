@@ -9,6 +9,7 @@
  *
  *   node scripts/import-sprite.mjs <入力画像> <出力名>
  *   node scripts/import-sprite.mjs ~/dl/ice.png monsters/legend-shosu
+ *   node scripts/import-sprite.mjs leaf.png monsters/mon-143 --tight   # 背景と近い色のキャラ
  *
  * 背景はグリーンバック・マゼンタバック・市松模様のどれでも自動判定する。
  * 伝説級など、キャラを枠いっぱいに大きく収めたいときは --large を付ける。
@@ -25,8 +26,11 @@ const OUT_ROOT = path.join(root, 'public', 'assets', 'adventure');
 const MANUAL_LIST = path.join(root, 'scripts', 'manual-sprites.json');
 const SPRITE_SIZE = 256;
 
-const args = process.argv.slice(2).filter(a => a !== '--large');
+const args = process.argv.slice(2).filter(a => a !== '--large' && a !== '--tight');
 const large = process.argv.includes('--large');
+// --tight: 背景と同じ系統の色をもつキャラ(明るい緑の葉、ピンクのだんご)用。
+// 「緑が強い色」をまとめて消すと葉っぱまで消えるので、実際の背景色に近い画素だけを消す。
+const tight = process.argv.includes('--tight');
 const [input, outName] = args;
 if (!input || !outName) {
   console.error('使い方: node scripts/import-sprite.mjs <入力画像> <出力名> [--large]');
@@ -128,9 +132,12 @@ function removeChecker(data, w, h) {
 function removeChroma(data, w, h, bg, kind) {
   const at = (x, y) => (y * w + x) * 4;
   // green: 緑だけが強い。magenta: 赤と青がそろって強く、緑だけ弱い。
-  const isBg = kind === 'green'
-    ? i => data[i + 1] - Math.max(data[i], data[i + 2]) > 45
-    : i => Math.min(data[i], data[i + 2]) - data[i + 1] > 45;
+  const nearBg = i => Math.hypot(data[i] - bg.r, data[i + 1] - bg.g, data[i + 2] - bg.b) < 48;
+  const isBg = tight
+    ? nearBg
+    : kind === 'green'
+      ? i => data[i + 1] - Math.max(data[i], data[i + 2]) > 45
+      : i => Math.min(data[i], data[i + 2]) - data[i + 1] > 45;
 
   const visited = new Uint8Array(w * h);
   const stack = [];
@@ -173,6 +180,10 @@ function removeChroma(data, w, h, bg, kind) {
           data[at(x, y + 1) + 3] === 0 || data[at(x, y - 1) + 3] === 0;
         if (!touches) continue;
         const r = data[i], g = data[i + 1], b = data[i + 2];
+        if (tight) {
+          if (Math.hypot(r - bg.r, g - bg.g, b - bg.b) < 80) data[i + 3] = 0;
+          continue;
+        }
         if (kind === 'green') {
           if (g > r && g > b) {
             const cap = Math.round((r + b) / 2);
