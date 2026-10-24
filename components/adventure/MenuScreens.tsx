@@ -21,6 +21,7 @@ import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
 import { GACHA_RULES } from '../../data/adventure/gacha';
+import type { SanmonUnitProgress } from 'learning-app-kit/sanmon';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
   title, onClose, children, accent = '#0ea5e9',
@@ -467,7 +468,9 @@ export const MapScreen: React.FC<{
   onTravel: (townId: string) => void;
   onLeague: () => void;
   lockedUnits: Set<string>;
-}> = ({ onClose, onTravel, onLeague, lockedUnits }) => {
+  /** 町ごとの「あと どれだけ」。とじた町に、開く条件を1行で出す */
+  unitProgress?: SanmonUnitProgress[];
+}> = ({ onClose, onTravel, onLeague, lockedUnits, unitProgress }) => {
   const save = useAdventureStore(s => s.save);
   const allBadges = TOWNS.every(t => save.badges.includes(t.id));
   const inLeague = save.townId === LEAGUE_TOWN.id;
@@ -516,11 +519,29 @@ export const MapScreen: React.FC<{
                 </span>
                 {here && <span className="text-[11px] font-black text-amber-600">いまここ</span>}
               </div>
-              {locked && (
-                <p className="mt-2 text-xs font-black text-amber-300">
-                  🔒 単元の アプリで がんばると ひらく 町
-                </p>
-              )}
+              {locked && (() => {
+                const u = unitProgress?.find(x => x.name === t.unit);
+                // 4つの条件を1行で（✓ はできた、数は いま/ひつよう）。条件が読めないときは 前と同じ1行
+                const items = u?.practice ? [
+                  ['練習', u.practice], ['テスト', u.test], ['階段', u.trial], ['ひとりで', u.days],
+                ] as const : null;
+                return (
+                  <div className="mt-2">
+                    <p className="text-xs font-black text-amber-300">
+                      🔒 {u?.appTitle ? `「${u.appTitle}」で がんばると ひらく` : '単元の アプリで がんばると ひらく 町'}
+                    </p>
+                    {items && (
+                      <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] font-bold">
+                        {items.map(([label, m]) => m && (
+                          <span key={label} className={m.done ? 'text-emerald-300' : 'text-white/70'}>
+                            {m.done ? '✓' : '□'}{label} {Math.min(m.have, m.need)}/{m.need}{label === 'ひとりで' ? '日' : label === '階段' ? '段' : label === 'テスト' ? '回' : ''}
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
               {has && !locked && (
                 <p className="mt-2 text-xs font-black text-emerald-600">
                   {BADGE_NAMES[t.id]} かくとくずみ

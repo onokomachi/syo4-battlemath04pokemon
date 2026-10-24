@@ -24,8 +24,10 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
         <div className="mt-2 hud-panel rounded-xl p-3 text-xs text-gray-200 space-y-2">
           {portal.student ? (
             <p>
-              きょう たまった スタミナ：<b className="text-amber-300">{portal.earnedToday}</b> / {SANMON_RULES.dailyCap}。
-              単元の アプリで 1問 正解すると 1 たまるよ（ためられるのは {SANMON_RULES.maxStamina} まで）。
+              きょう たまった スタミナ：<b className="text-amber-300">{portal.earnedToday}</b>（ためられるのは {SANMON_RULES.maxStamina} まで）。
+              単元の アプリで 1問 正解すると 1。ただし 1つの項目で 1日 5まで、もう熟達した項目は 半分だよ。
+              いろいろな項目・にがてな項目に ちょうせんすると よく たまる。
+              ボーナス：本番テスト 8わり合格 +5・実力の階段で 新しい段 +3・はじめて熟達 +2。
               バトル1回で {SANMON_RULES.battleCost} つかう。れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。
             </p>
           ) : (

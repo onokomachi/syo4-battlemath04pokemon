@@ -11,12 +11,8 @@ import { PLAYER_APPEARANCES, PROFESSOR_NAME, getNpcSprite, getPlayerSprite } fro
 import { DialogueBox } from './ui/DialogueBox';
 import { TOWNS } from '../../data/adventure/towns';
 
-/** さいしょの なかま3体。タイプがばらけるように選んである。 */
-const STARTER_SUBTOPICS = ['何の位・いくつ分', '分度器と角', '分数のよみかき'];
-
-const STARTERS = STARTER_SUBTOPICS
-  .map(st => MONSTER_DEX.find(m => m.subtopic === st))
-  .filter((m): m is NonNullable<typeof m> => Boolean(m));
+// さいしょの なかま3体（モンスター対戦の「かりた なかま」と同じ。data/adventure/starters.ts）
+import { STARTERS } from '../../data/adventure/starters';
 
 const HIRAGANA_ROWS = [
   'あいうえお', 'かきくけこ', 'さしすせそ', 'たちつてと', 'なにぬねの',

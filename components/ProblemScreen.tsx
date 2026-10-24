@@ -12,7 +12,8 @@ import { generateSubtopicKeypadLayout } from '../utils/keypadLayoutGenerator';
 import { checkAnswer as evaluateAnswer } from '../utils/answerChecker';
 import FractionText from './FractionText';
 import { recordAttempt } from '../services/weaknessAnalysisService';
-import { addIncorrectToSrs } from '../services/spacedRepetitionService';
+import { addIncorrectToSrs, isWeakSubtopic } from '../services/spacedRepetitionService';
+import { WEAK_BONUS } from '../data/adventure/growth';
 import { recordProblemLog } from '../services/learningLogService';
 import { evaluatePracticeReward, type PracticeRewardDecision } from '../services/practiceRewardService';
 
@@ -64,7 +65,7 @@ const calcMpReward = (score: number, rank: string): number => {
   return Math.floor(score * multiplier);
 };
 
-const PracticeSummary: React.FC<{ stats: SessionStats, subTopic: string, elapsedTime: number, onBack: (mpReward: number) => void }> = ({ stats, subTopic, elapsedTime, onBack }) => {
+const PracticeSummary: React.FC<{ stats: SessionStats, subTopic: string, elapsedTime: number, onBack: (mpReward: number) => void, weak?: boolean }> = ({ stats, subTopic, elapsedTime, onBack, weak }) => {
     const accuracy = stats.problemCount > 0 ? (stats.correct / stats.problemCount) * 100 : 0;
 
     // ランク計算: 正答率 + 速度ボーナス
@@ -79,7 +80,8 @@ const PracticeSummary: React.FC<{ stats: SessionStats, subTopic: string, elapsed
         if (totalPoints > maxPossiblePoints * 0.8) rank = 'S';
     }
 
-    const mpReward = calcMpReward(stats.totalScore, rank);
+    // 苦手ボーナス：前に まちがえた項目の れんしゅうは MP 1.5倍（はじめた時点で 苦手だったか）
+    const mpReward = Math.floor(calcMpReward(stats.totalScore, rank) * (weak ? WEAK_BONUS : 1));
 
     // 荒稼ぎ防止: Bランク以上 かつ (本日はじめてのクリア or 自己ベスト更新) の時だけMPを付与する
     const rewardRef = useRef<PracticeRewardDecision | undefined>(undefined);
@@ -134,6 +136,7 @@ const PracticeSummary: React.FC<{ stats: SessionStats, subTopic: string, elapsed
                     <>
                       <p className="text-[10px] sm:text-xs text-amber-400 font-bold mb-0.5">獲得ポイント（{rank}ランクボーナス ×{rank === 'S' ? 3 : rank === 'A' ? 2 : rank === 'B' ? 1.5 : 1}）</p>
                       <p className="text-2xl sm:text-3xl text-amber-400 font-bold font-mono">+{rewardDecision.award} <span className="text-sm text-amber-600">MP</span></p>
+                      {weak && <p className="text-xs text-amber-300 font-bold mt-1">💪 苦手ボーナス ×{WEAK_BONUS}（前に まちがえた項目に もういちど ちょうせんした！）</p>}
                     </>
                   ) : (
                     <>
@@ -156,6 +159,8 @@ const PracticeSummary: React.FC<{ stats: SessionStats, subTopic: string, elapsed
 };
 
 const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBack, onHome, problemsOverride, onProblemResult }) => {
+  // 苦手ボーナス：この れんしゅうを はじめたとき、前に まちがえた項目だったか（とちゅうの まちがいでは ふえない）
+  const weakAtStart = useRef(isWeakSubtopic(subTopic));
   const [problems, setProblems] = useState<Problem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
@@ -440,6 +445,7 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
             <PracticeSummary
               stats={sessionStats}
               subTopic={subTopic}
+              weak={weakAtStart.current}
               elapsedTime={sessionElapsedSec}
               onBack={(mpReward: number) => {
                 // MP報酬をセッションスコアに上書きして返す
