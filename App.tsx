@@ -71,7 +71,8 @@ import type { BattleType, Problem, SpeedProblem } from './types';
 import { useAdventureStore } from './store/adventureStore';
 import { getMonster, getMonsterSprite } from './data/adventure/monsters';
 import { shuffleDeck } from './utils/shuffle';
-import { useProgressionStore, expForNextLevel, sessionCounters } from './store/progressionStore';
+import { useProgressionStore, expForNextLevel, sessionCounters, takeShopRefundNotice } from './store/progressionStore';
+import { notifyRewards, setRewardToastListener } from './services/rewardToast';
 import {
   usePvpConnection, type SavedPvpSession,
   saveActivePvpSession, loadActivePvpSession, clearActivePvpSession, PVP_RESUME_MAX_AGE_MS,
@@ -237,10 +238,28 @@ const App: React.FC = () => {
     const t = setTimeout(() => setGrowthToast(null), 2800);
     return () => clearTimeout(t);
   }, [growthToast]);
+  /** 学習でもらったアイテム・コインのお知らせ（services/rewardToast） */
+  const [rewardToast, setRewardToast] = useState<string | null>(null);
+  useEffect(() => {
+    setRewardToastListener((m) => setRewardToast(m.join('　')));
+    return () => setRewardToastListener(null);
+  }, []);
+  useEffect(() => {
+    if (!rewardToast) return;
+    const t = setTimeout(() => setRewardToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [rewardToast]);
+  // 販売をやめた商品を買っていた子には、返したMPを1回だけ知らせる
+  useEffect(() => {
+    const n = takeShopRefundNotice();
+    if (n > 0) setPortalNotice(`お店で 売るのを やめた アイテムの ぶん、${n.toLocaleString()} MPを かえしたよ`);
+  }, []);
   // れんしゅう・ふくしゅう・対戦・テストで正解したら、その問題のモンスターが育つ（ぼうけんは バトルの画面が育てる）
   useEffect(() => {
     const cappedShown = new Set<string>();
     setProblemLogHook((e) => {
+      // ガチャコイン（きょう はじめての正解・はじめての熟達）。ふくしゅう・ミックスれんしゅうは、それぞれの画面が数える
+      if (e.correct && e.mode !== 'review') notifyRewards(useAdventureStore.getState().rewardForCorrect('other', e.subTopic));
       if (!e.correct || e.mode === 'battle') return;
       const store = useAdventureStore.getState();
       const def = store.save.owned.map((o) => getMonster(o.defId)).find((m) => m?.subtopic === e.subTopic);
@@ -1316,7 +1335,7 @@ const App: React.FC = () => {
             lockedUnits={portal.lockedUnitNames}
             onRequestBattle={requestBattle}
             mathPoints={mathPoints}
-            onAddMathPoints={n => addMathPoints(n)}
+            onAddMathPoints={n => addBoostedMp(n)}
             onSpendMathPoints={n => {
               if (mathPoints < n) return false;
               addMathPoints(-n);
@@ -1583,6 +1602,11 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+        {rewardToast && (
+          <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[290] pointer-events-none w-[min(92vw,560px)]">
+            <div className="hud-panel rounded-xl px-4 py-2 text-sm font-bold text-amber-200 border border-amber-500/40 shadow-lg text-center">{rewardToast}</div>
           </div>
         )}
         {growthToast && (

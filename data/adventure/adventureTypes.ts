@@ -269,7 +269,7 @@ export interface BattleResultSummary {
 // アイテム
 // ============================================================
 
-export type ItemId = 'ball' | 'greatball' | 'potion' | 'hintbook' | 'teamshard';
+export type ItemId = 'ball' | 'greatball' | 'potion' | 'revive' | 'hintbook' | 'charm' | 'scroll' | 'teamshard';
 
 export interface ItemDef {
   id: ItemId;
@@ -301,16 +301,37 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   potion: {
     id: 'potion',
     name: 'げんきドリンク',
-    description: '自分のHPを30かいふくする。バトル中にも使える。',
+    description: 'いま たたかっている モンスターの HPを 30 かいふくする。HPが まんたんの ときは 使えない。',
     icon: '🧃',
     price: 60,
+  },
+  revive: {
+    id: 'revive',
+    name: 'げんきのかけら',
+    description: 'バトルで たおれた なかま1体を、HP はんぶんで ふっかつさせる。',
+    icon: '💠',
+    price: 150,
   },
   hintbook: {
     id: 'hintbook',
     name: 'ヒントのしおり',
-    description: 'バトル中に1回、ヒントをタダで見られる。',
+    description: 'バトルで ヒントを 見ても、こうげきが よわくならない(1まいで1回)。ふくしゅうモードで せいかいすると もらえる。',
     icon: '🔖',
     price: 50,
+  },
+  charm: {
+    id: 'charm',
+    name: 'ふくしゅうのおまもり',
+    description: 'もっていると、バトルで 1回だけ、こたえを まちがえても ダメージを うけない(じどうで つかう)。ふくしゅうモードで もらえる。ショップでは 売っていない。',
+    icon: '🧿',
+    price: 0,
+  },
+  scroll: {
+    id: 'scroll',
+    name: 'まぜこぜの巻物',
+    description: 'バトルで つかうと、そのバトルで もらう けいけんちが 1.5ばいに なる。ミックスれんしゅうで もらえる。ショップでは 売っていない。',
+    icon: '📜',
+    price: 0,
   },
   teamshard: {
     id: 'teamshard',

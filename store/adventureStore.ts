@@ -21,6 +21,8 @@ import { TEAM_CHAPTERS, TEAM_HIDEOUT } from '../data/adventure/team';
 import { getAllMastery } from '../services/learningLogService';
 import type { KidnappedRecord, OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
 import { GROWTH_RULES, dailyEffective, levelCapOf, todayKey } from '../data/adventure/growth';
+import { GACHA_RULES, LEARNING_REWARDS, rollGacha, type GachaPrize } from '../data/adventure/gacha';
+import { ITEMS, type ItemId } from '../data/adventure/adventureTypes';
 
 const KEY = 'bm_adventure_v1';
 const SLOTS_KEY = 'bm_adventure_slots_v1';
@@ -76,8 +78,49 @@ export interface AdventureSave {
   wildLegendRecognized: Record<string, number>;
   /** 今日、モンスター（defId）ごとに満額でもらった正解の数（growth.ts の1日の上限） */
   growthLog?: { date: string; used: Record<string, number> };
+  /** ガチャガチャ（gacha.ts）。コイン・天井までの回数・シール帳・MPで回した回数 */
+  gacha?: GachaSave;
+  /** 学習でもらうアイテム・コインの、きょうの記録（1日の上限をまもるため） */
+  rewardLog?: RewardLog;
+  /** 熟達のコインをもらったサブトピック（同じ項目で2回もらわない） */
+  masteryCoined?: string[];
   updatedAt: number;
 }
+
+export interface GachaSave {
+  coins: number;
+  /** 前にシールが出てから まわした回数（天井） */
+  sinceSticker: number;
+  /** シールID → 持っている数 */
+  stickers: Record<string, number>;
+  /** これまで まわした回数 */
+  pulls: number;
+  /** きょう MPで まわした回数 */
+  mpPulls: { date: string; count: number };
+}
+
+export interface RewardLog {
+  date: string;
+  /** きょう もらった数（hintbook / charm / scroll / coin） */
+  got: Record<string, number>;
+  /** きょうの ふくしゅうモード・ミックスれんしゅうの正解数 */
+  reviewCorrects: number;
+  mixCorrects: number;
+  /** きょう はじめての正解のコインを もらったか */
+  firstCorrectDone: boolean;
+}
+
+export const emptyGacha = (): GachaSave => ({
+  coins: 0, sinceSticker: 0, stickers: {}, pulls: 0, mpPulls: { date: '', count: 0 },
+});
+
+const freshRewardLog = (log: RewardLog | undefined, date: string): RewardLog =>
+  log && log.date === date
+    ? log
+    : { date, got: {}, reviewCorrects: 0, mixCorrects: 0, firstCorrectDone: false };
+
+/** 学習のごほうびが何につながったか（お知らせに出す） */
+export type LearningRewardKind = 'review' | 'mix' | 'other';
 
 /** growBySubtopic の結果（育った1体ぶん） */
 export interface GrowthResult {
@@ -91,6 +134,12 @@ export interface GrowthResult {
   /** 出どころのモンスターだったか（満額） */
   source: boolean;
 }
+
+/** いま熟達しているサブトピック（熟達コインの「もらいずみ」の初期値） */
+const masteredNow = (): string[] => {
+  const mastery = getAllMastery();
+  return Object.keys(mastery).filter(k => mastery[k]?.mastered);
+};
 
 const emptySave = (): AdventureSave => ({
   started: false,
@@ -115,6 +164,8 @@ const emptySave = (): AdventureSave => ({
   teamChapters: [],
   teamCleared: false,
   wildLegendRecognized: {},
+  gacha: emptyGacha(),
+  masteryCoined: masteredNow(),
   updatedAt: 0,
 });
 
@@ -131,6 +182,12 @@ const hydrateSave = (partial: Partial<AdventureSave> | null | undefined): Advent
   const merged: AdventureSave = { ...emptySave(), ...(partial ?? {}) };
   if (!merged.dexCaught || merged.dexCaught.length === 0) {
     merged.dexCaught = Array.from(new Set(merged.owned.map(o => o.defId)));
+  }
+  merged.gacha = { ...emptyGacha(), ...(merged.gacha ?? {}) };
+  // 熟達のコインは「これから熟達したぶん」だけ。この機能より前の熟達を いっぺんにコインにしない
+  if (!merged.masteryCoined) {
+    const mastery = getAllMastery();
+    merged.masteryCoined = Object.keys(mastery).filter(k => mastery[k]?.mastered);
   }
   return merged;
 };
@@ -279,6 +336,18 @@ interface AdventureState {
   addItem: (id: string, n: number) => void;
   useItem: (id: string) => boolean;
 
+  // --- ガチャ・学習のごほうび ---
+  addGachaCoins: (n: number) => void;
+  /** 1回まわす。method='mp' のときは、MPを払うのは呼び出し側（払えたあとに呼ぶ） */
+  pullGacha: (method: 'coin' | 'mp') => { ok: true; prize: GachaPrize } | { ok: false; reason: string };
+  /** きょう あと何回 MPで まわせるか */
+  mpPullsLeft: () => number;
+  /**
+   * 1問正解したときのごほうび（ガチャコイン・ふくしゅうのアイテム）。もらったものの説明を返す。
+   * subTopic はその問題の分野（はじめて熟達したかを見る）。
+   */
+  rewardForCorrect: (kind: LearningRewardKind, subTopic: string) => string[];
+
   // --- 同期 ---
   syncToCloud: (uid: string | null) => Promise<void>;
   loadFromCloud: (uid: string | null) => Promise<void>;
@@ -320,8 +389,18 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         uid: newUid(), defId: starterDefId, level: 5, exp: 0, caughtAt: Date.now(),
       };
       const base = emptySave();
+      // ぼうけんを始める前に れんしゅう・ふくしゅうで もらったコインと道具は、なくさずに持っていく
+      const before = get().save;
+      const earned: Record<string, number> = {};
+      for (const id of ['hintbook', 'charm', 'scroll'] as const) {
+        if ((before.items[id] ?? 0) > 0) earned[id] = before.items[id];
+      }
       const next: AdventureSave = {
         ...base,
+        items: { ...base.items, ...earned },
+        gacha: { ...emptyGacha(), ...(before.gacha ?? {}) },
+        rewardLog: before.rewardLog,
+        masteryCoined: before.masteryCoined ?? base.masteryCoined,
         started: true,
         playerName,
         appearance,
@@ -539,6 +618,98 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       if ((save.items[id] ?? 0) <= 0) return false;
       update(s => ({ ...s, items: { ...s.items, [id]: (s.items[id] ?? 0) - 1 } }));
       return true;
+    },
+
+    addGachaCoins: n => update(s => {
+      const g = { ...emptyGacha(), ...(s.gacha ?? {}) };
+      return { ...s, gacha: { ...g, coins: Math.max(0, g.coins + n) } };
+    }),
+
+    mpPullsLeft: () => {
+      const g = get().save.gacha ?? emptyGacha();
+      const used = g.mpPulls.date === todayKey() ? g.mpPulls.count : 0;
+      return Math.max(0, GACHA_RULES.mpPullsPerDay - used);
+    },
+
+    pullGacha: method => {
+      const s0 = get().save;
+      const g0 = { ...emptyGacha(), ...(s0.gacha ?? {}) };
+      const date = todayKey();
+      if (method === 'coin' && g0.coins <= 0) return { ok: false, reason: 'コインが ないよ' };
+      if (method === 'mp' && get().mpPullsLeft() <= 0) return { ok: false, reason: 'MPで まわせるのは 1日 3回までだよ' };
+      const prize = rollGacha(g0.sinceSticker, g0.stickers);
+      update(s => {
+        const g = { ...emptyGacha(), ...(s.gacha ?? {}) };
+        const next: GachaSave = {
+          ...g,
+          coins: method === 'coin' ? g.coins - 1 : g.coins,
+          pulls: g.pulls + 1,
+          sinceSticker: prize.kind === 'sticker' ? 0 : g.sinceSticker + 1,
+          stickers: prize.kind === 'sticker'
+            ? { ...g.stickers, [prize.sticker.id]: (g.stickers[prize.sticker.id] ?? 0) + 1 }
+            : g.stickers,
+          mpPulls: method === 'mp'
+            ? { date, count: (g.mpPulls.date === date ? g.mpPulls.count : 0) + 1 }
+            : g.mpPulls,
+        };
+        const items = prize.kind === 'item'
+          ? { ...s.items, [prize.item]: (s.items[prize.item] ?? 0) + prize.count }
+          : s.items;
+        return { ...s, gacha: next, items };
+      });
+      return { ok: true, prize };
+    },
+
+    rewardForCorrect: (kind, subTopic) => {
+      const messages: string[] = [];
+      const date = todayKey();
+      update(s => {
+        const log = { ...freshRewardLog(s.rewardLog, date) };
+        const got = { ...log.got };
+        const items = { ...s.items };
+        let coins = 0;
+        const room = (key: keyof typeof LEARNING_REWARDS.dailyMax) =>
+          (got[key] ?? 0) < LEARNING_REWARDS.dailyMax[key];
+        const giveItem = (id: ItemId) => {
+          if (!room(id as keyof typeof LEARNING_REWARDS.dailyMax)) return;
+          got[id] = (got[id] ?? 0) + 1;
+          items[id] = (items[id] ?? 0) + 1;
+          messages.push(`${ITEMS[id].icon} ${ITEMS[id].name}を もらった！`);
+        };
+        const giveCoin = (n: number, why: string) => {
+          const can = Math.min(n, LEARNING_REWARDS.dailyMax.coin - (got.coin ?? 0));
+          if (can <= 0) return;
+          got.coin = (got.coin ?? 0) + can;
+          coins += can;
+          messages.push(`🪙 ガチャコインを ${can}まい もらった！（${why}）`);
+        };
+
+        if (!log.firstCorrectDone) {
+          log.firstCorrectDone = true;
+          giveCoin(LEARNING_REWARDS.coinFirstCorrectOfDay, 'きょう はじめての せいかい');
+        }
+        let masteryCoined = s.masteryCoined ?? [];
+        if (subTopic && getAllMastery()[subTopic]?.mastered && !masteryCoined.includes(subTopic)) {
+          masteryCoined = [...masteryCoined, subTopic];
+          giveCoin(LEARNING_REWARDS.coinNewMastery, `「${subTopic}」を 熟達`);
+        }
+        if (kind === 'review') {
+          log.reviewCorrects += 1;
+          if (log.reviewCorrects % LEARNING_REWARDS.reviewPerHintbook === 0) giveItem('hintbook');
+          if (log.reviewCorrects % LEARNING_REWARDS.reviewPerCharm === 0) giveItem('charm');
+        }
+        if (kind === 'mix') {
+          log.mixCorrects += 1;
+          if (log.mixCorrects % LEARNING_REWARDS.mixPerScroll === 0) giveItem('scroll');
+        }
+        const g = { ...emptyGacha(), ...(s.gacha ?? {}) };
+        return {
+          ...s, items, masteryCoined,
+          rewardLog: { ...log, got },
+          gacha: coins ? { ...g, coins: g.coins + coins } : g,
+        };
+      });
+      return messages;
     },
 
     // ---- Firestore 同期(任意) ----

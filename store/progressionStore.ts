@@ -11,8 +11,7 @@ import { db } from '../firebase';
 import type { ProblemCard, BadgeDef, ActiveBooster, ShopItemDef } from '../types';
 import {
   CARD_DEFINITIONS, BADGE_DEFS, DAILY_QUEST_DEFS, WEEKLY_QUEST_DEFS,
-  TITLE_DEFS, getTodayStr, getWeekStart, MATH_CATEGORIES, UNIT_KEYS,
-} from '../constants';
+  TITLE_DEFS, getTodayStr, getWeekStart, MATH_CATEGORIES, UNIT_KEYS, RETIRED_SHOP_ITEMS, RETIRED_HINT_TOKEN_COST } from '../constants';
 import { shuffleDeck } from '../utils/shuffle';
 import { getCategoryStats } from '../services/weaknessAnalysisService';
 import { getAllMastery, flushDailySummary } from '../services/learningLogService';
@@ -638,3 +637,45 @@ useProgressionStore.subscribe((state, prevState) => {
 });
 // 初回書き込み (旧 useEffect のマウント時実行に相当: デフォルト値の確定・期限切れブースターの除去)
 persistToLocalStorage(useProgressionStore.getState());
+
+// ============================
+// 販売をやめた商品の返金（1回だけ）
+// ============================
+const REFUND_KEY = 'bm_shop_refund_v1';
+const REFUND_NOTICE_KEY = 'bm_shop_refund_notice';
+/**
+ * 効き目のなかった商品（ストリークシールド・テーマ・ヒントトークン）を買っていた子に、払ったMPを返す。
+ * 返した額は REFUND_NOTICE_KEY に残し、App が1回だけ知らせる。
+ */
+export const refundRetiredShopItems = (): void => {
+  try {
+    if (localStorage.getItem(REFUND_KEY) === '1') return;
+    const s = useProgressionStore.getState();
+    let refund = 0;
+    const owned = new Set(s.ownedShopItems);
+    for (const [id, cost] of Object.entries(RETIRED_SHOP_ITEMS)) {
+      if (owned.has(id)) { refund += cost; owned.delete(id); }
+    }
+    refund += Math.max(0, s.hintTokens) * RETIRED_HINT_TOKEN_COST;
+    if (refund > 0) {
+      useProgressionStore.setState({
+        mathPoints: s.mathPoints + refund,
+        ownedShopItems: owned,
+        hintTokens: 0,
+        equippedTheme: null,
+      });
+      localStorage.setItem(REFUND_NOTICE_KEY, String(refund));
+    }
+    localStorage.setItem(REFUND_KEY, '1');
+  } catch { /* 保存できない端末では、なにもしない */ }
+};
+refundRetiredShopItems();
+
+/** 返金のお知らせ（1回だけ）。返金がなければ 0 */
+export const takeShopRefundNotice = (): number => {
+  try {
+    const n = Number(localStorage.getItem(REFUND_NOTICE_KEY) || '0');
+    localStorage.removeItem(REFUND_NOTICE_KEY);
+    return n;
+  } catch { return 0; }
+};

@@ -58,8 +58,6 @@ const ItemShop: React.FC<ItemShopProps> = ({
 
   const tabs: { key: TabKey; label: string; icon: string }[] = [
     { key: 'equip', label: '装備管理', icon: '🏷️' },
-    { key: 'streak_shield', label: 'シールド', icon: '🛡️' },
-    { key: 'theme', label: 'テーマ', icon: '🎨' },
     { key: 'consumable', label: '消耗品', icon: '⚡' },
   ];
 
