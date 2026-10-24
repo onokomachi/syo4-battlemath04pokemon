@@ -27,6 +27,12 @@ export const GROWTH_RULES = {
 /** れんしゅう・ふくしゅう・対戦で、正解1問ぶんのけいけんち（むずかしい分野ほど少し多い） */
 export const expPerCorrect = (difficulty: number): number => 8 + difficulty * 2;
 
+/**
+ * 苦手ボーナス：前に まちがえた項目（services/spacedRepetitionService の isWeakSubtopic）を正解すると、
+ * けいけんちと MP が この倍（2026-10-24 先生と決めた。苦手の反復が いちばん得になるように）。
+ */
+export const WEAK_BONUS = 1.5;
+
 /** 端末の日付（YYYY-MM-DD）。1日の数えなおしに使う */
 export const todayKey = (d = new Date()): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

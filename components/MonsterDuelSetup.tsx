@@ -4,6 +4,8 @@
  * 2026-10〜 HPのある対戦（data/partyDuel.ts）。ぼうけんでつかまえたモンスターを、レベルごと連れていく。
  * 強さはレベル（＝そのモンスターの問題を練習した量）で決まる。問題は場に出ている2匹の分野から交互に出る。
  * 伝説・幻は分野が無い（問題が出せない）ので連れていけない。
+ * つかまえたモンスターが パーティの数に たりないときは、さいしょの3体を かりられる（CPU 戦だけ。data/adventure/starters.ts）。
+ * あいて（CPU）は data/partyDuel.ts の cpuParty が、こちらと同じ単元・同じくらいのレベルで くむ。
  */
 import React, { useMemo, useState } from 'react';
 import { useAdventureStore } from '../store/adventureStore';
@@ -11,6 +13,7 @@ import { getMonster, getMonsterSprite, statsAtLevel } from '../data/adventure/mo
 import { ELEMENTS } from '../data/adventure/elements';
 import { PARTY_DUEL, type PartySize } from '../data/partyDuel';
 import { BackIcon } from './Icons';
+import { isRentalUid, rentalMonsters } from '../data/adventure/starters';
 
 interface MonsterDuelSetupProps {
   onStart: (uids: string[], size: PartySize, mode: 'cpu' | 'pvp') => void;
@@ -26,14 +29,19 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
   const owned = useAdventureStore(s => s.save.owned);
   const partyUids = useAdventureStore(s => s.save.party);
 
-  // つれていけるモンスター（分野のあるもの）。レベルの高い順
-  const candidates = useMemo(
-    () => owned
-      .map(o => ({ o, def: getMonster(o.defId) }))
-      .filter((x): x is { o: typeof owned[number]; def: NonNullable<ReturnType<typeof getMonster>> } => !!x.def && !!x.def.subtopic)
-      .sort((a, b) => b.o.level - a.o.level),
-    [owned],
-  );
+  // つれていけるモンスター（分野のあるもの）。レベルの高い順。たりなければ、さいしょの3体を かりた なかまとして うしろに足す
+  const candidates = useMemo(() => {
+    const mine = owned
+      .map(o => ({ o, def: getMonster(o.defId), rental: false }))
+      .filter((x): x is { o: typeof owned[number]; def: NonNullable<ReturnType<typeof getMonster>>; rental: boolean } => !!x.def && !!x.def.subtopic)
+      .sort((a, b) => b.o.level - a.o.level);
+    if (mine.length >= Math.max(...PARTY_DUEL.sizes)) return mine;
+    const rentals = rentalMonsters(owned)
+      .map(o => ({ o, def: getMonster(o.defId)!, rental: true }))
+      .filter(x => !!x.def);
+    return [...mine, ...rentals];
+  }, [owned]);
+  const ownCount = candidates.filter(c => !c.rental).length;
 
   const [size, setSize] = useState<PartySize>(3);
   const [picked, setPicked] = useState<string[]>(() => {
@@ -60,6 +68,8 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
   };
 
   const ready = picked.length === size;
+  // かりた なかまが いると クラス対戦には出られない（クラス対戦のレベルは サーバのセーブから読むため）
+  const usesRental = picked.some(isRentalUid);
   const handleStart = (mode: 'cpu' | 'pvp') => { if (ready) onStart(picked, size, mode); };
 
   if (candidates.length < 3) {
@@ -98,7 +108,7 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
               <button key={s} onClick={() => changeSize(s)} disabled={candidates.length < s}
                 className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-40 ${size === s ? 'border-emerald-500/60 bg-emerald-900/20' : 'border-slate-700/30 bg-slate-900/30'}`}>
                 <div className={`text-base font-black ${size === s ? 'text-emerald-300' : 'text-gray-400'}`}>{s}匹</div>
-                <div className="text-[10px] text-gray-500 mt-0.5">{s === 3 ? 'やく5分' : 'やく10分'}{candidates.length < s ? `（あと${s - candidates.length}匹 つかまえよう）` : ''}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">{s === 3 ? 'やく5分' : 'やく10分'}{candidates.length < s ? `（あと${s - candidates.length}匹 つかまえよう）` : ownCount < s ? '（かりた なかまで CPU対戦）' : ''}</div>
               </button>
             ))}
           </div>
@@ -121,7 +131,7 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
             })}
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1">
-            {candidates.map(({ o, def }) => {
+            {candidates.map(({ o, def, rental }) => {
               const isSelected = picked.includes(o.uid);
               const el = ELEMENTS[def.type];
               const st = statsAtLevel(def, o.level);
@@ -134,6 +144,7 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
                   <span className="text-[10px] font-black text-white">Lv.{o.level}</span>
                   <span className="text-[9px] text-gray-500">HP {st.maxHp}・こうげき {st.atk}</span>
                   <span className="text-[9px]" style={{ color: el.color }}>{el.icon} {el.name}</span>
+                  {rental && <span className="text-[9px] font-black text-amber-300">かりた なかま</span>}
                 </button>
               );
             })}
@@ -157,11 +168,11 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
             <div className="text-lg font-black">CPU対戦</div>
             <div className="text-[10px] text-emerald-400 opacity-70 mt-1">{cpuOpen ? 'コンピュータと たいせん' : '🔒 先生が まだ ひらいていないよ'}</div>
           </button>
-          <button onClick={() => handleStart('pvp')} disabled={!ready || !pvpReady || !classDuelOpen}
+          <button onClick={() => handleStart('pvp')} disabled={!ready || !pvpReady || !classDuelOpen || usesRental}
             className="btn-tactical py-5 rounded-2xl font-bold tracking-[0.15em] text-base disabled:opacity-40">
             <div className="text-lg font-black">クラス対戦</div>
             <div className="text-[10px] text-emerald-400 opacity-70 mt-1">
-              {!classDuelOpen ? '🔒 先生が まだ ひらいていないよ' : pvpReady ? '同じ学級の ともだちと' : 'がっきゅうコードを 入れると あそべるよ'}
+              {!classDuelOpen ? '🔒 先生が まだ ひらいていないよ' : !pvpReady ? 'がっきゅうコードを 入れると あそべるよ' : usesRental ? 'かりた なかまでは 出られないよ' : '同じ学級の ともだちと'}
             </div>
           </button>
         </div>

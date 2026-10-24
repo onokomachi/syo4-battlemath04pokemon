@@ -16,7 +16,7 @@ import type { Problem, ProblemViewRef } from '../../types';
 import type { BattleSetup, BattleResultSummary, MonsterDef } from '../../data/adventure/adventureTypes';
 import { battleProblems } from '../../data';
 import { getMonster, getMonsterSprite, statsAtLevel } from '../../data/adventure/monsters';
-import { expPerCorrect } from '../../data/adventure/growth';
+import { WEAK_BONUS, expPerCorrect } from '../../data/adventure/growth';
 import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adventure/elements';
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
 import { getNpcSprite } from '../../data/adventure/people';
@@ -26,7 +26,7 @@ import {
 import { checkAnswer as evaluateAnswer } from '../../utils/answerChecker';
 import { shuffleDeck } from '../../utils/shuffle';
 import { generateSubtopicKeypadLayout } from '../../utils/keypadLayoutGenerator';
-import { addIncorrectToSrs } from '../../services/spacedRepetitionService';
+import { addIncorrectToSrs, isWeakSubtopic } from '../../services/spacedRepetitionService';
 import { recordProblemLog } from '../../services/learningLogService';
 import { recordAttempt } from '../../services/weaknessAnalysisService';
 import ProblemQuestionView from '../ProblemQuestionView';
@@ -616,7 +616,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     for (const [sub, n] of byTopic) {
       const def = getMonster(opponents.find(o => getMonster(o.defId)?.subtopic === sub)?.defId ?? '')
         ?? oppDef;
-      const exp = Math.round(n * expPerCorrect(def?.difficulty ?? 2) * expMult.current);
+      // 苦手ボーナス（前に まちがえた項目の正解は 1.5倍）
+      const exp = Math.round(n * expPerCorrect(def?.difficulty ?? 2) * expMult.current * (isWeakSubtopic(sub) ? WEAK_BONUS : 1));
       // その分野のモンスターだけが育つ（ほかの手持ちには入らない。2026-10-24 先生と決めた）
       const results = store.growBySubtopic(sub, n, exp);
       for (const r of results) {
@@ -628,7 +629,6 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   const handleFaint = () => {
     const gained = Math.round(12 + oppLevel * 3.5 + (oppDef?.difficulty ?? 2) * 4);
-    stats.current.mp += Math.round(8 + oppLevel * 1.5);
     const leveledBefore = leveled.current.length;
     // けいけんちは、正解した問題の出どころのモンスター（同じ種類）だけに入る（growth.ts）。ほかの手持ちには入らない
     const beforeMax = party.map(p => monsterMaxHp(p.owned));
@@ -636,9 +636,14 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     const byTopic = Object.entries(correctsByTopic.current);
     const totalCorrect = byTopic.reduce((a, [, n]) => a + n, 0);
     correctsByTopic.current = {};
+    // 苦手ボーナス：前に まちがえた項目で正解して たおしたら、MP も 1.5倍
+    const weakHit = byTopic.some(([sub]) => isWeakSubtopic(sub));
+    stats.current.mp += Math.round((8 + oppLevel * 1.5) * (weakHit ? WEAK_BONUS : 1));
     const results = totalCorrect === 0
       ? []
-      : byTopic.flatMap(([sub, n]) => store.growBySubtopic(sub, n, Math.round((gained * expMult.current * n) / totalCorrect)));
+      : byTopic.flatMap(([sub, n]) => store.growBySubtopic(
+        sub, n, Math.round(((gained * expMult.current * n) / totalCorrect) * (isWeakSubtopic(sub) ? WEAK_BONUS : 1)),
+      ));
     stats.current.exp += results.reduce((a, r) => a + r.gained, 0);
     party.forEach((p, i) => {
       const r = results.find(x => x.uid === p.owned.uid);

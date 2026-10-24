@@ -46,8 +46,9 @@ import ClassBattleBoard from './components/ClassBattleBoard';
 import { checkAnswer } from './utils/answerChecker';
 import { APP_ROUND_SUBTOPICS, isAppRoundProblem } from './data';
 import { recordProblemLog, setLearningLogListener, setProblemLogHook, type TestBests } from './services/learningLogService';
-import { expPerCorrect } from './data/adventure/growth';
+import { WEAK_BONUS, expPerCorrect } from './data/adventure/growth';
 import { toDuelMon, type DuelMon } from './data/partyDuel';
+import { rentalMonsters } from './data/adventure/starters';
 import { fetchLockedUnits } from './services/unitLockService';
 import { fetchAdminEmails } from './services/adminAccessService';
 import { getEquippedBackground, setEquippedBackground, badgeRatio, isBackgroundUnlocked, type BackgroundId } from './utils/backgroundUnlock';
@@ -58,7 +59,7 @@ import {
   SPEED_DUEL_TIME_LIMIT_SEC, SPEED_DUEL_COUNTDOWN_MS, SPEED_CPU,
   speedCpuAccuracy, SPEED_DUEL_REWARDS, CLASS_DUEL_MP_PER_CORRECT,
 } from './constants/gameBalance';
-import { addIncorrectToSrs, getDueCount } from './services/spacedRepetitionService';
+import { addIncorrectToSrs, getDueCount, isWeakSubtopic } from './services/spacedRepetitionService';
 import { recordAttempt, getCategoryWeights } from './services/weaknessAnalysisService';
 import WeaknessPanel from './components/WeaknessPanel';
 import ItemShop from './components/ItemShop';
@@ -264,7 +265,8 @@ const App: React.FC = () => {
       const store = useAdventureStore.getState();
       const def = store.save.owned.map((o) => getMonster(o.defId)).find((m) => m?.subtopic === e.subTopic);
       if (!def) return;
-      const results = store.growBySubtopic(e.subTopic, 1, expPerCorrect(def.difficulty));
+      // 苦手ボーナス（前に まちがえた項目の正解は 1.5倍）
+      const results = store.growBySubtopic(e.subTopic, 1, Math.round(expPerCorrect(def.difficulty) * (isWeakSubtopic(e.subTopic) ? WEAK_BONUS : 1)));
       const up = results.find((r) => r.leveled);
       const capped = results.find((r) => r.capped && r.source);
       if (up) setGrowthToast(`${getMonster(up.defId)?.name ?? ''} が Lv.${up.newLevel} に なった！`);
@@ -1333,6 +1335,7 @@ const App: React.FC = () => {
           <AdventureMode
             onExit={() => { flushSessionData().catch(() => {}); void portal.refresh(); setGameState('main_menu'); }}
             lockedUnits={portal.lockedUnitNames}
+            unitProgress={portal.units}
             onRequestBattle={requestBattle}
             mathPoints={mathPoints}
             onAddMathPoints={n => addBoostedMp(n)}
@@ -1424,9 +1427,11 @@ const App: React.FC = () => {
                 setGameState('class_duel');
                 return;
               }
+              // かりた なかま（さいしょの3体。data/adventure/starters.ts）も まぜて パーティにする
               const owned = useAdventureStore.getState().save.owned;
+              const pool = [...owned, ...rentalMonsters(owned)];
               const party = uids
-                .map((u) => owned.find((o) => o.uid === u))
+                .map((u) => pool.find((o) => o.uid === u))
                 .map((o) => (o ? toDuelMon(o) : null))
                 .filter((m): m is DuelMon => !!m);
               void requestBattle('monster_duel').then((r) => {

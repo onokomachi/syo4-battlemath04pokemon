@@ -57,6 +57,16 @@ export const getSrsItems = (): SrsItem[] => {
   }
 };
 
+/**
+ * 苦手の項目か（2026-10-24 先生と決めた「苦手ボーナス」）。
+ * きのうまでに まちがえて ふくしゅうリストに入った項目。きょう まちがえたばかりの項目は数えない
+ * （わざと まちがえてから正解して ボーナスを もらう、を防ぐ）。
+ */
+export const isWeakSubtopic = (category: string): boolean => {
+  const today = getTodayStr();
+  return getSrsItems().some(i => i.category === category && i.createdAt < today);
+};
+
 /** SRSアイテムを保存 */
 const saveSrsItems = (items: SrsItem[]): void => {
   // 最大件数を超えたら古い順に削除

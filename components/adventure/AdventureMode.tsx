@@ -5,6 +5,7 @@
  * NPCとの会話・イベント進行をまとめている。学習データ(問題・採点・SRS・学習記録)は
  * すべて既存のものをそのまま使い、このモードは「入れもの」に徹している。
  */
+import type { SanmonUnitProgress } from 'learning-app-kit/sanmon';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BattleResultSummary, BattleSetup, FieldNpcDef, TownDef,
@@ -44,6 +45,8 @@ interface Props {
   onExit: () => void;
   /** 先生が管理画面でロックした単元 */
   lockedUnits: Set<string>;
+  /** 町ごとの「あと どれだけ」（learning-app-kit の sanmonUnits）。マップで 開く条件を見せる */
+  unitProgress?: SanmonUnitProgress[];
   /** MPの残高と加算(既存の progressionStore につなぐ) */
   mathPoints: number;
   onAddMathPoints: (n: number) => void;
@@ -70,7 +73,7 @@ interface Dialogue {
 }
 
 const AdventureMode: React.FC<Props> = ({
-  onExit, lockedUnits, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle,
+  onExit, lockedUnits, unitProgress, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle,
 }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
@@ -1402,6 +1405,7 @@ const AdventureMode: React.FC<Props> = ({
           onTravel={id => { store.setTown(id); void store.syncToCloud(uid ?? null); }}
           onLeague={enterLeague}
           lockedUnits={lockedUnits}
+          unitProgress={unitProgress}
         />
       )}
       {overlay === 'save' && <SaveSlotsModal onClose={() => setOverlay('none')} />}
