@@ -20,6 +20,7 @@ import {
 import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
+import { GACHA_RULES } from '../../data/adventure/gacha';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
   title, onClose, children, accent = '#0ea5e9',
@@ -564,12 +565,26 @@ export const ShopScreen: React.FC<{
   onClose: () => void;
   mathPoints: number;
   onBuy: (item: ItemId, cost: number) => void;
-}> = ({ onClose, mathPoints, onBuy }) => {
+  /** ガチャ（サンスウカプセル）を ひらく。ガチャは ショップの中からだけ回せる */
+  onOpenGacha: () => void;
+}> = ({ onClose, mathPoints, onBuy, onOpenGacha }) => {
   const save = useAdventureStore(s => s.save);
   const order: ItemId[] = ['ball', 'greatball', 'potion', 'revive', 'hintbook'];
 
   return (
     <Panel title={`ショップ  もっているMP: ${mathPoints}`} onClose={onClose} accent="#7c3aed">
+      <button
+        onClick={onOpenGacha}
+        className="w-full mb-3 rounded-3xl bg-gradient-to-r from-pink-500 to-amber-400 p-4 text-left text-white shadow-lg flex items-center gap-4 active:scale-[0.99]"
+      >
+        <span className="text-5xl shrink-0">🎰</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xl font-black">サンスウカプセル（ガチャ）</span>
+          <span className="block text-xs font-bold opacity-90">
+            {GACHA_RULES.mpCost} MPか コイン1まいで 1回。どうぐや モンスターの シールが 出るよ
+          </span>
+        </span>
+      </button>
       <div className="grid sm:grid-cols-2 gap-3">
         {order.map(id => {
           const item = ITEMS[id];

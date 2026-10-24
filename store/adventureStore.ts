@@ -21,7 +21,7 @@ import { TEAM_CHAPTERS, TEAM_HIDEOUT } from '../data/adventure/team';
 import { getAllMastery } from '../services/learningLogService';
 import type { KidnappedRecord, OwnedMonster, TownDef } from '../data/adventure/adventureTypes';
 import { GROWTH_RULES, dailyEffective, levelCapOf, todayKey } from '../data/adventure/growth';
-import { GACHA_RULES, LEARNING_REWARDS, rollGacha, type GachaPrize } from '../data/adventure/gacha';
+import { GACHA_RULES, LEARNING_REWARDS, migrateOldStickers, rollGacha, type GachaPrize } from '../data/adventure/gacha';
 import { ITEMS, type ItemId } from '../data/adventure/adventureTypes';
 
 const KEY = 'bm_adventure_v1';
@@ -184,6 +184,8 @@ const hydrateSave = (partial: Partial<AdventureSave> | null | undefined): Advent
     merged.dexCaught = Array.from(new Set(merged.owned.map(o => o.defId)));
   }
   merged.gacha = { ...emptyGacha(), ...(merged.gacha ?? {}) };
+  // 前の形のシール（⭐など）は、同じ枚数のモンスターシールにかえる（2026-10-24）
+  merged.gacha.stickers = migrateOldStickers(merged.gacha.stickers ?? {});
   // 熟達のコインは「これから熟達したぶん」だけ。この機能より前の熟達を いっぺんにコインにしない
   if (!merged.masteryCoined) {
     const mastery = getAllMastery();
@@ -322,9 +324,9 @@ interface AdventureState {
   addExp: (uid: string, exp: number) => { leveled: boolean; newLevel: number; capped: boolean };
   /**
    * 正解した問題の出どころ（サブトピック）のモンスターを育てる（growth.ts）。
-   * expFull は出どころのモンスター1体が満額でもらう量。shareParty なら、ほかの手持ちにも2割。
+   * expFull は出どころのモンスター1体が満額でもらう量。ほかの手持ちには入らない。
    */
-  growBySubtopic: (subtopic: string, corrects: number, expFull: number, opts?: { shareParty?: boolean }) => GrowthResult[];
+  growBySubtopic: (subtopic: string, corrects: number, expFull: number) => GrowthResult[];
   setParty: (uids: string[]) => void;
 
   // --- HP・アイテム ---
@@ -553,7 +555,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       return { leveled, newLevel, capped };
     },
 
-    growBySubtopic: (subtopic, corrects, expFull, opts) => {
+    growBySubtopic: (subtopic, corrects, expFull) => {
       const results: GrowthResult[] = [];
       if (!subtopic || corrects <= 0 || expFull <= 0) return results;
       const s0 = get().save;
@@ -568,13 +570,6 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         log[defId] = d.used;
         const exp = Math.round(expFull * (d.effective / corrects));
         for (const o of sources.filter(x => x.defId === defId)) gains.push({ uid: o.uid, defId, exp, source: true });
-      }
-      if (opts?.shareParty) {
-        for (const uid of s0.party) {
-          const o = s0.owned.find(x => x.uid === uid);
-          if (!o || gains.some(g => g.uid === uid)) continue;
-          gains.push({ uid, defId: o.defId, exp: Math.round(expFull * GROWTH_RULES.othersShare), source: false });
-        }
       }
       if (defIds.length) update(s => ({ ...s, growthLog: { date, used: log } }));
       for (const g of gains) {

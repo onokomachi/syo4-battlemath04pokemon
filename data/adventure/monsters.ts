@@ -197,8 +197,16 @@ export const statsAtLevel = (def: MonsterDef, level: number) => ({
   atk: Math.round(def.baseAtk + def.baseAtk * 0.10 * (level - 1)),
 });
 
-/** つぎのレベルまでに必要な経験値 */
-export const expToNext = (level: number): number => 12 + level * 8;
+/** Lv20 から上は、必要な経験値を この倍にする（やりこみ。2026-10-24 先生と決めた） */
+export const LATE_LEVEL_FROM = 20;
+export const LATE_LEVEL_MULT = 3;
+
+/**
+ * つぎのレベルまでに必要な経験値。Lv20 までは そのまま（はじめは気持ちよく上がる）、Lv20→21 からは3倍。
+ * 目安（正解1問 約12）：Lv5→20 約135問・Lv20→40 約1,240問・Lv40→60 約2,040問（その分野の正解）。
+ */
+export const expToNext = (level: number): number =>
+  (12 + level * 8) * (level >= LATE_LEVEL_FROM ? LATE_LEVEL_MULT : 1);
 
 /** 進化する図鑑番号の一覧(図鑑で「進化する」印を出すのに使う) */
 export const EVOLVING_IDS: Set<string> = new Set(

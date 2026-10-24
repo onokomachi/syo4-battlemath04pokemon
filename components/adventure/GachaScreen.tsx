@@ -3,17 +3,28 @@
  *
  * きまりは data/adventure/gacha.ts。画面では、確率をすべて見せ、天井まであと何回かを出す。
  * カプセルの演出は「開くだけ」にして、あと少しで当たりだったように見せる演出(ニアミス)は入れない。
+ * ぼうけんの ショップ（MenuScreens の ShopScreen）からだけ開く。
+ * シール帳は、図鑑のモンスターのシール。持っているシールは、絵と「生態」（図鑑の説明）だけが見られる。
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Panel } from './MenuScreens';
 import { useAdventureStore } from '../../store/adventureStore';
 import { ITEMS } from '../../data/adventure/adventureTypes';
 import { ELEMENTS } from '../../data/adventure/elements';
+import { getMonsterSprite } from '../../data/adventure/monsters';
 import {
-  GACHA_ITEM_TABLE, GACHA_RULES, LEARNING_REWARDS, RARITY_LABEL, STICKERS, STICKER_WEIGHT, type GachaPrize,
+  GACHA_ITEM_TABLE, GACHA_RULES, LEARNING_REWARDS, RARITY_LABEL, STICKERS, STICKER_TIERS, STICKER_TIER_WEIGHT,
+  STICKER_WEIGHT, stickersOfTier, type GachaPrize, type StickerDef, type StickerTier,
 } from '../../data/adventure/gacha';
 
-const RARITY_COLOR: Record<string, string> = { N: '#64748b', R: '#0ea5e9', SR: '#f59e0b' };
+const RARITY_COLOR: Record<string, string> = {
+  N: '#64748b', R: '#0ea5e9', normal: '#16a34a', rare: '#7c3aed', super: '#ea580c', legend: '#d97706',
+};
+
+/** シール帳のなかの説明（何のシールか） */
+const TIER_NOTE: Record<StickerTier, string> = {
+  normal: 'モンスター', rare: '進化した すがた', super: '単元ボス', legend: '伝説・幻',
+};
 
 export const GachaScreen: React.FC<{
   onClose: () => void;
@@ -25,6 +36,8 @@ export const GachaScreen: React.FC<{
   const pullGacha = useAdventureStore(s => s.pullGacha);
   const mpPullsLeft = useAdventureStore(s => s.mpPullsLeft);
   const [tab, setTab] = useState<'gacha' | 'book' | 'odds'>('gacha');
+  const [bookTier, setBookTier] = useState<StickerTier>('normal');
+  const [detail, setDetail] = useState<StickerDef | null>(null);
   const [opening, setOpening] = useState(false);
   const [prize, setPrize] = useState<GachaPrize | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -36,6 +49,7 @@ export const GachaScreen: React.FC<{
   const mpLeft = mpPullsLeft();
   const stickers = g?.stickers ?? {};
   const ownedKinds = STICKERS.filter(s => (stickers[s.id] ?? 0) > 0).length;
+  const bookList = useMemo(() => stickersOfTier(bookTier), [bookTier]);
 
   const pull = (method: 'coin' | 'mp') => {
     if (opening) return;
@@ -56,12 +70,12 @@ export const GachaScreen: React.FC<{
   const prizeView = (p: GachaPrize) => {
     if (p.kind === 'item') {
       const it = ITEMS[p.item];
-      return { icon: it.icon, title: `${it.name} ×${p.count}`, sub: it.description };
+      return { icon: <span>{it.icon}</span>, title: `${it.name} ×${p.count}`, sub: it.description };
     }
     return {
-      icon: p.sticker.icon,
-      title: p.sticker.name,
-      sub: p.duplicate ? 'もう もっている シール。かさなって キラキラに なった！' : 'あたらしい シールを シール帳に はった！',
+      icon: <img src={getMonsterSprite(p.sticker.id)} alt="" className="w-28 h-28 object-contain mx-auto" />,
+      title: `${p.sticker.name} の シール`,
+      sub: p.duplicate ? 'もう もっている シール。かさなって キラキラに なった！' : 'あたらしい シールを シール帳に はった！ シール帳で 生態が 読めるよ',
     };
   };
 
@@ -137,20 +151,38 @@ export const GachaScreen: React.FC<{
 
         {tab === 'book' && (
           <div className="rounded-3xl bg-white p-4 space-y-3">
-            <p className="text-sm font-bold text-slate-500">あつめた シールを ながめよう。おなじ シールが かさなると キラキラに なるよ。</p>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {STICKERS.map(st => {
+            <p className="text-sm font-bold text-slate-500">
+              あつめた シールを おすと、その モンスターの 生態が 読めるよ。おなじ シールが かさなると キラキラに なるよ。
+            </p>
+            <div className="flex gap-1.5 flex-wrap">
+              {STICKER_TIERS.map(t => {
+                const list = stickersOfTier(t);
+                const got = list.filter(x => (stickers[x.id] ?? 0) > 0).length;
+                return (
+                  <button key={t} onClick={() => setBookTier(t)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-black border-2 ${bookTier === t ? 'text-white' : 'bg-white'}`}
+                    style={{ borderColor: RARITY_COLOR[t], background: bookTier === t ? RARITY_COLOR[t] : undefined, color: bookTier === t ? '#fff' : RARITY_COLOR[t] }}>
+                    {RARITY_LABEL[t]}（{TIER_NOTE[t]}） {got}/{list.length}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {bookList.map(st => {
                 const n = stickers[st.id] ?? 0;
                 return (
-                  <div
+                  <button
                     key={st.id}
-                    className="rounded-2xl border-4 p-2 text-center"
+                    onClick={() => n > 0 && setDetail(st)}
+                    disabled={n === 0}
+                    className="rounded-2xl border-4 p-1.5 text-center"
                     style={{ borderColor: n > 0 ? ELEMENTS[st.type].color : '#e2e8f0', background: n > 1 ? '#fffbeb' : '#fff' }}
                   >
-                    <div className={`text-4xl ${n > 0 ? '' : 'grayscale opacity-20'}`}>{st.icon}</div>
-                    <p className="text-[11px] font-black text-slate-700 leading-tight mt-1">{n > 0 ? st.name : '？？？'}</p>
-                    {n > 1 && <p className="text-[10px] font-black text-amber-500">✨ キラ ×{n}</p>}
-                  </div>
+                    <img src={getMonsterSprite(st.id)} alt="" loading="lazy"
+                      className={`w-full aspect-square object-contain ${n > 0 ? '' : 'brightness-0 opacity-15'}`} />
+                    <p className="text-[10px] font-black text-slate-700 leading-tight mt-0.5 truncate">{n > 0 ? st.name : '？？？'}</p>
+                    {n > 1 && <p className="text-[9px] font-black text-amber-500">✨ ×{n}</p>}
+                  </button>
                 );
               })}
             </div>
@@ -172,22 +204,40 @@ export const GachaScreen: React.FC<{
                     <td className="text-right tabular-nums">{p.pct}％</td>
                   </tr>
                 ))}
-                <tr className="border-t border-slate-100">
-                  <td className="py-1.5" style={{ color: RARITY_COLOR.SR }}>{RARITY_LABEL.SR}</td>
-                  <td>シール（{STICKERS.length}しゅるいの どれか。まだ もっていない シールは 2ばい 出やすい）</td>
-                  <td className="text-right tabular-nums">{STICKER_WEIGHT}％</td>
-                </tr>
+                {STICKER_TIERS.map(t => (
+                  <tr key={t} className="border-t border-slate-100">
+                    <td className="py-1.5" style={{ color: RARITY_COLOR[t] }}>{RARITY_LABEL[t]}</td>
+                    <td>{TIER_NOTE[t]}の シール（{stickersOfTier(t).length}しゅるいの どれか）</td>
+                    <td className="text-right tabular-nums">{STICKER_TIER_WEIGHT[t]}％</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
             <p className="text-xs font-bold text-slate-500">
-              シールが {GACHA_RULES.pity - 1}回 つづけて 出なかったら、つぎの 1回は かならず シール。
-              そのため、ならすと 7回に 1回くらい シールが 出るよ。
+              シールは あわせて {STICKER_WEIGHT}％。まだ もっていない シールは、おなじ めずらしさの なかで 2ばい 出やすい。
+              シールが {GACHA_RULES.pity - 1}回 つづけて 出なかったら、つぎの 1回は かならず シール（めずらしさは 上の わりあいの とおり）。
+              シールで モンスターが なかまに なることは ないよ。
               シールを ぜんぶ あつめても、とくべつな ごほうびは ないよ（ながめて たのしむ ための シールだよ）。
               お金では まわせないよ。
             </p>
           </div>
         )}
       </div>
+
+      {detail && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDetail(null)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 text-center shadow-2xl border-8"
+            style={{ borderColor: ELEMENTS[detail.type].color }} onClick={e => e.stopPropagation()}>
+            <p className="text-xs font-black" style={{ color: RARITY_COLOR[detail.tier] }}>{RARITY_LABEL[detail.tier]}（{TIER_NOTE[detail.tier]}）</p>
+            <img src={getMonsterSprite(detail.id)} alt="" className="w-44 h-44 object-contain mx-auto my-2" />
+            <p className="text-2xl font-black text-slate-800">{detail.name}</p>
+            <p className="text-[11px] font-black text-slate-400 mt-2">せいたい</p>
+            <p className="text-sm font-bold text-slate-600 leading-relaxed">{detail.flavor}</p>
+            {(stickers[detail.id] ?? 0) > 1 && <p className="text-xs font-black text-amber-500 mt-2">✨ キラ ×{stickers[detail.id]}</p>}
+            <button onClick={() => setDetail(null)} className="mt-4 px-8 py-2.5 rounded-2xl bg-slate-800 text-white font-black">とじる</button>
+          </div>
+        </div>
+      )}
     </Panel>
   );
 };

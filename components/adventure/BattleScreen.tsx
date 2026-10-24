@@ -16,7 +16,7 @@ import type { Problem, ProblemViewRef } from '../../types';
 import type { BattleSetup, BattleResultSummary, MonsterDef } from '../../data/adventure/adventureTypes';
 import { battleProblems } from '../../data';
 import { getMonster, getMonsterSprite, statsAtLevel } from '../../data/adventure/monsters';
-import { GROWTH_RULES, expPerCorrect } from '../../data/adventure/growth';
+import { expPerCorrect } from '../../data/adventure/growth';
 import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adventure/elements';
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
 import { getNpcSprite } from '../../data/adventure/people';
@@ -617,8 +617,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       const def = getMonster(opponents.find(o => getMonster(o.defId)?.subtopic === sub)?.defId ?? '')
         ?? oppDef;
       const exp = Math.round(n * expPerCorrect(def?.difficulty ?? 2) * expMult.current);
-      // たおしたときと同じく、ほかの手持ちにも2割（GROWTH_RULES.othersShare）
-      const results = store.growBySubtopic(sub, n, exp, { shareParty: true });
+      // その分野のモンスターだけが育つ（ほかの手持ちには入らない。2026-10-24 先生と決めた）
+      const results = store.growBySubtopic(sub, n, exp);
       for (const r of results) {
         stats.current.exp += r.gained;
         if (r.leveled && !leveled.current.includes(r.uid)) leveled.current.push(r.uid);
@@ -628,10 +628,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
   const handleFaint = () => {
     const gained = Math.round(12 + oppLevel * 3.5 + (oppDef?.difficulty ?? 2) * 4);
-    stats.current.exp += gained;
     stats.current.mp += Math.round(8 + oppLevel * 1.5);
     const leveledBefore = leveled.current.length;
-    // けいけんちは、正解した問題の出どころのモンスター（同じ種類）に満額。ほかの手持ちは2割（growth.ts）
+    // けいけんちは、正解した問題の出どころのモンスター（同じ種類）だけに入る（growth.ts）。ほかの手持ちには入らない
     const beforeMax = party.map(p => monsterMaxHp(p.owned));
     // 正解0問なら、だれにも けいけんちは入らない（以前は相手の分野に1問ぶん足していた）
     const byTopic = Object.entries(correctsByTopic.current);
@@ -640,12 +639,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     const results = totalCorrect === 0
       ? []
       : byTopic.flatMap(([sub, n]) => store.growBySubtopic(sub, n, Math.round((gained * expMult.current * n) / totalCorrect)));
-    const grownUids = new Set(results.map(r => r.uid));
-    for (const p of party) {
-      if (totalCorrect === 0 || grownUids.has(p.owned.uid)) continue;
-      const r = store.addExp(p.owned.uid, Math.round(gained * GROWTH_RULES.othersShare));
-      results.push({ uid: p.owned.uid, defId: p.owned.defId, gained: 0, source: false, ...r });
-    }
+    stats.current.exp += results.reduce((a, r) => a + r.gained, 0);
     party.forEach((p, i) => {
       const r = results.find(x => x.uid === p.owned.uid);
       if (!r?.leveled) return;
@@ -662,7 +656,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       `${oppDef?.name ?? 'あいて'} を たおした！`,
       sourceMon
         ? `おなじ なかまの ${getMonster(sourceMon.defId)?.name ?? ''} が けいけんちを たくさん もらった！`
-        : `けいけんちを もらった！（おなじ モンスターで たたかうと たくさん もらえるよ）`,
+        : `この もんだいの モンスターを もっていないので、けいけんちは もらえなかった（つかまえると そだつよ）`,
       ...(cappedMon ? [`${getMonster(cappedMon.defId)?.name ?? ''} は レベルの じょうげん！ 単元アプリで「かけら」を あつめよう`] : []),
     ]);
     setPhase('faint');
