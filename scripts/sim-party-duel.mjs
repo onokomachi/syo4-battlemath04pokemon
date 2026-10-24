@@ -24,6 +24,11 @@ buildSync({
 });
 const require = createRequire(import.meta.url);
 const D = require(out);
+// 数を試すとき: SIM_SET="guard=0.8,grit=0.5" node scripts/sim-party-duel.mjs
+for (const kv of (process.env.SIM_SET ?? '').split(',').filter(Boolean)) {
+  const [k, v] = kv.split('=');
+  D.PARTY_DUEL[k] = Number(v);
+}
 rmSync(dir, { recursive: true, force: true });
 
 // 再現できる乱数（mulberry32）
@@ -57,10 +62,17 @@ function party(size, level, rand) {
   return { party: p, active: 0, miss: 0 };
 }
 
-function answer(bot, rand) {
-  const t = bot.sec[0] + rand() * (bot.sec[1] - bot.sec[0]);
-  if (t > D.PARTY_DUEL.turnSeconds) return null;
-  return { correct: rand() < bot.acc, at: t };
+/** ロボットが答えるまでの秒数と、正しいか。まちがい・わからない は同じあつかい */
+function think(bot, rand) {
+  return { t: bot.sec[0] + rand() * (bot.sec[1] - bot.sec[0]), correct: rand() < bot.acc };
+}
+
+/** さいしょの子が答えるまでは時間せいげんなし、答えたら のこりの子は60秒（data/partyDuel.ts の turnDeadlineMs） */
+function answers(a, b) {
+  const first = Math.min(a.t, b.t);
+  const deadline = D.turnDeadlineMs(first * 1000) / 1000;
+  const pick = (x) => (x.t <= deadline ? { correct: x.correct, at: x.t } : null);
+  return { ha: pick(a), ga: pick(b), seconds: Math.min(deadline, Math.max(a.t, b.t)) };
 }
 
 function match(size, botH, lvH, botG, lvG, seed) {
@@ -69,8 +81,8 @@ function match(size, botH, lvH, botG, lvG, seed) {
   let guest = party(size, lvG, rand);
   let seconds = 0;
   for (let turn = 1; ; turn++) {
-    const ha = answer(botH, rand); const ga = answer(botG, rand);
-    seconds += Math.min(D.PARTY_DUEL.turnSeconds, Math.max(ha?.at ?? 99, ga?.at ?? 99)) + 4;
+    const { ha, ga, seconds: s } = answers(think(botH, rand), think(botG, rand));
+    seconds += s + 4;
     const r = D.resolveTurn(turn, host, guest, ha, ga, rand);
     host = r.host; guest = r.guest;
     if (r.winner) return { winner: r.winner, turns: turn, seconds };

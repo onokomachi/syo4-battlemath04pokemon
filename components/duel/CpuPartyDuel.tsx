@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SpeedProblem } from '../../types';
 import { MONSTER_DEX } from '../../data/adventure/monsters';
-import { PARTY_DUEL, cpuParty, resolveTurn, turnSubtopic, type DuelMon, type DuelSide, type TurnAnswer } from '../../data/partyDuel';
+import { cpuParty, resolveTurn, turnDeadlineMs, turnSubtopic, type DuelMon, type DuelSide, type TurnAnswer } from '../../data/partyDuel';
 import PartyDuelBoard, { type BoardTurn, type PartyPhase } from './PartyDuelBoard';
 import { isDuelAnswerCorrect, problemFor } from './duelProblems';
 
@@ -64,7 +64,9 @@ const CpuPartyDuel: React.FC<CpuPartyDuelProps> = ({ party, onRecord, onFinish, 
     return () => clearInterval(t);
   }, [phase]);
 
-  const timeLeft = Math.max(0, Math.ceil((startRef.current + PARTY_DUEL.turnSeconds * 1000 - now) / 1000));
+  // さいしょに答えた時刻（ターンのはじめから）。だれも答えていなければ 時間せいげん なし（capSeconds まで）
+  const firstAt = myAnswer || cpuAnswer ? Math.min(myAnswer?.at ?? Infinity, cpuAnswer?.at ?? Infinity) : null;
+  const timeLeft = Math.max(0, Math.ceil((startRef.current + turnDeadlineMs(firstAt) - now) / 1000));
 
   const resolve = useCallback(() => {
     if (resolvedRef.current === turn) return;
@@ -114,7 +116,6 @@ const CpuPartyDuel: React.FC<CpuPartyDuelProps> = ({ party, onRecord, onFinish, 
       isPlayerAnswered={!!myAnswer}
       isOpponentAnswered={!!cpuAnswer}
       timeLeft={timeLeft}
-      timeLimit={PARTY_DUEL.turnSeconds}
       lastTurn={lastTurn}
       myMiss={me.miss}
       result={result}

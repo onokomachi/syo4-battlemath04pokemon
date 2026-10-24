@@ -5,8 +5,12 @@
  * - ぼうけんでつかまえたモンスターで、パーティを3匹か5匹くむ。
  * - 毎ターン、2人に同じ問題（場に出ている2匹の分野を交互に）。
  * - 正解すれば2人とも攻撃できる（早押しの「速い方だけ」にしない。速いと少しだけダメージが多い）。まちがえたら0。
+ * - 正解すると「まもり」：そのターンに受けるダメージが へる（guard）。答えられると 攻撃と守りの両方が得になる。
+ *   まちがい・わからない・時間切れは 同じあつかい（こうげき・まもり なし、がんばり +1）。まちがいを 責めない。
+ * - 時間（2026-10-24 先生と決めた）：さいしょの子が答えるまでは時間せいげん なし（けいさんらんで じっくり解ける）。
+ *   どちらかが答えたら、のこりの子は afterFirstSeconds 秒まで。2人とも答えないときだけ capSeconds で打ち切り。
  * - HPが0になったら次のモンスター。相手のパーティをぜんぶ たおした方の勝ち。
- * - 強さはレベル（＝練習した量）で決まるが、効き目には上限をつける（強さの差は最大1.5倍）。
+ * - 強さはレベル（＝練習した量）で決まるが、効き目には上限をつける（強さの差は最大1.7倍）。
  *   家でたくさんやった子が有利なのは努力の成果としてよいが、まったく勝てないと やめてしまう子が出るため。
  *
  * クラス対戦はサーバ（Supabase の _pduel_* 関数）が同じ計算をする。数を変えるときは両方を変える
@@ -20,8 +24,11 @@ export const PARTY_DUEL = {
   sizes: [3, 5] as const,
   /** 同じ強さ・相性ふつう・速さボーナスなしのとき、正解1回で けずる割合（最大HPに対して） */
   baseFraction: 0.36,
-  /** 強さの比の上限（これより差があっても1.5倍として計算する） */
-  maxRatio: 1.5,
+  /**
+   * 強さの比の上限（これより差があっても1.7倍として計算する）。
+   * まもり を入れると「2人とも正解」のターンの重みが下がり、レベルの差が効きにくくなるので 1.5 → 1.7 にした（2026-10-24）
+   */
+  maxRatio: 1.7,
   /** 相性（ぼうけんの ×2・×0.5 より やわらかくする。1回で勝負がつかないように） */
   typeStrong: 1.5,
   typeWeak: 0.67,
@@ -35,11 +42,20 @@ export const PARTY_DUEL = {
    * がんばり：攻撃できなかった（まちがえた・時間切れ）ターンが続くと、つぎに正解したときのダメージが上がる
    * （1ターンごとに +がんばり、上限まで）。あきらめずに解いた子が追いつける。
    */
-  grit: 0.35,
-  gritMax: 4,
+  grit: 0.7,
+  /**
+   * がんばりは3ターンまで。1回 わからない を押してから正解（×1.7）より、2回とも正解（1+1）の方が得になる数にしてある
+   * （わざと わからない を押して がんばりを ためる、が得にならないように）
+   */
+  gritMax: 3,
   /** 1回で けずれるのは最大HPの この割合まで（1回で勝負がつかないように） */
   maxFraction: 0.7,
-  turnSeconds: 45,
+  /** せいかいした子が受けるダメージの倍率（まもり）。2人とも正解したターンに効く */
+  guard: 0.85,
+  /** どちらかが答えてから、のこりの子が答えられる秒数 */
+  afterFirstSeconds: 60,
+  /** 2人とも答えないときの打ち切り（画面を開いたまま手が止まった子がいても、ずっと待たせない） */
+  capSeconds: 300,
   /** これだけ続いたら、残りHPの多い方の勝ち（終わらない対戦をふせぐ） */
   maxTurns: 60,
 } as const;
@@ -83,7 +99,7 @@ const typeFactor = (att: ElementId, def: ElementId): number => {
 
 /**
  * 正解1回で、相手の最大HPの どれだけを けずるか。
- * 強さの比 r（1.5倍まで）を、攻める側に √r、受ける側に √(1/r) で分けて効かせる → 勝負全体では最大 r 倍の差になる。
+ * 強さの比 r（maxRatio まで）を、攻める側に √r、受ける側に √(1/r) で分けて効かせる → 勝負全体では最大 r 倍の差になる。
  */
 export function hitFraction(att: DuelMon, def: DuelMon, faster: boolean, roll = 1, miss = 0): number {
   const r = Math.min(PARTY_DUEL.maxRatio, Math.max(1 / PARTY_DUEL.maxRatio, att.power / def.power));
@@ -101,6 +117,15 @@ export function damageRoll(rand: () => number): { roll: number; crit: boolean } 
   return { roll, crit };
 }
 
+/**
+ * そのターンの しめきり（ターンのはじめからの ミリ秒）。firstAt はさいしょの子が答えた時刻（まだなら null）。
+ * サーバの sanmon_pduel_answer も同じ決まり（さいしょの答えで しめきりを ちぢめる）。
+ */
+export function turnDeadlineMs(firstAt: number | null): number {
+  const cap = PARTY_DUEL.capSeconds * 1000;
+  return firstAt === null ? cap : Math.min(cap, firstAt + PARTY_DUEL.afterFirstSeconds * 1000);
+}
+
 /** そのターンの問題の分野（奇数ターンは部屋を作った側＝host の場のモンスター、偶数ターンは guest） */
 export function turnSubtopic(turn: number, host: DuelSide, guest: DuelSide): string {
   const side = turn % 2 === 1 ? host : guest;
@@ -109,12 +134,15 @@ export function turnSubtopic(turn: number, host: DuelSide, guest: DuelSide): str
 
 export interface TurnAnswer { correct: boolean; at: number }
 
+/** 1回の攻撃。guard = 受けた側が正解して まもった */
+export interface DuelHit { damage: number; crit: boolean; type: number; grit: number; guard: boolean }
+
 export interface TurnResult {
   host: DuelSide;
   guest: DuelSide;
   /** host が guest に与えたダメージ（0 = 攻撃なし） */
-  hostHit: { damage: number; crit: boolean; type: number; grit: number } | null;
-  guestHit: { damage: number; crit: boolean; type: number; grit: number } | null;
+  hostHit: DuelHit | null;
+  guestHit: DuelHit | null;
   hostKo: boolean;
   guestKo: boolean;
   winner: 'host' | 'guest' | 'draw' | null;
@@ -133,13 +161,15 @@ export function resolveTurn(
   const hm = h.party[h.active]!;
   const gm = g.party[g.active]!;
   const bothCorrect = !!ha?.correct && !!ga?.correct;
-  const hit = (att: DuelMon, def: DuelMon, faster: boolean, miss: number) => {
+  const hit = (att: DuelMon, def: DuelMon, faster: boolean, miss: number, guard: boolean): DuelHit => {
     const { roll, crit } = damageRoll(rand);
-    const damage = Math.max(1, Math.round(def.maxHp * hitFraction(att, def, faster, roll, miss)));
-    return { damage, crit, type: getTypeMultiplier(att.type, def.type), grit: Math.min(PARTY_DUEL.gritMax, miss) };
+    const f = hitFraction(att, def, faster, roll, miss) * (guard ? PARTY_DUEL.guard : 1);
+    const damage = Math.max(1, Math.round(def.maxHp * f));
+    return { damage, crit, type: getTypeMultiplier(att.type, def.type), grit: Math.min(PARTY_DUEL.gritMax, miss), guard };
   };
-  const hostHit = ha?.correct ? hit(hm, gm, bothCorrect && ha.at < ga!.at, h.miss) : null;
-  const guestHit = ga?.correct ? hit(gm, hm, bothCorrect && ga.at < ha!.at, g.miss) : null;
+  // 受ける側が正解していれば まもり（2人とも正解のターン）
+  const hostHit = ha?.correct ? hit(hm, gm, bothCorrect && ha.at < ga!.at, h.miss, bothCorrect) : null;
+  const guestHit = ga?.correct ? hit(gm, hm, bothCorrect && ga.at < ha!.at, g.miss, bothCorrect) : null;
   h.miss = hostHit ? 0 : h.miss + 1;
   g.miss = guestHit ? 0 : g.miss + 1;
   if (hostHit) gm.hp = Math.max(0, gm.hp - hostHit.damage);
