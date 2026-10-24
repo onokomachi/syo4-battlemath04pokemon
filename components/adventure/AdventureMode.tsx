@@ -376,6 +376,8 @@ const AdventureMode: React.FC<Props> = ({
       });
     };
     (window as any).__advGive = (defId: string, level = 5) => store.catchMonster(defId, level);
+    // ショップの店員さんまで歩かなくても ショップ（ガチャの入り口）を開けるように
+    (window as any).__advOverlay = (o: Overlay) => setOverlay(o);
     (window as any).__advState = () => ({
       ambush, legendWander, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
       party: save.party, owned: save.owned, townId: save.townId, legends: save.legends,
@@ -1299,7 +1301,6 @@ const AdventureMode: React.FC<Props> = ({
             ['📕 ずかん', () => setOverlay('dex')],
             ['🐾 てもち', () => setOverlay('party')],
             ['🪪 カード', () => setOverlay('card')],
-            ['🎰 ガチャ', () => setOverlay('gacha')],
             ['🏠 もどる', onExit],
           ] as const).map(([label, fn]) => (
             <button
@@ -1387,10 +1388,11 @@ const AdventureMode: React.FC<Props> = ({
       {overlay === 'card' && <TrainerCardScreen onClose={() => setOverlay('none')} />}
       {overlay === 'party' && <PartyScreen onClose={() => setOverlay('none')} />}
       {overlay === 'shop' && (
-        <ShopScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onBuy={handleBuy} />
+        <ShopScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onBuy={handleBuy} onOpenGacha={() => setOverlay('gacha')} />
       )}
       {overlay === 'gacha' && (
-        <GachaScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onSpendMathPoints={onSpendMathPoints} />
+        // ガチャは ショップの中からだけ。とじたら ショップに もどる
+        <GachaScreen onClose={() => setOverlay('shop')} mathPoints={mathPoints} onSpendMathPoints={onSpendMathPoints} />
       )}
       {overlay === 'map' && (
         <MapScreen
