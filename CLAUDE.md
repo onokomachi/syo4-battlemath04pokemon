@@ -84,6 +84,9 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - サブトピックを足したら、learning-app-kit のカタログ `sanmon` も作り直す（PRISM の項目名）。
 - **バトル（ぼうけん・スピードデュエル・クラス対戦）では、アプリと同じ答え方の問題があるサブトピックは それだけを出す**（`data/index.ts` の `battleProblems`・`APP_ROUND_SUBTOPICS`。2026-10-22 先生の判断）。
   SANMON にしかない問題は れんしゅう・ふくしゅう・本番テストで出る。わり算の筆算は アプリの筆算シミュレーター（`apps/hissan` の `hissan-*`）。
+- **けいさんらん（📝 筆算で けいさんする）**: 単元アプリと同じ kit の `ScratchPadToggle` を `components/ProblemScratch.tsx` が出す。
+  れんしゅう・ぼうけん・対戦・本番テストで同じ。自分で答えを打つ問題（text と guided の retry-hint）で、問題文に数字が2つ以上あるときだけ。
+  採点・保存・送信はしない。数は子どもが入れる（文章題の立式を先に答えないため）。単元ごとの計算の並びは同じファイルの `SCRATCH_BY_UNIT`。
 - `scripts/verify-app-rounds.mjs`（`npm run check` に入っている）: すべてのレベルで問題が作れる／data の app-round が registry にある／
   図鑑の名簿と絵がそろっている／写しが元とずれていない、を確かめる。
 

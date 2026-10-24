@@ -30,6 +30,7 @@ import GraphProblemView from './GraphProblemView';
 import BoxPlotView from './BoxPlotView';
 import HistogramView from './HistogramView';
 import GuidedAnswerHost from './guided/GuidedAnswerHost';
+import ProblemScratch from './ProblemScratch';
 
 interface Props {
   currentProblem: Problem | null;
@@ -44,6 +45,8 @@ interface Props {
   handleGuidedComplete?: (isCorrect: boolean) => void;
   /** guided エンジンを作り直すためのキー */
   guidedKey?: string | number;
+  /** 問題に subTopic / category が付いていないときのサブトピック（けいさんらんの単元を決める） */
+  subtopic?: string;
 }
 
 const ProblemQuestionView: React.FC<Props> = ({
@@ -56,6 +59,7 @@ const ProblemQuestionView: React.FC<Props> = ({
   guidedDisplayProblem,
   handleGuidedComplete,
   guidedKey,
+  subtopic,
 }) => {
   return (
     <>
@@ -177,6 +181,7 @@ const ProblemQuestionView: React.FC<Props> = ({
                         )}
                       </div>
                     )}
+                    <ProblemScratch problem={currentProblem} subtopic={subtopic} />
     </>
   );
 };

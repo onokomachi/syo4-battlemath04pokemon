@@ -524,6 +524,7 @@ const ProblemScreen: React.FC<ProblemScreenProps> = ({ category, subTopic, onBac
                       guidedDisplayProblem={guidedDisplayProblem}
                       handleGuidedComplete={handleGuidedComplete}
                       guidedKey={`${currentIndex}-${masterModeOn}`}
+                      subtopic={subTopic}
                     />
                     </div>
                     </div>
