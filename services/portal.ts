@@ -62,6 +62,10 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 /** まだ送っていない記録を送る（少しまとめてから）。失敗しても次の機会に送り直す */
 export function syncLearningToPortal(wait = 2000): void {
   if (!isPortalConfigured) return;
+  // おためし（学級コードなし）は送らない。kit は名乗っていない端末の記録も「端末のもの」として送り、
+  // あとで学級コードを入れたときに その子の記録に まとめる（claim_device）ので、送ると「記録が残らない」約束がやぶれる。
+  // おためしの記録は おためしのセーブ（services/saveProfile.ts）の中にだけ残る
+  if (!getStudent()) return;
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => { timer = null; void flushEvents(PUSH, toLogs()); }, wait);
 }

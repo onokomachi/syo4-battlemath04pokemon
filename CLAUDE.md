@@ -31,6 +31,12 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - 記録は `services/portal.ts` が学級ポータルへ送る（1問ごと→learning_event、本番テスト→test_result、セーブデータ→sanmon_save）。
   skill_id はサブトピック名そのもの（kit のカタログ `sanmon` と同じ）。サブトピックを足したら kit のカタログを作り直す。
 - 環境変数: `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`（publishable キーだけ）。
+- **おためし（学級コードなし）でもバトルできる**（2026-10-24 先生と決めた）。スタミナは使わない（`useSanmonPortal` の `spendForBattle`）。
+  町は 学級と同じ（単元アプリの いらない3町だけ）。**記録はサーバに送らない**（`syncLearningToPortal` は名乗っていないと何もしない。
+  kit は名乗っていない端末の記録も送って、あとで名乗ったとき その子に まとめるため）。
+  **セーブは学級と別**（`services/saveProfile.ts`：bm_・battleMath・fb_ の中身を、学級コードを入れた・消したときに入れかえて読みなおす。
+  index.tsx で いちばん先に読みこむ）。おためしの進み具合は 学級に引きつがない（上限・スタミナの すりぬけ を防ぐ）。
+  kit の右下の入口（JoinGate の chip）は出さない（おためしで バトルの「わからない」に重なって押せなかった）。入口は はじめの画面の JoinSettingsRow。
 
 ## モンスターの育ち方（2026-10〜 先生と決めた）
 

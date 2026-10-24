@@ -29,7 +29,10 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
               バトル1回で {SANMON_RULES.battleCost} つかう。れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。
             </p>
           ) : (
-            <p>がっきゅうコードを 入れると、スタミナと 町が つかえるよ（右下の「がっきゅうコードを 入れる」）。</p>
+            <p>
+              いまは「おためし」。バトルは スタミナなしで できるけど、きろくは 先生に とどかないよ（セーブも べつ）。
+              がっきゅうコードを 入れると、スタミナと 町が つかえるよ（はじめの画面の「がっきゅうコード」から）。
+            </p>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
             {portal.units.map((u) => (
