@@ -67,7 +67,7 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
   // 2026-10 に足した町「ヘイコウ台地」（単元アプリ 垂直・平行と四角形 の まとまりごと）。絵は仮（色ちがい）
   '垂直・平行と四角形': [
     ['垂直・平行を見つけよう', 'チョッカク', 'A small square-bodied beetle creature with six legs bent at perfect right angles, a flat square shell and a short straight horn.', '直角に 交わる 2本の線を 見つけると、ぴかっと 光る。'],
-    ['三角じょうぎで作図', 'ジョウギン', 'A small flat ray creature shaped exactly like a triangle ruler, gliding forward with one straight edge in front, a short tail and two eyes on top.', '三角じょうぎを すべらせて、まっすぐな 線を ひく。'],
+    ['三角じょうぎで作図', 'サクズエイ', 'A small flat ray creature shaped exactly like a triangle ruler, gliding forward with one straight edge in front, a short tail and two eyes on top.', '三角じょうぎを すべらせて、まっすぐな 線を ひく。'],
     ['まちの中の垂直・平行', 'ミチノスケ', 'A small caterpillar creature shaped like a little streetcar, with window-like markings along its sides, two parallel rail stripes running down its back and many short wheel-like feet.', 'まちの 道や たてものの中に、垂直と平行を 見つける。'],
     ['四角形の名前', 'ナマエタイル', 'A small, round chick creature whose wing feathers are flat tiles in different four-sided shapes: a square, a rhombus, a trapezoid and a parallelogram.', '平行な辺の組を かぞえて、四角形の 名前を あてる。'],
     ['四角形のせいしつ', 'セイシツィ', 'A sleek flying fish creature whose body is a perfect rhombus shape, with two pairs of matching wing fins spread out, opposite fins exactly the same size.', '向かい合う 角や 辺が 等しいことを 知っている。'],
@@ -178,7 +178,7 @@ export const MONSTER_ROSTER: Record<string, RosterRow[]> = {
     ['小数÷の文章題', 'ワリモン', 'A platypus creature standing on four short webbed feet, with a broad flat duck-like bill, a sleek body and a wide paddle-shaped tail.', 'お話のなかの「1つ分」を見つけて、わり算にする。'],
     // ↓ 単元アプリ「小数のしくみ・小数のかけ算とわり算」の まとまりごとに足した6体（2026-10）。絵は仮（同じ町の絵の色ちがい）
     ["小数×2けた", "ニケタシオ", "A sturdy hammerhead shark creature swimming forward, with a wide hammer-shaped head that has a glowing dot on each end, a tall dorsal fin and a strong tail.", "2けたの数を かけても、小数点の いちを まちがえない。"],
-    ["小数÷2けた", "ワリシオン", "A sleek dolphin creature leaping in a smooth arc, with a dorsal fin shaped like a curling wave crest and a smooth streamlined body.", "2けたで わる 小数のわり算を、波のように なめらかに こなす。"],
+    ["小数÷2けた", "ワリルカ", "A sleek dolphin creature leaping in a smooth arc, with a dorsal fin shaped like a curling wave crest and a smooth streamlined body.", "2けたで わる 小数のわり算を、波のように なめらかに こなす。"],
     ["小数点のいち", "テンポイント", "A small unicornfish creature with a short horn on its forehead whose tip glows like a single dot, a round body and fan-like fins.", "小数点を どこに うつか、ひたいの 光で 教えてくれる。"],
     ["商のがい数とたしかめ", "ガイショウ", "A spiny lobster creature standing proudly, with two very long antennae marked like measuring rods, a spiny armored shell and a fan-shaped tail.", "わりきれない 商を がい数にして、けん算で たしかめる。"],
     ["小数のあんざん", "アンザンエイ", "A small stingray pup creature gliding with its round wings spread, a short thick tail and a pattern of dots on its back arranged in neat rows of ten.", "0.1の いくつ分で 考えると、あんざんが すぐ できる。"],
