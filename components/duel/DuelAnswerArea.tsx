@@ -28,6 +28,7 @@ import HistogramView from '../HistogramView';
 import Keypad from '../Keypad';
 import FractionText, { PartialFractionDisplay } from '../FractionText';
 import GuidedAnswerHost from '../guided/GuidedAnswerHost';
+import ProblemScratch from '../ProblemScratch';
 
 export interface DuelAnswerAreaProps {
   problem: Problem;
@@ -188,6 +189,7 @@ const DuelAnswerArea: React.FC<DuelAnswerAreaProps> = ({ problem, round, active,
   return (
     <>
       {renderProblem()}
+      <ProblemScratch problem={problem} />
 
       <form onSubmit={handleSubmit} className="w-full mt-4">
         {!['proof', 'guided'].includes(problemType) && (

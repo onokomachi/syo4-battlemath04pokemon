@@ -10,6 +10,7 @@ import FractionText, { PartialFractionDisplay } from './FractionText';
 import { recordTestResult, recordProblemLog, getTestBests, type TestStepResult, type TestBests } from '../services/learningLogService';
 import { BackIcon } from './Icons';
 import GuidedAnswerHost from './guided/GuidedAnswerHost';
+import ProblemScratch from './ProblemScratch';
 
 /**
  * 本番テストモード — 学校のワークテスト形式(表=知識・技能100点 / 裏=思考・判断・表現50点)。
@@ -524,6 +525,9 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
             </div>
           )}
         </div>
+
+        {/* 紙のテストで計算用紙を使うのと同じ。採点はしない */}
+        {q && <ProblemScratch problem={q.problem} subtopic={q.bp.subTopic} />}
 
         {guidedTestProblem && (
           <div className="max-w-lg mx-auto">
