@@ -70,7 +70,7 @@ export const LEGENDS: LegendDef[] = [
     kind: 'legend', type: 'kazu', townId: 'ketaba',
     units: ['大きい数のしくみ', 'がい数'],
     baseHp: 150, baseAtk: 34, level: 45,
-    flavor: '一のつぎに十、十のつぎに百 ―― その果てを見ようとした者の前にだけ現れる、黄金の巨龍。',
+    flavor: '一のつぎに十、十のつぎに百 ―― ∞（むげん）の形の しっぽに、数えきれない 光の点を ならべた 夜空色の巨龍。その果てを見ようとした者の前にだけ現れる。',
     legendText: [
       '―― 石碑に、古い文字が きざまれている。',
       '『数に かぎりは ない。』',
@@ -80,7 +80,7 @@ export const LEGENDS: LegendDef[] = [
     awakenText: [
       '石碑が まばゆく 光った ――',
       'ゴォォォ……!!',
-      '空がさけ、黄金のうろこを持つ 巨大な龍が すがたを あらわした！',
+      '空がさけ、∞の形の しっぽを ひろげた 夜空色の 巨大な龍が すがたを あらわした！',
       'ムゲンドラ「……よくぞ、ここまで 数えた。」',
       'ムゲンドラ「ならば 見せてみよ。おまえの 数える力を！」',
     ],
@@ -90,7 +90,7 @@ export const LEGENDS: LegendDef[] = [
       'ムゲンドラは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a big four-legged dragon of black obsidian with glowing golden lava veins, wide leathery wings and flames along its back',
+      'a long, elegant four-legged dragon with a deep navy body and a golden belly, large golden membrane wings, two swept-back horns, and a very long tail looped into an infinity sign, lined with rows of small glowing golden dots',
     shrine: { color: '#f5b942', style: 'monolith' },
   },
   {
@@ -98,7 +98,7 @@ export const LEGENDS: LegendDef[] = [
     kind: 'legend', type: 'keisan', townId: 'ishikiri',
     units: ['わり算の筆算(÷1けた)', 'わり算の筆算(÷2けた)', '計算のきまり'],
     baseHp: 160, baseAtk: 33, level: 45,
-    flavor: '世界じゅうの計算を、たった一頭で回しつづけている鋼の獅子。止まれば すべての数が 狂う。',
+    flavor: '世界じゅうの計算を、たった一頭で回しつづけている鋼の獅子。たてがみの歯車には ＋−×÷ の しるしが きざまれ、止まれば すべての数が 狂う。',
     legendText: [
       '―― 石碑に、古い文字が きざまれている。',
       '『世界の計算は、たった一頭の獣が 回している。』',
@@ -118,7 +118,7 @@ export const LEGENDS: LegendDef[] = [
       'カラクリオンは、あなたに ついてくることに 決めたようだ！',
     ],
     motif:
-      'a giant four-legged mechanical lion of brass and steel, with a mane of interlocking gears and a glowing amber core in its chest',
+      'a giant four-legged mechanical lion of dark iron with glowing orange seams, a mane of large interlocking gears each marked with a plus, minus, times or divide sign, and a gear at the tip of its tail',
     shrine: { color: '#ef6a5a', style: 'pillar' },
   },
   {

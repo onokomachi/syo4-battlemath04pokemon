@@ -1,4 +1,6 @@
 import './index.css';
+// 学級／おためし の セーブの入れかえ。ストアが localStorage を読む前に動かすので、App より先に読みこむ
+import './services/saveProfile';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -21,7 +23,9 @@ root.render(
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
-    {/* 学級コードの入力（はじめの1回）と、あとから名乗る入口（右下）。SOLO/DUO の確認もここが出す */}
-    <JoinGate config={PORTAL} />
+    {/* 学級コードの入力（はじめの1回）。SOLO/DUO の確認もここが出す。
+        右下の入口（chip）は出さない：おためしで バトルの「わからない」ボタンに重なって押せなかった。
+        あとから名乗る入口は、はじめの画面の JoinSettingsRow（PortalLoginScreen）にある */}
+    <JoinGate config={PORTAL} chip={false} />
   </React.StrictMode>
 );

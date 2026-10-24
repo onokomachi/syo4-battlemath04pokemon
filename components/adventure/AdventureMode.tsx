@@ -382,6 +382,8 @@ const AdventureMode: React.FC<Props> = ({
       ambush, legendWander, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
       party: save.party, owned: save.owned, townId: save.townId, legends: save.legends,
       wildLegendRecognized: save.wildLegendRecognized,
+      // 祠・テキトウ団などの位置（テストで そばまで ワープするため）
+      npcs: fieldNpcs.map(n => ({ id: n.id, kind: n.kind, x: n.x, z: n.z })),
     });
   });
 

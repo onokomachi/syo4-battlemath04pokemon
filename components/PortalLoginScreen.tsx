@@ -1,7 +1,8 @@
 /**
  * はじめの画面（学級ポータル版）。
  * 名乗りは 学級コード＋出席番号（learning-app-kit の JoinSettingsRow）。氏名・Googleアカウントは使わない。
- * コードを入れなくても れんしゅうは できる。バトル（ぼうけん・デュエル）には スタミナが いるので、コードが いる。
+ * コードを入れなくても（おためし）れんしゅうも バトルも できる。記録は サーバに残らず、セーブも学級とは別（services/saveProfile.ts）。
+ * おためしで開く町は、単元アプリの いらない町だけ（学級と同じ）。スタミナは使わない。
  */
 import React from 'react';
 import { JoinSettingsRow } from 'learning-app-kit/react';
@@ -67,7 +68,8 @@ const PortalLoginScreen: React.FC<Props> = ({ portal, onStart }) => {
         )}
         {!portal.student && (
           <p className="text-[11px] text-gray-500 text-center leading-relaxed">
-            コードを 入れなくても れんしゅうは できるよ。バトルには スタミナが いるので、コードを 入れてね。
+            コードを 入れなくても「おためし」で れんしゅうも バトルも できるよ。
+            ただし きろくは 先生に とどかないし、おためしの セーブは コードを 入れると べつになるよ。
           </p>
         )}
       </div>

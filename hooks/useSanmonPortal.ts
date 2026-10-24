@@ -65,7 +65,8 @@ export function useSanmonPortal(): SanmonPortal {
 
   const spendForBattle = useCallback(async (reason: string) => {
     const s = getStudent();
-    if (!isPortalConfigured || !s) return { ok: false, message: 'バトルには がっきゅうコードが いるよ（右下から 入れてね）' };
+    // おためし（学級コードなし）: スタミナを使わずに バトルできる。記録は サーバに送らず、セーブも学級とは別（services/saveProfile.ts）
+    if (!isPortalConfigured || !s) return { ok: true };
     const eventId = `battle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const r = await spendStamina(PORTAL, s.studentId, eventId, SANMON_RULES.battleCost, reason);
     if (r.stamina != null) setStatus((st) => (st ? { ...st, stamina: r.stamina! } : st));
