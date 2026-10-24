@@ -9,12 +9,13 @@ import React from 'react';
 import type { Problem } from '../../types';
 import { getMonster, getMonsterSprite } from '../../data/adventure/monsters';
 import { ELEMENTS } from '../../data/adventure/elements';
-import { gritFactor } from '../../data/partyDuel';
+import { PARTY_DUEL, gritFactor } from '../../data/partyDuel';
 import DuelAnswerArea from './DuelAnswerArea';
 
 export interface BoardMon { defId: string; level: number; maxHp: number; hp: number }
 export interface BoardSide { label: string; party: BoardMon[]; active: number }
-export interface BoardHit { damage: number; crit: boolean; type: number; grit: number }
+/** guard = 受けた側も正解して まもった（ダメージが へっている） */
+export interface BoardHit { damage: number; crit: boolean; type: number; grit: number; guard?: boolean }
 export interface BoardTurn {
   myHit: BoardHit | null;
   oppHit: BoardHit | null;
@@ -38,8 +39,8 @@ interface Props {
   fieldOwner: 'mine' | 'theirs';
   isPlayerAnswered: boolean;
   isOpponentAnswered: boolean;
+  /** しめきりまでの秒数。afterFirstSeconds より大きいあいだは「時間せいげん なし」（まだ だれも答えていない） */
   timeLeft: number;
-  timeLimit: number;
   lastTurn: BoardTurn | null;
   /** 自分が攻撃できなかったターンの数（がんばり） */
   myMiss: number;
@@ -85,9 +86,11 @@ const MonPanel: React.FC<{ side: BoardSide; mine: boolean; shake?: boolean }> = 
   );
 };
 
-function hitLine(who: string, hit: BoardHit | null, correct: boolean | null): string[] {
-  if (!hit) return [correct === null ? `${who}：じかんぎれ…` : `${who}：ざんねん、まちがい`];
+/** guardBy = まもった側の よび名（「あいて」「きみ」） */
+function hitLine(who: string, hit: BoardHit | null, correct: boolean | null, guardBy: string): string[] {
+  if (!hit) return [correct === null ? `${who}：じかんぎれ…` : `${who}：こうげき できなかった…`];
   const extra = [
+    hit.guard ? `${guardBy}も せいかいして まもった！（ダメージ へった）` : '',
     hit.crit ? 'きゅうしょに あたった！' : '',
     hit.type > 1 ? 'こうかは ばつぐんだ！' : hit.type < 1 ? 'こうかは いまひとつ…' : '',
     hit.grit > 0 ? 'がんばりパワー！' : '',
@@ -96,12 +99,15 @@ function hitLine(who: string, hit: BoardHit | null, correct: boolean | null): st
 }
 
 const PartyDuelBoard: React.FC<Props> = ({
-  my, opp, phase, turn, problem, fieldOwner, isPlayerAnswered, isOpponentAnswered, timeLeft, timeLimit,
+  my, opp, phase, turn, problem, fieldOwner, isPlayerAnswered, isOpponentAnswered, timeLeft,
   lastTurn, myMiss, result, resultNote, onAnswer, onExit,
 }) => {
   const myCur = my.party[Math.min(my.active, my.party.length - 1)];
   const oppCur = opp.party[Math.min(opp.active, opp.party.length - 1)];
   const fieldDef = getMonster((fieldOwner === 'mine' ? myCur : oppCur)?.defId ?? '');
+  const limit = PARTY_DUEL.afterFirstSeconds;
+  // だれも答えていないあいだは しめきりが遠い（capSeconds）。そのあいだは バーを出さない
+  const untimed = timeLeft > limit;
 
   if (phase === 'match_over') {
     return (
@@ -145,13 +151,19 @@ const PartyDuelBoard: React.FC<Props> = ({
 
       {phase === 'answering' && (
         <div className="w-full max-w-3xl mt-1 flex-shrink-0">
-          <div className="w-full bg-slate-800 rounded-full h-2">
-            <div className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5 ? 'bg-red-500' : timeLeft <= 10 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-              style={{ width: `${(timeLeft / timeLimit) * 100}%` }} />
-          </div>
+          {untimed ? (
+            <p className="text-center text-[11px] font-bold text-sky-300">
+              ⏳ じかんせいげん なし。じっくり といてね（どちらかが こたえたら、のこりは {limit}びょう）
+            </p>
+          ) : (
+            <div className="w-full bg-slate-800 rounded-full h-2">
+              <div className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5 ? 'bg-red-500' : timeLeft <= 10 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                style={{ width: `${Math.min(100, (timeLeft / limit) * 100)}%` }} />
+            </div>
+          )}
           <div className="flex justify-between text-[10px] text-gray-500 mt-0.5">
-            <span>{myMiss > 0 ? `がんばりパワー ×${gritFactor(myMiss).toFixed(2)}（せいかいすると つよい こうげき）` : 'せいかいすると こうげき！ 2人とも せいかいなら 2人とも こうげき'}</span>
-            <span className="font-mono">{timeLeft}s</span>
+            <span>{myMiss > 0 ? `がんばりパワー ×${gritFactor(myMiss).toFixed(2)}（せいかいすると つよい こうげき）` : 'せいかいすると こうげき＋まもり！ 2人とも せいかいなら 2人とも こうげき（まもりで すこし へる）'}</span>
+            {!untimed && <span className="font-mono">{timeLeft}s</span>}
           </div>
         </div>
       )}
@@ -165,7 +177,7 @@ const PartyDuelBoard: React.FC<Props> = ({
       {phase === 'answering' && problem && (
         <div className="w-full max-w-3xl flex-1 mt-2">
           <div className="bg-slate-950/80 backdrop-blur-xl border border-emerald-500/30 rounded-2xl p-3 sm:p-5">
-            <DuelAnswerArea problem={problem} round={turn} active isPlayerAnswered={isPlayerAnswered} onAnswer={onAnswer} />
+            <DuelAnswerArea problem={problem} round={turn} active isPlayerAnswered={isPlayerAnswered} onAnswer={onAnswer} allowPass />
           </div>
         </div>
       )}
@@ -173,10 +185,10 @@ const PartyDuelBoard: React.FC<Props> = ({
       {phase === 'turn_result' && lastTurn && (
         <div className="flex-1 flex items-center justify-center w-full">
           <div className="hud-panel rounded-2xl p-4 sm:p-6 max-w-md w-full text-center space-y-1">
-            {hitLine(`きみの ${nameOf(lastTurn.myDefId)}`, lastTurn.myHit, lastTurn.myCorrect).map((t, i) => (
+            {hitLine(`きみの ${nameOf(lastTurn.myDefId)}`, lastTurn.myHit, lastTurn.myCorrect, 'あいて').map((t, i) => (
               <p key={`m${i}`} className={i === 0 ? 'text-base font-black text-emerald-300' : 'text-xs font-bold text-amber-300'}>{t}</p>
             ))}
-            {hitLine(`あいての ${nameOf(lastTurn.oppDefId)}`, lastTurn.oppHit, lastTurn.oppCorrect).map((t, i) => (
+            {hitLine(`あいての ${nameOf(lastTurn.oppDefId)}`, lastTurn.oppHit, lastTurn.oppCorrect, 'きみ').map((t, i) => (
               <p key={`o${i}`} className={i === 0 ? 'text-base font-black text-red-300 mt-2' : 'text-xs font-bold text-amber-300'}>{t}</p>
             ))}
             {lastTurn.oppKo && <p className="text-sm font-black text-white mt-2">あいての {nameOf(lastTurn.oppDefId)} は たおれた！</p>}

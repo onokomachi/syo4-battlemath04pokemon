@@ -13,7 +13,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SpeedProblem } from '../../types';
 import { getMonster, getMonsterSprite } from '../../data/adventure/monsters';
 import { useAdventureStore } from '../../store/adventureStore';
-import { PARTY_DUEL } from '../../data/partyDuel';
 import { pushSave } from '../../services/portal';
 import { BackIcon } from '../Icons';
 import PartyDuelBoard, { type PartyPhase } from './PartyDuelBoard';
@@ -212,7 +211,6 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
             isPlayerAnswered={view.my_answered || pendingRound === view.round}
             isOpponentAnswered={view.opp_answered}
             timeLeft={timeLeft}
-            timeLimit={PARTY_DUEL.turnSeconds}
             lastTurn={lt ? {
               myHit: lt.my_hit, oppHit: lt.opp_hit, myKo: lt.my_ko, oppKo: lt.opp_ko,
               myCorrect: lt.my_correct, oppCorrect: lt.opp_correct, myDefId: lt.my_defid, oppDefId: lt.opp_defid,

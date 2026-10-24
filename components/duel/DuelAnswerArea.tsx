@@ -4,6 +4,7 @@
  * スピードデュエル（SpeedDuelBoard）とモンスター対戦（PartyDuelBoard）で同じものを使う
  * （「モードによって同じ問題の答え方がちがう」を起こさないため）。
  * アプリと同じ答え方の問題（guided）は、まちがえると '__guided_incorrect__' を返す。
+ * allowPass のとき「わからない」ボタンを出す（押すと DUEL_PASS を返す。まちがいと同じあつかい）。
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Problem, ProblemViewRef } from '../../types';
@@ -30,6 +31,9 @@ import FractionText, { PartialFractionDisplay } from '../FractionText';
 import GuidedAnswerHost from '../guided/GuidedAnswerHost';
 import ProblemScratch from '../ProblemScratch';
 
+/** 「わからない」を押したときの答え（ぼうけんのバトルと同じ書き方。学習の記録にもこのまま残る） */
+export const DUEL_PASS = '(わからない)';
+
 export interface DuelAnswerAreaProps {
   problem: Problem;
   /** 問題が変わるたびに変える番号（入力を空にする・ガイドを作り直す） */
@@ -39,9 +43,11 @@ export interface DuelAnswerAreaProps {
   /** もう答えた */
   isPlayerAnswered: boolean;
   onAnswer: (answer: string) => void;
+  /** 「わからない」ボタンを出す（モンスター対戦）。スピードデュエルは早押しなので出さない */
+  allowPass?: boolean;
 }
 
-const DuelAnswerArea: React.FC<DuelAnswerAreaProps> = ({ problem, round, active, isPlayerAnswered, onAnswer }) => {
+const DuelAnswerArea: React.FC<DuelAnswerAreaProps> = ({ problem, round, active, isPlayerAnswered, onAnswer, allowPass }) => {
   const phase = active ? 'answering' : 'locked';
   const [answer, setAnswer] = useState('');
   const problemViewRef = useRef<ProblemViewRef>(null);
@@ -231,6 +237,14 @@ const DuelAnswerArea: React.FC<DuelAnswerAreaProps> = ({ problem, round, active,
           </div>
         )}
       </form>
+      {allowPass && !isPlayerAnswered && phase === 'answering' && (
+        <div className="w-full flex justify-center mt-3">
+          <button type="button" onClick={() => onAnswer(DUEL_PASS)}
+            className="px-5 py-2 rounded-xl text-sm font-bold bg-slate-700/80 text-gray-200 border border-slate-500/50 hover:bg-slate-600 transition-colors">
+            🤔 わからない（このターンは パス）
+          </button>
+        </div>
+      )}
     </>
   );
 };
