@@ -353,7 +353,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
     return (
       <div className="h-[100dvh] w-full flex items-center justify-center p-4 text-white overflow-y-auto">
         <div className="hud-panel rounded-2xl p-6 sm:p-10 max-w-2xl w-full shadow-2xl my-4">
-          <h1 className="text-2xl sm:text-3xl font-black mb-2 text-red-300">📝 本番テスト</h1>
+          <h1 className="text-2xl sm:text-3xl font-black mb-2 text-emerald-300">📝 本番テスト</h1>
           <p className="text-white/60 text-sm mb-6">
             学校のテストと同じ形式に ちょうせん! うけたい テストを えらぼう。
           </p>
@@ -362,14 +362,14 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
               <button
                 key={set.id}
                 onClick={() => { setTestSet(set); setPhase('setup'); }}
-                className="w-full text-left p-4 rounded-xl border-2 border-red-900/40 bg-slate-900/60 hover:border-red-500/60 hover:bg-slate-800/60 transition-all"
+                className="w-full text-left p-4 rounded-xl border-2 border-emerald-900/40 bg-slate-900/60 hover:border-emerald-500/60 hover:bg-slate-800/60 transition-all"
               >
-                <p className="font-black text-base text-red-200">{set.name}</p>
+                <p className="font-black text-base text-emerald-200">{set.name}</p>
                 <p className="text-xs text-white/50">{set.desc}</p>
               </button>
             ))}
           </div>
-          <button onClick={onExit} className="btn-tactical w-full py-3 rounded-xl font-bold text-red-400 border-red-400/40 flex items-center justify-center gap-2">
+          <button onClick={onExit} className="btn-tactical w-full py-3 rounded-xl font-bold text-emerald-400 border-emerald-400/40 flex items-center justify-center gap-2">
             <BackIcon className="w-4 h-4" /> メニューにもどる
           </button>
         </div>
@@ -384,7 +384,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
     return (
       <div className="h-[100dvh] w-full flex items-center justify-center p-4 text-white overflow-y-auto">
         <div className="hud-panel rounded-2xl p-6 sm:p-10 max-w-2xl w-full shadow-2xl">
-          <h1 className="text-xl sm:text-2xl font-black mb-1 text-red-300">{testSet.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-black mb-1 text-emerald-300">{testSet.name}</h1>
           <p className="text-white/60 text-sm mb-6">
             とちゅうでは 答え合わせを しないよ。さいごに まとめて 採点するよ。
           </p>
@@ -397,11 +397,11 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
               <button
                 key={m}
                 onClick={() => startTest(m)}
-                className="w-full text-left p-4 rounded-xl border-2 border-red-900/40 bg-slate-900/60 hover:border-red-500/60 hover:bg-slate-800/60 transition-all"
+                className="w-full text-left p-4 rounded-xl border-2 border-emerald-900/40 bg-slate-900/60 hover:border-emerald-500/60 hover:bg-slate-800/60 transition-all"
               >
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="font-black text-lg text-red-200">{m}のテスト</p>
+                    <p className="font-black text-lg text-emerald-200">{m}のテスト</p>
                     <p className="text-xs text-white/50">{desc}</p>
                   </div>
                   <p className="text-xs text-amber-400 font-bold">{best}</p>
@@ -409,7 +409,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
               </button>
             ))}
           </div>
-          <button onClick={() => setPhase('select')} className="btn-tactical w-full py-3 rounded-xl font-bold text-red-400 border-red-400/40 flex items-center justify-center gap-2">
+          <button onClick={() => setPhase('select')} className="btn-tactical w-full py-3 rounded-xl font-bold text-emerald-400 border-emerald-400/40 flex items-center justify-center gap-2">
             <BackIcon className="w-4 h-4" /> テストをえらびなおす
           </button>
         </div>
@@ -427,13 +427,13 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
       <div className="h-[100dvh] w-full flex items-start justify-center p-4 text-white overflow-y-auto">
         <div className="hud-panel rounded-2xl p-5 sm:p-8 max-w-3xl w-full shadow-2xl my-4">
           <p className="text-xs text-white/40 font-bold">{testSet.name}</p>
-          <h1 className="text-2xl font-black mb-1 text-red-300">採点結果</h1>
+          <h1 className="text-2xl font-black mb-1 text-emerald-300">採点結果</h1>
           <div className="flex items-end gap-4 mb-4">
             <p className="text-5xl font-black text-amber-400">{total}<span className="text-lg text-white/50"> / {totalMax}点</span></p>
             {isPerfect && <p className="text-xl font-black text-emerald-400 animate-pulse">🎉 満点!</p>}
           </div>
-          {mode !== '裏' && <p className="text-sm text-white/70 mb-1">表(知識・技能): <span className="font-bold text-red-200">{scores.omote} / {scores.omoteMax}点</span></p>}
-          {mode !== '表' && <p className="text-sm text-white/70 mb-4">裏(思考・判断・表現): <span className="font-bold text-red-200">{scores.ura} / {scores.uraMax}点</span></p>}
+          {mode !== '裏' && <p className="text-sm text-white/70 mb-1">表(知識・技能): <span className="font-bold text-emerald-200">{scores.omote} / {scores.omoteMax}点</span></p>}
+          {mode !== '表' && <p className="text-sm text-white/70 mb-4">裏(思考・判断・表現): <span className="font-bold text-emerald-200">{scores.ura} / {scores.uraMax}点</span></p>}
 
           <div className="space-y-4 mb-6">
             {daimonKeys.map((title) => {
@@ -441,9 +441,9 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
               const got = group.reduce((a, s) => a + s.earned, 0);
               const max = group.reduce((a, s) => a + s.points, 0);
               return (
-                <div key={title} className="bg-slate-950/50 rounded-xl border border-red-500/10 p-3">
+                <div key={title} className="bg-slate-950/50 rounded-xl border border-emerald-500/10 p-3">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="font-bold text-red-300 text-sm">{title}</p>
+                    <p className="font-bold text-emerald-300 text-sm">{title}</p>
                     <p className={`font-black text-sm ${got === max ? 'text-emerald-400' : 'text-amber-400'}`}>{got} / {max}点</p>
                   </div>
                   <div className="space-y-1.5">
@@ -454,7 +454,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
                           <p className="text-white/80 truncate"><FractionText text={s.q} /></p>
                           {!s.correct && (
                             <p className="text-white/50 mt-0.5">
-                              あなた: <FractionText text={s.user || '未入力'} auto className="text-red-300" />
+                              あなた: <FractionText text={s.user || '未入力'} auto className="text-emerald-300" />
                               {' '}/ 正解: <FractionText text={s.a} auto className="text-emerald-300" />
                             </p>
                           )}
@@ -466,7 +466,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
               );
             })}
           </div>
-          <button onClick={onExit} className="btn-tactical w-full py-3 rounded-xl font-bold text-red-400 border-red-400/40">
+          <button onClick={onExit} className="btn-tactical w-full py-3 rounded-xl font-bold text-emerald-400 border-emerald-400/40">
             メニューにもどる
           </button>
         </div>
@@ -479,23 +479,23 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
   return (
     <div className="h-[100dvh] w-full flex items-start justify-center p-3 text-white overflow-y-auto">
       <div className="hud-panel rounded-2xl p-4 sm:p-6 max-w-3xl w-full shadow-2xl my-2">
-        <header className="flex justify-between items-center mb-3 border-b border-red-500/10 pb-2">
+        <header className="flex justify-between items-center mb-3 border-b border-emerald-500/10 pb-2">
           <div>
-            <p className="text-[10px] text-red-400 font-bold tracking-widest">{testSet.name}({mode})</p>
+            <p className="text-[10px] text-emerald-400 font-bold tracking-widest">{testSet.name}({mode})</p>
             <p className="text-sm font-bold text-white">{q.bp.section} 大問{q.bp.daimon} {q.bp.title} <span className="text-amber-400">({q.bp.pointsEach}点)</span></p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-red-400 font-bold">問題</p>
-            <p className="text-lg font-black font-mono text-red-300">{index + 1} <span className="text-xs text-red-600">/ {questions.length}</span></p>
+            <p className="text-[10px] text-emerald-400 font-bold">問題</p>
+            <p className="text-lg font-black font-mono text-emerald-300">{index + 1} <span className="text-xs text-emerald-600">/ {questions.length}</span></p>
           </div>
         </header>
 
-        <div className="bg-slate-950/40 rounded-xl p-4 border border-red-500/5 mb-3 text-center">
+        <div className="bg-slate-950/40 rounded-xl p-4 border border-emerald-500/5 mb-3 text-center">
           <p className="text-base sm:text-lg leading-snug mb-2">
             <FractionText text={qData?.question || ''} />
           </p>
           {qData?.svg && (
-            <div className="svg-container w-full max-w-md mx-auto my-2 p-1.5 bg-slate-950 rounded-lg border border-red-500/10" dangerouslySetInnerHTML={{ __html: qData.svg }} />
+            <div className="svg-container w-full max-w-md mx-auto my-2 p-1.5 bg-slate-950 rounded-lg border border-emerald-500/10" dangerouslySetInnerHTML={{ __html: qData.svg }} />
           )}
           {qData?.options && (
             <div className="grid gap-2 max-w-lg mx-auto mt-2">
@@ -515,9 +515,9 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
                       }
                     }}
                     className={`w-full text-left px-4 py-2.5 rounded-xl border-2 transition-all text-sm
-                      ${isSelected ? 'border-red-400 bg-red-900/30 text-red-200' : 'border-red-900/30 bg-slate-900/60 text-white hover:border-red-600/50'}`}
+                      ${isSelected ? 'border-emerald-400 bg-emerald-900/30 text-emerald-200' : 'border-emerald-900/30 bg-slate-900/60 text-white hover:border-emerald-600/50'}`}
                   >
-                    <span className="text-red-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
+                    <span className="text-emerald-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
                     <FractionText text={opt} auto />
                   </button>
                 );
@@ -538,14 +538,14 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
 
         {!qData?.options && !guidedTestProblem && (
           <div className="max-w-lg mx-auto">
-            <div className="min-h-[3rem] p-3 bg-slate-950/60 rounded-xl border-2 border-red-500/30 flex items-center mb-2">
-              <span className="text-xs font-bold text-red-400 mr-3">解答:</span>
+            <div className="min-h-[3rem] p-3 bg-slate-950/60 rounded-xl border-2 border-emerald-500/30 flex items-center mb-2">
+              <span className="text-xs font-bold text-emerald-400 mr-3">解答:</span>
               {isFractionKeypad ? (
-                <span className="text-xl font-mono text-red-200 font-bold">
+                <span className="text-xl font-mono text-emerald-200 font-bold">
                   <PartialFractionDisplay raw={current} placeholder="キーパッドで入力..." />
                 </span>
               ) : (
-                <span className="text-xl font-mono text-red-200 font-bold">{current || <span className="text-red-800 text-sm">キーパッドで入力...</span>}</span>
+                <span className="text-xl font-mono text-emerald-200 font-bold">{current || <span className="text-emerald-800 text-sm">キーパッドで入力...</span>}</span>
               )}
             </div>
             <Keypad onKeyClick={handleKey} layout={keypadLayout} />
@@ -581,7 +581,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-base font-bold text-white text-center mb-1">テストを中止しますか?</p>
-            <p className="text-xs text-red-400 text-center mb-4">記録は のこりません</p>
+            <p className="text-xs text-emerald-400 text-center mb-4">記録は のこりません</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setConfirmingExit(false)}
@@ -591,7 +591,7 @@ const MockTestMode: React.FC<MockTestModeProps> = ({ onExit, onTestFinished }) =
               </button>
               <button
                 onClick={onExit}
-                className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-500 text-white border border-red-400/30"
+                className="flex-1 py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/30"
               >
                 中止する
               </button>

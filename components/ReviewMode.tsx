@@ -82,9 +82,9 @@ const ReviewMode: React.FC<ReviewModeProps> = ({ onExit }) => {
 
   return (
     <div className="h-full w-full flex items-center justify-center p-4">
-      <div className="max-w-lg w-full bg-slate-900/80 border border-red-800/40 rounded-2xl p-6 sm:p-8 text-center">
+      <div className="max-w-lg w-full bg-slate-900/80 border border-emerald-800/40 rounded-2xl p-6 sm:p-8 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">🔁 復習モード</h1>
-        <p className="text-xs text-red-300/60 mb-6">
+        <p className="text-xs text-emerald-300/60 mb-6">
           忘れかけた頃に解き直すと記憶が長持ちします（間隔反復学習）
         </p>
 
@@ -101,7 +101,7 @@ const ReviewMode: React.FC<ReviewModeProps> = ({ onExit }) => {
         ) : (
           <>
             <div className="text-left bg-black/30 rounded-xl p-4 mb-6 max-h-60 overflow-y-auto">
-              <p className="text-xs text-red-400 font-bold mb-2">今日復習する問題（{entries.length}問）</p>
+              <p className="text-xs text-emerald-400 font-bold mb-2">今日復習する問題（{entries.length}問）</p>
               <ul className="space-y-1.5">
                 {entries.map((e, i) => (
                   <li key={i} className="text-xs text-gray-300 flex justify-between gap-2">

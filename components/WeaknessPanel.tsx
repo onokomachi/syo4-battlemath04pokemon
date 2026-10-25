@@ -27,15 +27,15 @@ const WeaknessPanel: React.FC<WeaknessPanelProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-math-fade-in">
-      <div className="w-full max-w-2xl mx-4 max-h-[90vh] bg-slate-950/95 border border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.1)] overflow-hidden flex flex-col">
+      <div className="w-full max-w-2xl mx-4 max-h-[90vh] bg-slate-950/95 border border-emerald-500/30 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.1)] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-900/20 via-blue-900/10 to-red-900/20 p-5 border-b border-red-500/20 flex-shrink-0">
+        <div className="bg-gradient-to-r from-emerald-900/20 via-blue-900/10 to-emerald-900/20 p-5 border-b border-emerald-500/20 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-black text-white tracking-wider flex items-center gap-2">
-                <span className="text-red-400">📊</span> 弱点分析
+                <span className="text-emerald-400">📊</span> 弱点分析
               </h2>
-              <p className="text-[10px] text-red-400/70 mt-1 font-bold">
+              <p className="text-[10px] text-emerald-400/70 mt-1 font-bold">
                 メタ認知支援 — 自分の強み・弱みを可視化
               </p>
             </div>
@@ -49,8 +49,8 @@ const WeaknessPanel: React.FC<WeaknessPanelProps> = ({ onClose }) => {
 
           {/* Overall stats */}
           <div className="mt-3 grid grid-cols-3 gap-3">
-            <div className="bg-slate-900/60 rounded-lg p-3 text-center border border-red-900/30">
-              <div className="text-2xl font-black text-red-300 font-mono">{overallAccuracy}%</div>
+            <div className="bg-slate-900/60 rounded-lg p-3 text-center border border-emerald-900/30">
+              <div className="text-2xl font-black text-emerald-300 font-mono">{overallAccuracy}%</div>
               <div className="text-[9px] text-gray-500 font-bold">総合正答率</div>
             </div>
             <div className="bg-slate-900/60 rounded-lg p-3 text-center border border-amber-900/30">
@@ -105,7 +105,7 @@ const WeaknessPanel: React.FC<WeaknessPanelProps> = ({ onClose }) => {
                             report.status === 'mastered' ? 'bg-green-500/70' :
                             report.status === 'proficient' ? 'bg-blue-500/70' :
                             report.status === 'developing' ? 'bg-amber-500/70' :
-                            'bg-red-500/70'
+                            'bg-emerald-500/70'
                           }`}
                           style={{ width: `${report.accuracy}%` }}
                         />
@@ -119,7 +119,7 @@ const WeaknessPanel: React.FC<WeaknessPanelProps> = ({ onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-red-900/20 bg-slate-900/40 flex-shrink-0">
+        <div className="p-3 border-t border-emerald-900/20 bg-slate-900/40 flex-shrink-0">
           <p className="text-[9px] text-gray-600 text-center">
             要復習の分野は「練習モード」で重点的に取り組みましょう
           </p>

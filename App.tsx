@@ -47,6 +47,7 @@ import { checkAnswer } from './utils/answerChecker';
 import { APP_ROUND_SUBTOPICS, isAppRoundProblem } from './data';
 import { recordProblemLog, setLearningLogListener, setProblemLogHook, type TestBests } from './services/learningLogService';
 import { WEAK_BONUS, expPerCorrect } from './data/adventure/growth';
+import { isDemo } from './services/saveProfile';
 import { toDuelMon, type DuelMon } from './data/partyDuel';
 import { rentalMonsters } from './data/adventure/starters';
 import { fetchLockedUnits } from './services/unitLockService';
@@ -1617,6 +1618,12 @@ const App: React.FC = () => {
         {growthToast && (
           <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[290] pointer-events-none">
             <div className="hud-panel rounded-xl px-4 py-2 text-sm font-bold text-emerald-200 border border-emerald-500/40 shadow-lg">🐾 {growthToast}</div>
+          </div>
+        )}
+        {/* デモモード（アプリ紹介用）であることを いつも小さく出す。おわるのは はじめの画面から */}
+        {isDemo() && (
+          <div className="fixed top-2 left-2 z-[280] pointer-events-none rounded-lg border border-amber-400/60 bg-black/70 px-2.5 py-1 text-[10px] font-black tracking-widest text-amber-300">
+            DEMO ・ きろくは おくられません
           </div>
         )}
         {/* スタミナが足りない などの お知らせ（window.alert は一部の端末で出ないので アプリ内で出す） */}

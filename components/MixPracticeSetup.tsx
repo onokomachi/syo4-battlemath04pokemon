@@ -119,7 +119,7 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
 
   return (
     <div className="w-full h-full flex flex-col items-center p-4 text-white relative overflow-y-auto">
-      <div className="absolute inset-0 bg-gradient-radial from-red-900/10 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-radial from-emerald-900/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="w-full max-w-2xl relative z-10">
         {/* Header */}
@@ -131,16 +131,16 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
             <h2 className="text-3xl font-black tracking-wider">
               <span className="text-hologram">ミックス演習</span>
             </h2>
-            <p className="text-xs text-red-400 font-bold mt-1">
+            <p className="text-xs text-emerald-400 font-bold mt-1">
               単元と問題数を選んで、まぜて練習しよう
             </p>
           </div>
         </div>
 
         {/* Category Selection - Hierarchical */}
-        <div className="hud-panel rounded-xl p-4 sm:p-5 mb-6 border border-red-800/30">
+        <div className="hud-panel rounded-xl p-4 sm:p-5 mb-6 border border-emerald-800/30">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-red-400 tracking-widest uppercase">出題範囲</h3>
+            <h3 className="text-sm font-bold text-emerald-400 tracking-widest uppercase">出題範囲</h3>
             <div className="flex items-center gap-3">
               <span className="text-[10px] text-gray-500">{selectedCount}/{totalCount} 単元</span>
               <button
@@ -161,12 +161,12 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
               const catSelectedCount = getSubtopicsForCategory(cat.name).filter(s => selectedSubtopics.has(s)).length;
 
               return (
-                <div key={cat.name} className="rounded-lg border border-red-900/20 overflow-hidden">
+                <div key={cat.name} className="rounded-lg border border-emerald-900/20 overflow-hidden">
                   <div className="flex items-center gap-2 bg-slate-900/60">
                     <button
                       onClick={() => toggleCategory(cat.name)}
                       className={`p-2.5 pl-3 text-sm font-bold transition-colors ${
-                        allSelected ? 'text-red-300' : partial ? 'text-red-400/70' : 'text-gray-500'
+                        allSelected ? 'text-emerald-300' : partial ? 'text-emerald-400/70' : 'text-gray-500'
                       }`}
                       title={allSelected ? '全解除' : '全選択'}
                     >
@@ -176,7 +176,7 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
                       onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
                       className="flex-grow flex items-center justify-between p-2.5 pr-3 text-left"
                     >
-                      <span className={`text-sm font-bold ${allSelected || partial ? 'text-red-200' : 'text-gray-400'}`}>
+                      <span className={`text-sm font-bold ${allSelected || partial ? 'text-emerald-200' : 'text-gray-400'}`}>
                         {cat.name}
                       </span>
                       <div className="flex items-center gap-2">
@@ -187,7 +187,7 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
                   </div>
 
                   {isExpanded && (
-                    <div className="bg-slate-950/40 border-t border-red-900/10 p-3 space-y-3 animate-math-fade-in">
+                    <div className="bg-slate-950/40 border-t border-emerald-900/10 p-3 space-y-3 animate-math-fade-in">
                       {cat.groups.map((group: SubCategoryGroup) => {
                         const groupAll = isGroupAllSelected(cat.name, group.name);
                         const groupPartial = isGroupPartial(cat.name, group.name);
@@ -197,13 +197,13 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
                               onClick={() => toggleGroup(cat.name, group.name)}
                               className="flex items-center gap-2 mb-2 w-full text-left"
                             >
-                              <span className={`text-xs ${groupAll ? 'text-red-300' : groupPartial ? 'text-red-400/70' : 'text-gray-600'}`}>
+                              <span className={`text-xs ${groupAll ? 'text-emerald-300' : groupPartial ? 'text-emerald-400/70' : 'text-gray-600'}`}>
                                 {groupAll ? '☑' : groupPartial ? '▣' : '☐'}
                               </span>
-                              <span className={`text-xs font-bold ${groupAll || groupPartial ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs font-bold ${groupAll || groupPartial ? 'text-emerald-400' : 'text-gray-500'}`}>
                                 {group.name}
                               </span>
-                              <div className="h-[1px] flex-grow bg-gradient-to-r from-red-500/10 to-transparent" />
+                              <div className="h-[1px] flex-grow bg-gradient-to-r from-emerald-500/10 to-transparent" />
                             </button>
 
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pl-4">
@@ -215,7 +215,7 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
                                     onClick={() => toggleSubtopic(sub)}
                                     className={`px-2.5 py-1.5 rounded text-[11px] font-medium text-left transition-all truncate ${
                                       isSelected
-                                        ? 'bg-red-900/30 text-red-200 border border-red-500/30'
+                                        ? 'bg-emerald-900/30 text-emerald-200 border border-emerald-500/30'
                                         : 'bg-slate-900/30 text-gray-600 border border-slate-700/20 hover:border-gray-600 hover:text-gray-400'
                                     }`}
                                     title={sub}
@@ -237,8 +237,8 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
         </div>
 
         {/* Count Selection */}
-        <div className="hud-panel rounded-xl p-4 sm:p-5 mb-6 border border-red-800/30">
-          <h3 className="text-sm font-bold text-red-400 tracking-widest uppercase mb-4">問題数</h3>
+        <div className="hud-panel rounded-xl p-4 sm:p-5 mb-6 border border-emerald-800/30">
+          <h3 className="text-sm font-bold text-emerald-400 tracking-widest uppercase mb-4">問題数</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {COUNT_PRESETS.map(p => (
               <button
@@ -246,11 +246,11 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
                 onClick={() => setCount(p.count)}
                 className={`p-4 rounded-xl border-2 text-left transition-all ${
                   count === p.count
-                    ? 'border-red-500/50 bg-red-900/20'
+                    ? 'border-emerald-500/50 bg-emerald-900/20'
                     : 'border-slate-700/30 bg-slate-900/30 hover:border-gray-600'
                 }`}
               >
-                <div className={`text-sm font-bold ${count === p.count ? 'text-red-300' : 'text-gray-400'}`}>
+                <div className={`text-sm font-bold ${count === p.count ? 'text-emerald-300' : 'text-gray-400'}`}>
                   {p.label}
                 </div>
                 <div className="text-[10px] text-gray-500 mt-1">{p.desc}</div>
@@ -267,7 +267,7 @@ const MixPracticeSetup: React.FC<MixPracticeSetupProps> = ({ onStart, onBack, lo
             className="btn-tactical w-full py-5 rounded-2xl font-bold tracking-[0.15em] text-base disabled:opacity-40"
           >
             <div className="text-lg font-black">ミックス演習をはじめる（{count}問）</div>
-            <div className="text-[10px] text-red-400 opacity-70 mt-1">{selectedCount}単元からランダムに出題</div>
+            <div className="text-[10px] text-emerald-400 opacity-70 mt-1">{selectedCount}単元からランダムに出題</div>
           </button>
         </div>
       </div>

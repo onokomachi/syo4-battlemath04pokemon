@@ -168,16 +168,16 @@ const GraphingWithTableProblemView = forwardRef<ProblemViewRef | null, GraphingW
   return (
     <div className="flex flex-col md:flex-row gap-6 w-full text-white">
       <div className="md:w-5/12 flex flex-col items-center">
-        <div className="bg-slate-900/50 p-4 rounded-xl border border-red-500/20 w-full">
-            <p className="text-2xl font-mono mb-4 text-center text-red-300">{data.equation}</p>
+        <div className="bg-slate-900/50 p-4 rounded-xl border border-emerald-500/20 w-full">
+            <p className="text-2xl font-mono mb-4 text-center text-emerald-300">{data.equation}</p>
             <table className="w-full border-collapse font-mono text-center">
-            <thead><tr className="border-b-2 border-red-400"><th className="p-2 w-1/2 text-red-500">x</th><th className="p-2 w-1/2 text-red-500">y</th></tr></thead>
+            <thead><tr className="border-b-2 border-emerald-400"><th className="p-2 w-1/2 text-emerald-500">x</th><th className="p-2 w-1/2 text-emerald-500">y</th></tr></thead>
             <tbody>
                 {data.table.map((row, index) => (
                 <tr key={index} className="border-b border-white/5">
                     <td className="p-2 text-xl">{row.x}</td>
                     <td className="p-1 relative">
-                    <input type="text" value={tableInputs[index]} onFocus={() => setFocusedInput(index)} onChange={(e) => handleInputChange(index, e.target.value)} disabled={stage !== 'table'} className={`w-full bg-black/40 border rounded-md p-2 text-xl text-center focus:outline-none transition-all ${tableCorrect[index] ? 'border-green-500 bg-green-500/5' : 'border-slate-700 focus:border-red-500'}`} />
+                    <input type="text" value={tableInputs[index]} onFocus={() => setFocusedInput(index)} onChange={(e) => handleInputChange(index, e.target.value)} disabled={stage !== 'table'} className={`w-full bg-black/40 border rounded-md p-2 text-xl text-center focus:outline-none transition-all ${tableCorrect[index] ? 'border-green-500 bg-green-500/5' : 'border-slate-700 focus:border-emerald-500'}`} />
                     {tableCorrect[index] && <CheckCircleIcon className="w-6 h-6 text-green-400 absolute right-2 top-1/2 -translate-y-1/2" />}
                     </td>
                 </tr>
@@ -187,16 +187,16 @@ const GraphingWithTableProblemView = forwardRef<ProblemViewRef | null, GraphingW
         </div>
       </div>
       <div className="md:w-7/12 flex flex-col">
-        <div className={`relative p-1 bg-red-500/20 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(239,68,68,0.2)] transition-opacity duration-500 ${stage === 'graph' ? 'opacity-100' : 'opacity-40'}`}>
+        <div className={`relative p-1 bg-emerald-500/20 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(239,68,68,0.2)] transition-opacity duration-500 ${stage === 'graph' ? 'opacity-100' : 'opacity-40'}`}>
             <canvas ref={canvasRef} onClick={handleCanvasClick} className={`w-full h-80 bg-black rounded-lg ${stage === 'graph' ? 'cursor-crosshair' : 'cursor-not-allowed'}`} />
             {stage !== 'graph' && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10 text-xs font-black tracking-widest text-red-700 animate-pulse">AWAITING_TABLE_DATA</div>
+                    <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10 text-xs font-black tracking-widest text-emerald-700 animate-pulse">AWAITING_TABLE_DATA</div>
                 </div>
             )}
         </div>
         <div className="mt-4 text-center">
-            <p className="text-[10px] text-red-700 font-black uppercase tracking-[0.3em]">
+            <p className="text-[10px] text-emerald-700 font-black uppercase tracking-[0.3em]">
                 {stage === 'table' ? 'Step 1: Calculate coordinates' : 'Step 2: Plot points on grid'}
             </p>
         </div>

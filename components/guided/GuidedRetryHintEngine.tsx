@@ -79,11 +79,11 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
 
   return (
     <div className="w-full flex flex-col gap-3">
-      <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 text-center">
+      <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 text-center">
         <p className="text-base sm:text-lg font-black text-white leading-relaxed">
           <FractionText text={prompt} />
         </p>
-        {svg && <div className="svg-container w-full max-w-xs mx-auto my-3 p-1.5 bg-slate-950 rounded-lg border border-red-500/10" dangerouslySetInnerHTML={{ __html: svg }} />}
+        {svg && <div className="svg-container w-full max-w-xs mx-auto my-3 p-1.5 bg-slate-950 rounded-lg border border-emerald-500/10" dangerouslySetInnerHTML={{ __html: svg }} />}
       </div>
 
       {shownHint && stage === 'answer' && (
@@ -100,7 +100,7 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
               key={i}
               onClick={() => chooseAnswer(i)}
               className={`p-4 rounded-2xl border-2 text-left font-black transition-all active:scale-[0.98] ${
-                pickedWrong === i ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/60 border-red-900/50 text-white hover:border-red-500/50'
+                pickedWrong === i ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/60 border-emerald-900/50 text-white hover:border-red-500/50'
               }`}
             >
               <FractionText text={c} auto />
@@ -111,7 +111,7 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
 
       {stage === 'answer' && choices && multiple && (
         <div className="flex flex-col gap-2">
-          <p className="text-center text-xs text-red-300/70 font-bold">あてはまるものを すべて えらんでから「こたえる」を おそう</p>
+          <p className="text-center text-xs text-emerald-300/70 font-bold">あてはまるものを すべて えらんでから「こたえる」を おそう</p>
           {choices.map((c, i) => {
             const isSelected = selected.includes(c);
             return (
@@ -119,7 +119,7 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
                 key={i}
                 onClick={() => toggleMulti(c)}
                 className={`p-4 rounded-2xl border-2 text-left font-black transition-all active:scale-[0.98] ${
-                  isSelected ? 'bg-red-500/10 border-red-400 text-red-200' : 'bg-slate-900/60 border-red-900/50 text-white hover:border-red-500/50'
+                  isSelected ? 'bg-emerald-500/10 border-emerald-400 text-emerald-200' : 'bg-slate-900/60 border-emerald-900/50 text-white hover:border-emerald-500/50'
                 }`}
               >
                 <FractionText text={c} auto />
@@ -129,7 +129,7 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
           <button
             onClick={submitMulti}
             disabled={selected.length === 0}
-            className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${selected.length > 0 ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95' : 'bg-slate-900 text-red-900'}`}
+            className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${selected.length > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95' : 'bg-slate-900 text-emerald-900'}`}
           >
             こたえる({selected.length}こ えらんだ)
           </button>
@@ -138,24 +138,24 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
 
       {stage === 'answer' && !choices && (
         <div className="flex flex-col gap-2">
-          <div className="min-h-[3rem] p-3 bg-slate-950/60 rounded-xl border-2 border-red-500/30 flex items-center shadow-inner">
-            <span className="text-xs font-bold text-red-400 mr-2 whitespace-nowrap">解答:</span>
-            <span className="text-lg font-mono text-red-200 flex-grow font-bold tracking-wide">
-              {input || <span className="text-red-800 text-sm">キーパッドで入力...</span>}
+          <div className="min-h-[3rem] p-3 bg-slate-950/60 rounded-xl border-2 border-emerald-500/30 flex items-center shadow-inner">
+            <span className="text-xs font-bold text-emerald-400 mr-2 whitespace-nowrap">解答:</span>
+            <span className="text-lg font-mono text-emerald-200 flex-grow font-bold tracking-wide">
+              {input || <span className="text-emerald-800 text-sm">キーパッドで入力...</span>}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-              <button key={n} onClick={() => handleKey(String(n))} className="h-12 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all">
+              <button key={n} onClick={() => handleKey(String(n))} className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all">
                 {n}
               </button>
             ))}
-            <button onClick={() => handleKey('CLEAR')} className="h-12 bg-red-950/20 border border-red-500/20 text-red-300 rounded-xl text-xs font-black uppercase">Clear</button>
-            <button onClick={() => handleKey('0')} className="h-12 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all">0</button>
+            <button onClick={() => handleKey('CLEAR')} className="h-12 bg-emerald-950/20 border border-emerald-500/20 text-emerald-300 rounded-xl text-xs font-black uppercase">Clear</button>
+            <button onClick={() => handleKey('0')} className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all">0</button>
             {allowDecimal ? (
-              <button onClick={() => handleKey('.')} className="h-12 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all">.</button>
+              <button onClick={() => handleKey('.')} className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all">.</button>
             ) : extraKeys.length === 0 ? (
-              <button onClick={() => handleKey('BACKSPACE')} className="h-12 bg-blue-900/20 border border-blue-500/20 text-red-400 rounded-xl transition-all">⌫</button>
+              <button onClick={() => handleKey('BACKSPACE')} className="h-12 bg-blue-900/20 border border-blue-500/20 text-emerald-400 rounded-xl transition-all">⌫</button>
             ) : (
               <div />
             )}
@@ -167,11 +167,11 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
               ))}
             </div>
           )}
-          <button onClick={() => handleKey('BACKSPACE')} className="h-10 bg-blue-900/20 border border-blue-500/20 text-red-400 rounded-xl transition-all text-sm font-black">⌫ もどす</button>
+          <button onClick={() => handleKey('BACKSPACE')} className="h-10 bg-blue-900/20 border border-blue-500/20 text-emerald-400 rounded-xl transition-all text-sm font-black">⌫ もどす</button>
           <button
             onClick={submitText}
             disabled={input === ''}
-            className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${input !== '' ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95' : 'bg-slate-900 text-red-900'}`}
+            className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${input !== '' ? 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95' : 'bg-slate-900 text-emerald-900'}`}
           >
             チェック
           </button>
@@ -179,10 +179,10 @@ const GuidedRetryHintEngine: React.FC<Props> = ({ data, onComplete }) => {
       )}
 
       {stage === 'done' && (
-        <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-red-950/30 border-red-500/20'}`}>
+        <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-emerald-950/30 border-emerald-500/20'}`}>
           <span className="text-4xl">{mistakes === 0 ? '🏆' : '✅'}</span>
-          <h3 className={`text-lg font-black ${mistakes === 0 ? 'text-emerald-300' : 'text-red-200'}`}>{mistakes === 0 ? 'パーフェクト！' : 'せいかい！'}</h3>
-          {explain && <p className="text-red-100/70 text-xs font-bold leading-relaxed"><FractionText text={explain} /></p>}
+          <h3 className={`text-lg font-black ${mistakes === 0 ? 'text-emerald-300' : 'text-emerald-200'}`}>{mistakes === 0 ? 'パーフェクト！' : 'せいかい！'}</h3>
+          {explain && <p className="text-emerald-100/70 text-xs font-bold leading-relaxed"><FractionText text={explain} /></p>}
         </div>
       )}
     </div>

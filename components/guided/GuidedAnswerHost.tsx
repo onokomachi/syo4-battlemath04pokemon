@@ -39,7 +39,7 @@ const GuidedAnswerHost: React.FC<Props> = ({ problem, onComplete }) => {
       return <GuidedRetryHintEngine data={data} onComplete={onComplete} />;
     default:
       return (
-        <div className="text-red-400 text-sm font-bold p-4 text-center">
+        <div className="text-emerald-400 text-sm font-bold p-4 text-center">
           未対応の guidedKind です: {(data as { guidedKind?: string }).guidedKind}
         </div>
       );

@@ -99,12 +99,12 @@ const GraphWithDomainProblemView: React.FC<GraphWithDomainProblemViewProps> = ({
   return (
     <div className="w-full flex flex-col md:flex-row gap-6 items-center">
       <div className="w-full md:w-5/12 flex flex-col items-center">
-        <div className="hud-panel p-6 rounded-2xl border border-red-500/10 w-full shadow-2xl">
+        <div className="hud-panel p-6 rounded-2xl border border-emerald-500/10 w-full shadow-2xl">
             <p className="text-center text-lg sm:text-xl font-mono leading-relaxed">{data.question}</p>
         </div>
       </div>
       <div className="w-full md:w-7/12 relative aspect-square">
-        <div className="relative p-1 bg-red-500/20 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.2)] h-full">
+        <div className="relative p-1 bg-emerald-500/20 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.2)] h-full">
             <canvas ref={canvasRef} className="w-full h-full bg-black rounded-lg" />
             {isVisualHintVisible && canvasRef.current && (
                 <GraphHintOverlay

@@ -18,7 +18,7 @@
     "@supabase/realtime-js": "2.116.0",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
-    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/caa1f967d55a9480e913e36e6d4381ff5c55b8cd.tar.gz",
+    "learning-app-kit": "https://github.com/onokomachi/learning-app-kit/archive/0d0172a43a03a3c224412ac2b316fbc939d07724.tar.gz",
     "lucide-react": "^1.61.0",
     "motion": "^14.5.0",
     "react": "^19.1.1",

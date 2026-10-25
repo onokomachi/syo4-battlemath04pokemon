@@ -118,7 +118,7 @@ const GraphProblemView: React.FC<GraphProblemViewProps> = ({ lines = [], polygon
   }, [draw]);
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-black rounded-lg border border-red-500/10 shadow-inner">
+    <div ref={containerRef} className="w-full h-full bg-black rounded-lg border border-emerald-500/10 shadow-inner">
       <svg ref={svgRef}></svg>
     </div>
   );
