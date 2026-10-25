@@ -96,9 +96,9 @@ const ProblemQuestionView: React.FC<Props> = ({
                               return (
                                 <button key={i} onClick={() => { if (!showAnswer) setUserAnswer(opt); }} disabled={showAnswer}
                                   className={`w-full text-left px-4 py-2.5 rounded-xl border-2 transition-all text-sm sm:text-base font-mono
-                                    ${isSelected ? 'border-red-400 bg-red-900/30 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-red-900/30 bg-slate-900/60 text-white hover:border-red-600/50 hover:bg-slate-800/60'}
+                                    ${isSelected ? 'border-emerald-400 bg-emerald-900/30 text-emerald-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-emerald-900/30 bg-slate-900/60 text-white hover:border-emerald-600/50 hover:bg-slate-800/60'}
                                     ${showAnswer ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                  <span className="text-red-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>{opt}
+                                  <span className="text-emerald-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>{opt}
                                 </button>
                               );
                             })}
@@ -117,9 +117,9 @@ const ProblemQuestionView: React.FC<Props> = ({
                               return (
                                 <button key={i} onClick={() => { if (!showAnswer) setUserAnswer(opt); }} disabled={showAnswer}
                                   className={`w-full text-left px-4 py-2.5 rounded-xl border-2 transition-all text-sm sm:text-base font-mono
-                                    ${isSelected ? 'border-red-400 bg-red-900/30 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-red-900/30 bg-slate-900/60 text-white hover:border-red-600/50 hover:bg-slate-800/60'}
+                                    ${isSelected ? 'border-emerald-400 bg-emerald-900/30 text-emerald-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-emerald-900/30 bg-slate-900/60 text-white hover:border-emerald-600/50 hover:bg-slate-800/60'}
                                     ${showAnswer ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                  <span className="text-red-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>{opt}
+                                  <span className="text-emerald-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>{opt}
                                 </button>
                               );
                             })}
@@ -139,9 +139,9 @@ const ProblemQuestionView: React.FC<Props> = ({
                       <div className="w-full text-center">
                         <p className="text-base sm:text-lg lg:text-xl leading-snug mb-2 sm:mb-3 font-mono tracking-tight"><FractionText text={problemData?.question || problemData?.questionText || "問題文の解析に失敗しました"} /></p>
                         {problemData?.svg ? (
-                          <div className="svg-container w-full max-w-xs mx-auto my-2 p-1.5 bg-slate-950 rounded-lg border border-red-500/10 overflow-visible" dangerouslySetInnerHTML={{ __html: problemData.svg }} />
+                          <div className="svg-container w-full max-w-xs mx-auto my-2 p-1.5 bg-slate-950 rounded-lg border border-emerald-500/10 overflow-visible" dangerouslySetInnerHTML={{ __html: problemData.svg }} />
                         ) : problemData?.imageUrl ? (
-                          <img src={problemData.imageUrl} alt="DOC" className="max-w-full max-h-40 sm:max-h-52 mx-auto rounded-lg shadow-xl border border-red-500/10 p-1 bg-slate-900 mb-2" />
+                          <img src={problemData.imageUrl} alt="DOC" className="max-w-full max-h-40 sm:max-h-52 mx-auto rounded-lg shadow-xl border border-emerald-500/10 p-1 bg-slate-900 mb-2" />
                         ) : null}
                         {problemData?.options && (
                           <div className="grid gap-2 max-w-lg mx-auto mt-2">
@@ -168,11 +168,11 @@ const ProblemQuestionView: React.FC<Props> = ({
                                   disabled={showAnswer}
                                   className={`w-full text-left px-4 py-2.5 rounded-xl border-2 transition-all text-sm sm:text-base font-mono
                                     ${isSelected
-                                      ? 'border-red-400 bg-red-900/30 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
-                                      : 'border-red-900/30 bg-slate-900/60 text-white hover:border-red-600/50 hover:bg-slate-800/60'}
+                                      ? 'border-emerald-400 bg-emerald-900/30 text-emerald-200 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+                                      : 'border-emerald-900/30 bg-slate-900/60 text-white hover:border-emerald-600/50 hover:bg-slate-800/60'}
                                     ${showAnswer ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
-                                  <span className="text-red-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
+                                  <span className="text-emerald-500 mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
                                   <FractionText text={opt} auto />
                                 </button>
                               );

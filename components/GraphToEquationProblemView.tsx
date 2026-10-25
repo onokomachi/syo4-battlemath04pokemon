@@ -55,7 +55,7 @@ const GraphToEquationProblemView: React.FC<GraphToEquationProblemViewProps> = ({
     const centerY = height / 2;
 
     if (points.length === 2) {
-        ctx.strokeStyle = '#f87171'; // red-400
+        ctx.strokeStyle = '#f87171'; // emerald-400
         ctx.lineWidth = 3;
         ctx.beginPath();
         const p1 = points[0];
@@ -94,7 +94,7 @@ const GraphToEquationProblemView: React.FC<GraphToEquationProblemViewProps> = ({
   return (
     <div className="w-full text-center">
       <p className="mb-4 text-white text-xl whitespace-pre-line font-mono tracking-tight">{data.question}</p>
-      <div className="relative p-1 bg-red-500/20 rounded-xl overflow-hidden shadow-2xl">
+      <div className="relative p-1 bg-emerald-500/20 rounded-xl overflow-hidden shadow-2xl">
         <canvas
             ref={canvasRef}
             className="w-full h-64 md:h-80 bg-black rounded-lg"

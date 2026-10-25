@@ -37,14 +37,14 @@ const ProblemControls: React.FC<ProblemControlsProps> = ({
       <button
         onClick={onLoadNextProblem}
         disabled={isSessionComplete}
-        className="w-full bg-slate-900 text-red-300 px-4 py-2 sm:py-2.5 rounded-xl hover:bg-slate-800 transition-all text-xs sm:text-sm border border-red-800/50 disabled:opacity-20 disabled:cursor-not-allowed font-bold"
+        className="w-full bg-slate-900 text-emerald-300 px-4 py-2 sm:py-2.5 rounded-xl hover:bg-slate-800 transition-all text-xs sm:text-sm border border-emerald-800/50 disabled:opacity-20 disabled:cursor-not-allowed font-bold"
       >
         次の問題へ
       </button>
       <button
         onClick={onShowHint}
         disabled={!hasHint || isSessionComplete}
-        className="w-full bg-slate-900/30 text-red-400 px-4 py-2 sm:py-2.5 rounded-xl hover:bg-red-900/20 transition-all text-xs sm:text-sm border border-red-500/20 disabled:opacity-10 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-bold"
+        className="w-full bg-slate-900/30 text-emerald-400 px-4 py-2 sm:py-2.5 rounded-xl hover:bg-emerald-900/20 transition-all text-xs sm:text-sm border border-emerald-500/20 disabled:opacity-10 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-bold"
       >
         <LightbulbIcon className="w-4 h-4 sm:w-5 sm:h-5" />
         ヒントを見る

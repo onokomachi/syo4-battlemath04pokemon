@@ -35,7 +35,7 @@ const AppRoundHost: React.FC<{ data: GuidedAppRoundData; onComplete: (isCorrect:
   if (def && !levelRef.current) levelRef.current = def.levels[Math.floor(Math.random() * def.levels.length)];
 
   if (!reg) return <div className="text-center text-sm text-emerald-300 p-6">よみこみ中…</div>;
-  if (!def) return <div className="text-red-400 text-sm font-bold p-4 text-center">まだ ない もんだいです（{data.app}/{data.round}）</div>;
+  if (!def) return <div className="text-emerald-400 text-sm font-bold p-4 text-center">まだ ない もんだいです（{data.app}/{data.round}）</div>;
 
   const finish = (ok: boolean) => { if (done.current) return; done.current = true; onComplete(ok); };
   const { Round } = def;

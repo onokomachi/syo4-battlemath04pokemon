@@ -9,6 +9,7 @@ import { JoinSettingsRow } from 'learning-app-kit/react';
 import { SANMON_RULES } from 'learning-app-kit/sanmon';
 import type { SanmonPortal } from '../hooks/useSanmonPortal';
 import { PORTAL, isPortalConfigured } from '../services/portal';
+import { enterDemo, exitDemo, isDemo } from '../services/saveProfile';
 
 interface Props {
   portal: SanmonPortal;
@@ -63,10 +64,17 @@ const PortalLoginScreen: React.FC<Props> = ({ portal, onStart }) => {
 
         {isPortalConfigured && (
           <div className="w-full bg-white rounded-xl p-2">
-            <JoinSettingsRow config={PORTAL} />
+            <JoinSettingsRow config={PORTAL} onDemo={enterDemo} />
           </div>
         )}
-        {!portal.student && (
+        {isDemo() && (
+          <div className="w-full rounded-xl border border-amber-400/50 bg-amber-900/20 p-3 text-center">
+            <p className="text-sm font-black text-amber-300">デモモード</p>
+            <p className="text-[11px] text-amber-100/80 mt-1">すべての町が ひらいているよ。きろくは どこにも おくられず、セーブは この たんまつだけ。</p>
+            <button onClick={exitDemo} className="mt-2 text-xs font-bold text-amber-200 underline underline-offset-4">デモを おわる</button>
+          </div>
+        )}
+        {!portal.student && !isDemo() && (
           <p className="text-[11px] text-gray-500 text-center leading-relaxed">
             コードを 入れなくても「おためし」で れんしゅうも バトルも できるよ。
             ただし きろくは 先生に とどかないし、おためしの セーブは コードを 入れると べつになるよ。

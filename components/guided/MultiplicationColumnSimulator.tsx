@@ -239,16 +239,16 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
           .mcs-shake { animation: mcs-shake 0.2s ease-in-out infinite; }
         `}</style>
 
-        <div className="bg-gradient-to-br from-indigo-950/40 to-amber-950/40 p-4 rounded-2xl border border-red-500/20">
+        <div className="bg-gradient-to-br from-indigo-950/40 to-amber-950/40 p-4 rounded-2xl border border-emerald-500/20">
           <h3 className="text-amber-300 font-black text-sm mb-1">👑 マスターモード</h3>
-          <p className="text-red-200/80 font-bold text-xs leading-relaxed">
+          <p className="text-emerald-200/80 font-bold text-xs leading-relaxed">
             ヒントはなしだよ！部分積のマスをタップして、じぶんで じゅんばんを決めながら すべてうめてね。
             1マスに2けたまで入力すると、十の位が繰り上がりとして左のマスに小さく出るよ。
             うめおわったら「答え合わせ」だよ。
           </p>
         </div>
 
-        <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
+        <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
           <div className="font-mono text-2xl sm:text-3xl leading-none tracking-widest text-white select-none">
             <Row label="" valStr={a.toString()} shift={0} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} />
             <div className="relative">
@@ -305,10 +305,10 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
             <span className="text-4xl">💡</span>
             <h3 className="text-lg font-black text-rose-300">おしい！</h3>
             <p className="text-rose-300/80 text-xs font-bold leading-relaxed">赤いマスのまちがっている数字を、もういちど見なおしてみてね。</p>
-            <button onClick={() => setIsGraded(false)} className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black transition-all active:scale-95">
+            <button onClick={() => setIsGraded(false)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black transition-all active:scale-95">
               まちがいをなおす
             </button>
-            <button onClick={resetMaster} className="w-full py-2 bg-slate-900 border border-red-500/20 text-red-200 rounded-xl font-bold transition-all">
+            <button onClick={resetMaster} className="w-full py-2 bg-slate-900 border border-emerald-500/20 text-emerald-200 rounded-xl font-bold transition-all">
               はじめからやりなおす
             </button>
           </div>
@@ -321,18 +321,18 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
                 <button
                   key={n}
                   onClick={() => handleMasterDigit(n.toString())}
-                  className="h-12 bg-slate-900/60 hover:bg-red-900/40 active:bg-red-600 active:text-white border border-red-900/50 rounded-xl text-xl font-black text-white transition-all"
+                  className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 active:bg-emerald-600 active:text-white border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all"
                 >
                   {n}
                 </button>
               ))}
-              <button onClick={handleMasterBackspace} className="h-12 bg-red-950/40 text-red-400 border border-red-500/20 rounded-xl flex items-center justify-center transition-all">
+              <button onClick={handleMasterBackspace} className="h-12 bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center transition-all">
                 ⌫
               </button>
             </div>
             <button
               onClick={doMasterGrading}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
             >
               答え合わせをする
             </button>
@@ -364,7 +364,7 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
         </div>
       )}
 
-      <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
+      <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
         <div className="font-mono text-2xl sm:text-3xl leading-none tracking-widest text-white select-none">
           <Row label="" valStr={a.toString()} shift={0} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} />
           <Row label="×" valStr={bStr} shift={0} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} borderBottom />
@@ -415,9 +415,9 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
       {!normalFinished && (
         <>
           {hintRevealed ? (
-            <div className="bg-red-500/10 p-4 rounded-2xl border border-red-500/20">
-              <h3 className="text-red-300 font-black text-sm mb-1">💡 ヒント</h3>
-              <p className="text-red-100/80 font-medium text-xs leading-relaxed whitespace-pre-line">
+            <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
+              <h3 className="text-emerald-300 font-black text-sm mb-1">💡 ヒント</h3>
+              <p className="text-emerald-100/80 font-medium text-xs leading-relaxed whitespace-pre-line">
                 {!isSumStep
                   ? `${a} × ${currentDigit}(${placeDigitLabel[stepIdx] ?? ''}の位)を、一の位から1けたずつ 計算しよう。2けたになったら 十の位は 左のマスに 小さく書くよ。`
                   : `部分積を すべて たてに たそう。${partials.join(' + ')} = ${finalAnswer}`}
@@ -426,13 +426,13 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
           ) : (
             <button
               onClick={() => setHintRevealed(true)}
-              className="w-full py-2.5 bg-slate-900/60 border border-red-500/20 text-red-300/80 rounded-xl text-xs font-black transition-all hover:bg-red-950/30"
+              className="w-full py-2.5 bg-slate-900/60 border border-emerald-500/20 text-emerald-300/80 rounded-xl text-xs font-black transition-all hover:bg-emerald-950/30"
             >
               💡 まずは じぶんで考えてみよう（ヒントを見る）
             </button>
           )}
 
-          <p className="text-center text-xs text-red-300/70 font-bold">
+          <p className="text-center text-xs text-emerald-300/70 font-bold">
             {!isSumStep ? `${a} × ${currentDigit}(${bStr.length - 1 - stepIdx === 0 ? '一' : placeDigitLabel[stepIdx]}の位)は？` : 'すべての部分積を たした 答えは？'}
           </p>
 
@@ -442,12 +442,12 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
                 <button
                   key={n}
                   onClick={() => handleKeypad(n.toString())}
-                  className="h-12 bg-slate-900/60 hover:bg-red-900/40 active:bg-red-600 active:text-white border border-red-900/50 rounded-xl text-xl font-black text-white transition-all"
+                  className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 active:bg-emerald-600 active:text-white border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all"
                 >
                   {n}
                 </button>
               ))}
-              <button onClick={handleBackspace} className="h-12 bg-red-950/40 text-red-400 border border-red-500/20 rounded-xl flex items-center justify-center transition-all">
+              <button onClick={handleBackspace} className="h-12 bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center transition-all">
                 ⌫
               </button>
             </div>
@@ -456,8 +456,8 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
               disabled={isSumStep ? userInput === '' : !cellBuffers.some((c) => c !== '')}
               className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${
                 (isSumStep ? userInput !== '' : cellBuffers.some((c) => c !== ''))
-                  ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95'
-                  : 'bg-slate-900 text-red-900'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95'
+                  : 'bg-slate-900 text-emerald-900'
               }`}
             >
               チェック
@@ -478,13 +478,13 @@ const Row: React.FC<{
   const startIdx = offset - valStr.length + 1;
   return (
     <div className={`grid items-center text-center relative h-11 ${borderBottom ? 'border-b-2 border-white' : ''}`} style={{ gridTemplateColumns: `28px repeat(${totalWidth}, ${cellW}px)` }}>
-      <div className="text-red-400 font-black text-lg flex justify-end pr-1">{label}</div>
+      <div className="text-emerald-400 font-black text-lg flex justify-end pr-1">{label}</div>
       {Array(totalWidth).fill(0).map((_, i) => {
         const inRange = i >= startIdx && i <= offset;
         const char = inRange ? valStr[i - startIdx] : '';
         return (
-          <div key={i} className={`w-9 h-11 sm:w-10 flex items-center justify-center ${highlight && inRange ? 'bg-red-500/10 ring-2 ring-red-400 ring-inset rounded-lg' : ''}`}>
-            <span className={highlight ? 'text-red-400 animate-pulse' : 'text-white'}>{char}</span>
+          <div key={i} className={`w-9 h-11 sm:w-10 flex items-center justify-center ${highlight && inRange ? 'bg-emerald-500/10 ring-2 ring-emerald-400 ring-inset rounded-lg' : ''}`}>
+            <span className={highlight ? 'text-emerald-400 animate-pulse' : 'text-white'}>{char}</span>
           </div>
         );
       })}
@@ -503,13 +503,13 @@ const SelectableRow: React.FC<{
   const isCorrect = isGraded && valStr !== '' && parseInt(valStr, 10) === parseInt(correctVal, 10);
   return (
     <div className={`grid items-center text-center relative h-11 ${borderTop ? 'border-t-2 border-white mt-1' : ''}`} style={{ gridTemplateColumns: `28px repeat(${totalWidth}, ${cellW}px)` }}>
-      <div className="text-red-400 font-black text-lg flex justify-end pr-1">{label}</div>
+      <div className="text-emerald-400 font-black text-lg flex justify-end pr-1">{label}</div>
       <button
         type="button"
         disabled={disabled}
         onClick={onSelect}
         className={`col-span-full row-start-1 absolute inset-0 rounded-xl border-2 border-dashed transition-all ${
-          isSelected ? 'border-red-400 bg-red-500/5 ring-2 ring-red-400/40 ring-inset' : 'border-transparent hover:bg-slate-900/40'
+          isSelected ? 'border-emerald-400 bg-emerald-500/5 ring-2 ring-emerald-400/40 ring-inset' : 'border-transparent hover:bg-slate-900/40'
         }`}
         style={{ gridColumn: `2 / span ${totalWidth}` }}
         title="タップして このマスを えらぶ"
@@ -527,7 +527,7 @@ const SelectableRow: React.FC<{
         return (
           <div key={i} className="w-9 h-11 sm:w-10 flex items-center justify-center relative pointer-events-none">
             <span className="text-white">{char}</span>
-            {isSelected && !char && i === offset && <span className="text-red-800 animate-pulse">？</span>}
+            {isSelected && !char && i === offset && <span className="text-emerald-800 animate-pulse">？</span>}
           </div>
         );
       })}
@@ -548,8 +548,8 @@ const CellRow: React.FC<{
   const offset = rightOffset - shift;
   const startIdx = offset - width + 1;
   return (
-    <div className={`grid items-center text-center relative h-11 ${activeInput ? 'bg-red-500/10 ring-2 ring-red-400/40 rounded-xl mx-1' : ''}`} style={{ gridTemplateColumns: `28px repeat(${totalWidth}, ${cellW}px)` }}>
-      <div className="text-red-400 font-black text-lg flex justify-end pr-1" />
+    <div className={`grid items-center text-center relative h-11 ${activeInput ? 'bg-emerald-500/10 ring-2 ring-emerald-400/40 rounded-xl mx-1' : ''}`} style={{ gridTemplateColumns: `28px repeat(${totalWidth}, ${cellW}px)` }}>
+      <div className="text-emerald-400 font-black text-lg flex justify-end pr-1" />
       {Array(totalWidth).fill(0).map((_, i) => {
         const within = i >= startIdx && i <= offset;
         if (!within) return <div key={i} className="w-9 h-11 sm:w-10" />;
@@ -571,11 +571,11 @@ const CellRow: React.FC<{
               disabled={disabled}
               onClick={() => onSelectCol(localIdx)}
               className={`w-9 h-11 sm:w-10 flex items-center justify-center rounded-lg transition-all ${
-                isSelected ? 'bg-slate-900 ring-2 ring-red-400 ring-inset' : 'bg-red-500/5 ring-1 ring-red-500/20 hover:bg-red-500/10'
+                isSelected ? 'bg-slate-900 ring-2 ring-emerald-400 ring-inset' : 'bg-emerald-500/5 ring-1 ring-emerald-500/20 hover:bg-emerald-500/10'
               }`}
             >
               <span className="text-white">{display}</span>
-              {isSelected && !mainChar && <span className="text-red-800 animate-pulse absolute">？</span>}
+              {isSelected && !mainChar && <span className="text-emerald-800 animate-pulse absolute">？</span>}
             </button>
             {carry && (
               <span className="absolute -top-1 right-0.5 text-[11px] font-black text-amber-400 bg-amber-950/80 border border-amber-500/40 rounded px-1 leading-tight z-10">

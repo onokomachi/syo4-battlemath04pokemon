@@ -85,13 +85,13 @@ const ProblemAnswerPad: React.FC<Props> = ({
 
   const boxClass = battle
     ? 'min-h-[3.25rem] px-3 py-2 rounded-2xl bg-slate-950/70 border-2 border-sky-400/40 flex items-center'
-    : 'min-h-[3rem] sm:min-h-[3.5rem] p-2 sm:p-3 bg-slate-950/60 rounded-xl border-2 border-red-500/30 flex items-center shadow-inner';
+    : 'min-h-[3rem] sm:min-h-[3.5rem] p-2 sm:p-3 bg-slate-950/60 rounded-xl border-2 border-emerald-500/30 flex items-center shadow-inner';
   const labelClass = battle
     ? 'text-xs font-bold text-sky-300 mr-3 shrink-0'
-    : 'text-xs sm:text-sm font-bold text-red-400 mr-2 sm:mr-3 whitespace-nowrap';
+    : 'text-xs sm:text-sm font-bold text-emerald-400 mr-2 sm:mr-3 whitespace-nowrap';
   const valueClass = battle
     ? 'flex-1 min-w-0 text-xl sm:text-2xl font-mono font-bold text-white'
-    : 'text-lg sm:text-xl lg:text-2xl font-mono text-red-200 flex-grow font-bold tracking-wide';
+    : 'text-lg sm:text-xl lg:text-2xl font-mono text-emerald-200 flex-grow font-bold tracking-wide';
   const placeholder = battle ? 'キーパッドで にゅうりょく' : 'キーパッドで入力...';
 
   return (
@@ -114,13 +114,13 @@ const ProblemAnswerPad: React.FC<Props> = ({
                 className={
                   battle
                     ? 'flex-1 min-w-0 bg-transparent text-xl sm:text-2xl font-mono font-bold text-white outline-none placeholder:text-slate-600 placeholder:text-sm'
-                    : 'flex-grow bg-transparent text-lg sm:text-xl lg:text-2xl font-mono text-red-200 font-bold tracking-wide outline-none placeholder:text-red-800 placeholder:text-sm'
+                    : 'flex-grow bg-transparent text-lg sm:text-xl lg:text-2xl font-mono text-emerald-200 font-bold tracking-wide outline-none placeholder:text-emerald-800 placeholder:text-sm'
                 }
               />
             ) : (
               <span className={valueClass} style={{ wordBreak: 'break-all' }}>
                 {userAnswer || (
-                  <span className={battle ? 'text-slate-600 text-sm' : 'text-red-800 text-sm'}>
+                  <span className={battle ? 'text-slate-600 text-sm' : 'text-emerald-800 text-sm'}>
                     {placeholder}
                   </span>
                 )}

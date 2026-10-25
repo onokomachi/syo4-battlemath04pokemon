@@ -75,8 +75,8 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
     <div className="h-[100dvh] w-full flex items-start justify-center p-3 sm:p-6 text-white overflow-y-auto">
       <div className="w-full max-w-4xl my-2">
         <header className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl sm:text-3xl font-black text-red-300">📒 がくしゅうのきろく</h1>
-          <button onClick={onExit} className="btn-tactical px-5 py-2.5 rounded-lg flex items-center gap-2 font-bold text-sm text-red-400">
+          <h1 className="text-2xl sm:text-3xl font-black text-emerald-300">📒 がくしゅうのきろく</h1>
+          <button onClick={onExit} className="btn-tactical px-5 py-2.5 rounded-lg flex items-center gap-2 font-bold text-sm text-emerald-400">
             <BackIcon className="w-4 h-4" /> もどる
           </button>
         </header>
@@ -92,7 +92,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
               key={id}
               onClick={() => setTab(id)}
               className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all
-                ${tab === id ? 'border-red-400 bg-red-900/40 text-red-200' : 'border-red-900/30 bg-slate-900/50 text-white/60 hover:text-white'}`}
+                ${tab === id ? 'border-emerald-400 bg-emerald-900/40 text-emerald-200' : 'border-emerald-900/30 bg-slate-900/50 text-white/60 hover:text-white'}`}
             >
               {label}
             </button>
@@ -112,7 +112,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
                 </p>
                 <p className="text-xs text-white/50 mb-2">きょう といた問題: {todayLogs.length}問(正解 {todayCorrect}問)</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-red-400 font-bold">1日の目標:</span>
+                  <span className="text-xs text-emerald-400 font-bold">1日の目標:</span>
                   {[5, 10, 15, 20, 30].map(n => (
                     <button
                       key={n}
@@ -127,7 +127,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
             </div>
 
             <div className="hud-panel rounded-2xl p-4">
-              <h2 className="font-bold text-red-300 text-sm mb-3">きょう やった問題</h2>
+              <h2 className="font-bold text-emerald-300 text-sm mb-3">きょう やった問題</h2>
               {todayLogs.length === 0 ? (
                 <p className="text-white/40 text-sm py-6 text-center">まだ きょうの きろくが ないよ。問題を といてみよう!</p>
               ) : (
@@ -156,7 +156,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
           <div className="space-y-4">
             {MATH_CATEGORIES.map(cat => (
               <div key={cat.name} className="hud-panel rounded-2xl p-4">
-                <h2 className="font-black text-red-300 mb-3">{cat.name}</h2>
+                <h2 className="font-black text-emerald-300 mb-3">{cat.name}</h2>
                 <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
                   {cat.groups.flatMap(g => g.subtopics).map(st => {
                     const m = mastery[st];
@@ -174,7 +174,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
                         </div>
                         <div className="h-2 bg-slate-900 rounded-full overflow-hidden flex">
                           <div
-                            className={`h-full ${rate >= 0.85 ? 'bg-emerald-400' : rate >= 0.6 ? 'bg-amber-400' : 'bg-red-500'}`}
+                            className={`h-full ${rate >= 0.85 ? 'bg-emerald-400' : rate >= 0.6 ? 'bg-amber-400' : 'bg-emerald-500'}`}
                             style={{ width: `${rate * 100}%` }}
                           />
                         </div>
@@ -196,11 +196,11 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
           <div className="space-y-4">
             <div className="hud-panel rounded-2xl p-4">
               <div className="flex justify-between items-center mb-3">
-                <h2 className="font-bold text-red-300 text-sm">バッジ({BADGE_DEFS.filter(b => earnedBadgeIds.has(b.id)).length} / {BADGE_DEFS.length})</h2>
+                <h2 className="font-bold text-emerald-300 text-sm">バッジ({BADGE_DEFS.filter(b => earnedBadgeIds.has(b.id)).length} / {BADGE_DEFS.length})</h2>
                 <p className="text-xs font-black text-amber-400">獲得率 {Math.round(ratio * 100)}%</p>
               </div>
               <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden mb-4">
-                <div className="h-full bg-gradient-to-r from-amber-500 to-red-400" style={{ width: `${ratio * 100}%` }} />
+                <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-400" style={{ width: `${ratio * 100}%` }} />
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {BADGE_DEFS.map(b => {
@@ -220,7 +220,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
             </div>
 
             <div className="hud-panel rounded-2xl p-4">
-              <h2 className="font-bold text-red-300 text-sm mb-1">特別な背景</h2>
+              <h2 className="font-bold text-emerald-300 text-sm mb-1">特別な背景</h2>
               <p className="text-[10px] text-white/40 mb-3">
                 バッジを あつめると 特別な背景が つかえるように なるよ。
                 えらぶと この画面の うしろで すぐに 背景が 動きだすよ(プレビュー)。
@@ -235,7 +235,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
                       disabled={!unlocked}
                       onClick={() => onEquipBackground(bg.id)}
                       className={`text-left p-3 rounded-xl border-2 transition-all
-                        ${equipped ? 'border-amber-400 bg-amber-900/30' : unlocked ? 'border-red-900/40 bg-slate-900/60 hover:border-red-500/60' : 'border-white/5 bg-slate-950/60 opacity-40'}`}
+                        ${equipped ? 'border-amber-400 bg-amber-900/30' : unlocked ? 'border-emerald-900/40 bg-slate-900/60 hover:border-emerald-500/60' : 'border-white/5 bg-slate-950/60 opacity-40'}`}
                     >
                       <p className="font-bold text-sm text-white">{bg.icon} {bg.name} {equipped && <span className="text-amber-400 text-[10px]">✓ 使用中</span>}</p>
                       <p className="text-[10px] text-white/50">{unlocked ? bg.desc : `🔒 ${bg.desc}`}</p>
@@ -257,7 +257,7 @@ const LearningLogScreen: React.FC<LearningLogScreenProps> = ({ onExit, equippedB
                 ['両面ベスト', `${bests.bestTotal}点`, `満点 ${bests.perfectCounts.total}回`],
               ] as const).map(([label, v, sub]) => (
                 <div key={label}>
-                  <p className="text-[10px] text-red-400 font-bold">{label}</p>
+                  <p className="text-[10px] text-emerald-400 font-bold">{label}</p>
                   <p className="text-2xl font-black text-amber-400">{v}</p>
                   <p className="text-[10px] text-white/40">{sub}</p>
                 </div>
@@ -284,7 +284,7 @@ const TestRecordCard: React.FC<{ rec: ReturnType<typeof getTestRecords>[number] 
       <button onClick={() => setOpen(!open)} className="w-full flex justify-between items-center text-left">
         <div>
           <p className="text-xs text-white/40">{new Date(rec.ts).toLocaleString('ja-JP')}</p>
-          <p className="font-bold text-red-200">{rec.setName ? `${rec.setName} ` : ''}{rec.mode}のテスト</p>
+          <p className="font-bold text-emerald-200">{rec.setName ? `${rec.setName} ` : ''}{rec.mode}のテスト</p>
         </div>
         <div className="text-right">
           <p className="text-xl font-black text-amber-400">{rec.total} <span className="text-xs text-white/40">/ {rec.totalMax}点</span></p>
@@ -292,7 +292,7 @@ const TestRecordCard: React.FC<{ rec: ReturnType<typeof getTestRecords>[number] 
         </div>
       </button>
       {open && (
-        <div className="mt-3 space-y-1.5 border-t border-red-500/10 pt-3">
+        <div className="mt-3 space-y-1.5 border-t border-emerald-500/10 pt-3">
           {rec.steps.map((s, i) => (
             <div key={i} className="flex items-start gap-2 text-xs bg-black/30 rounded-lg p-2">
               <span className={s.correct ? 'text-emerald-400' : 'text-red-400'}>{s.correct ? '○' : '×'}</span>

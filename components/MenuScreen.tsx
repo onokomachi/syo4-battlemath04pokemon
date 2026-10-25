@@ -56,7 +56,7 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
         <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-hologram tracking-[0.05em] sm:tracking-[0.1em] mb-2">
           ワールドマップ
         </h1>
-        <p className="text-red-400 text-xs sm:text-sm font-bold">ワールドを えらんで 問題に ちょうせん! 🚩=クリア 👑=マスター</p>
+        <p className="text-emerald-400 text-xs sm:text-sm font-bold">ワールドを えらんで 問題に ちょうせん! 🚩=クリア 👑=マスター</p>
       </header>
 
       <main className="w-full max-w-7xl hud-panel rounded-2xl p-0 shadow-2xl relative overflow-hidden flex flex-col md:flex-row flex-grow md:flex-grow-0 md:h-[65vh] min-h-0">
@@ -64,8 +64,8 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
         <div className="corner-accent rb"></div>
 
         {/* Left Side: World List */}
-        <div className="w-full md:w-[30%] bg-slate-950/60 border-b md:border-b-0 md:border-r border-red-500/10 flex md:flex-col p-3 sm:p-4 gap-2 overflow-x-auto md:overflow-x-visible md:overflow-y-auto flex-shrink-0">
-          <h2 className="text-xs font-bold text-red-400 mb-1 hidden md:block">ワールドを選択</h2>
+        <div className="w-full md:w-[30%] bg-slate-950/60 border-b md:border-b-0 md:border-r border-emerald-500/10 flex md:flex-col p-3 sm:p-4 gap-2 overflow-x-auto md:overflow-x-visible md:overflow-y-auto flex-shrink-0">
+          <h2 className="text-xs font-bold text-emerald-400 mb-1 hidden md:block">ワールドを選択</h2>
           {worlds.map((w) => (
             <button
               key={w.cat.name}
@@ -75,8 +75,8 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
                 ${w.isLocked
                   ? 'bg-slate-950/40 border-white/5 text-white/25 cursor-not-allowed'
                   : selected?.name === w.cat.name
-                  ? 'bg-red-500/20 text-white border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
-                  : 'bg-transparent border-transparent text-red-200/60 hover:text-red-200 hover:bg-slate-900/40'
+                  ? 'bg-emerald-500/20 text-white border-emerald-400 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+                  : 'bg-transparent border-transparent text-emerald-200/60 hover:text-emerald-200 hover:bg-slate-900/40'
                 }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -95,7 +95,7 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1.5 bg-slate-900 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${w.isCleared ? 'bg-emerald-400' : 'bg-red-400'}`}
+                      className={`h-full rounded-full transition-all ${w.isCleared ? 'bg-emerald-400' : 'bg-emerald-400'}`}
                       style={{ width: `${(w.cleared / Math.max(w.total, 1)) * 100}%` }}
                     />
                   </div>
@@ -110,14 +110,14 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
         {/* Right Side: Grouped Subtopics */}
         {selected && selectedWorld && !selectedWorld.isLocked ? (
           <div className="flex-grow overflow-y-auto custom-scrollbar p-6 md:p-10 animate-math-fade-in">
-            <header className="mb-8 flex justify-between items-end border-b border-red-500/10 pb-4">
+            <header className="mb-8 flex justify-between items-end border-b border-emerald-500/10 pb-4">
                 <div>
-                   <p className="text-[10px] font-black tracking-[0.3em] text-red-400">WORLD {selectedWorld.num}</p>
+                   <p className="text-[10px] font-black tracking-[0.3em] text-emerald-400">WORLD {selectedWorld.num}</p>
                    <h2 className="text-3xl font-bold text-white">
                      {selected.name} {selectedWorld.isCleared && '🚩'}{selectedWorld.isMastered && '👑'}
                    </h2>
                 </div>
-                <p className="text-xs text-red-500 font-bold hidden sm:block">
+                <p className="text-xs text-emerald-500 font-bold hidden sm:block">
                   クリア {selectedWorld.cleared} / {selectedWorld.total}
                 </p>
             </header>
@@ -126,8 +126,8 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
                 {selected.groups.map((group: SubCategoryGroup) => (
                     <section key={group.name} className="animate-math-fade-in">
                         <div className="flex items-center gap-4 mb-5">
-                            <h3 className="text-sm font-bold text-red-400 whitespace-nowrap">{group.name}</h3>
-                            <div className="h-[1px] flex-grow bg-gradient-to-r from-red-500/20 to-transparent"></div>
+                            <h3 className="text-sm font-bold text-emerald-400 whitespace-nowrap">{group.name}</h3>
+                            <div className="h-[1px] flex-grow bg-gradient-to-r from-emerald-500/20 to-transparent"></div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {group.subtopics.map((subTopic: string) => {
@@ -136,9 +136,9 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
                                   <button
                                       key={subTopic}
                                       onClick={() => onSelectSubTopic(selected.name, subTopic)}
-                                      className="w-full bg-slate-950/40 border border-red-500/10 text-red-100/90 p-4 rounded-xl text-sm font-bold hover:bg-red-500 hover:text-slate-950 hover:border-white transition-all text-left relative overflow-hidden group"
+                                      className="w-full bg-slate-950/40 border border-emerald-500/10 text-emerald-100/90 p-4 rounded-xl text-sm font-bold hover:bg-emerald-500 hover:text-slate-950 hover:border-white transition-all text-left relative overflow-hidden group"
                                   >
-                                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${done ? 'bg-emerald-400/60' : 'bg-red-500/20'} group-hover:bg-white transition-colors`}></div>
+                                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${done ? 'bg-emerald-400/60' : 'bg-emerald-500/20'} group-hover:bg-white transition-colors`}></div>
                                       <span className="relative z-10 flex items-center justify-between gap-2">
                                         <span>{subTopic}</span>
                                         {done && <span className="text-emerald-400 group-hover:text-slate-950 text-xs flex-shrink-0">✔</span>}
@@ -152,8 +152,8 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
             </div>
           </div>
         ) : (
-          <div className="flex-grow flex items-center justify-center border-2 border-dashed border-red-900/20 rounded-xl m-6">
-             <p className="text-red-700 animate-pulse text-sm">ワールドを選択してください</p>
+          <div className="flex-grow flex items-center justify-center border-2 border-dashed border-emerald-900/20 rounded-xl m-6">
+             <p className="text-emerald-700 animate-pulse text-sm">ワールドを選択してください</p>
           </div>
         )}
       </main>
@@ -162,11 +162,11 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
       <button
         onClick={onMixPractice}
         className="mt-6 w-full max-w-5xl flex-shrink-0 py-5 sm:py-6 rounded-2xl font-black tracking-[0.15em] text-lg sm:text-xl text-white
-          bg-gradient-to-r from-red-700/80 via-red-600/80 to-orange-600/80 border-2 border-red-400/60
-          shadow-[0_0_30px_rgba(239,68,68,0.35)] hover:shadow-[0_0_50px_rgba(239,68,68,0.55)] hover:border-red-300 transition-all"
+          bg-gradient-to-r from-emerald-700/80 via-emerald-600/80 to-amber-600/80 border-2 border-emerald-400/60
+          shadow-[0_0_30px_rgba(239,68,68,0.35)] hover:shadow-[0_0_50px_rgba(239,68,68,0.55)] hover:border-emerald-300 transition-all"
       >
         ミックス演習
-        <span className="block text-[11px] sm:text-xs font-bold tracking-normal text-red-100/80 mt-1">
+        <span className="block text-[11px] sm:text-xs font-bold tracking-normal text-emerald-100/80 mt-1">
           単元と問題数を選んで まぜて練習 — 力だめしに おすすめ!
         </span>
       </button>
@@ -174,14 +174,14 @@ const MenuScreen: React.FC<MenuScreenProps> = ({ onSelectSubTopic, onShowRecords
       <footer className="mt-5 flex items-center justify-center gap-6 w-full max-w-5xl flex-shrink-0">
          <button
             onClick={onShowRecords}
-            className="btn-tactical px-8 py-3 rounded-lg flex items-center gap-3 font-bold text-sm text-red-300 border-red-500/20"
+            className="btn-tactical px-8 py-3 rounded-lg flex items-center gap-3 font-bold text-sm text-emerald-300 border-emerald-500/20"
           >
             <ArchiveIcon className="w-5 h-5" />
             学習記録
           </button>
           <button
             onClick={onExit}
-            className="btn-tactical px-10 py-3 rounded-lg font-bold text-white bg-blue-700/20 border-red-500/40 hover:bg-blue-600 text-sm"
+            className="btn-tactical px-10 py-3 rounded-lg font-bold text-white bg-blue-700/20 border-emerald-500/40 hover:bg-blue-600 text-sm"
           >
             メニューに戻る
           </button>

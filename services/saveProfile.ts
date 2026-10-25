@@ -11,20 +11,47 @@
  * 画面を読みなおす。1問ごとの記録（fb_problem_logs_v1）も入れかわるので、おためしの記録が あとで学級の記録として送られることはない。
  *
  * ストア（zustand）は読みこんだ時点で localStorage を読むので、index.tsx で いちばん先に読みこむこと。
+ *
+ * デモモード（2026-10 先生と決めた。学級コード 0000・番号 0 ＋先生のパスワード）は 3つ目のセーブ 'demo'。
+ * アプリの紹介用で、すべての町が開く・記録は送らない・セーブは端末だけ。おためし・学級のセーブとは まざらない。
  */
-import { getStudent, subscribeStudent } from 'learning-app-kit/sync';
+import { clearStudent, getStudent, subscribeStudent } from 'learning-app-kit/sync';
 
-export type SaveProfile = 'class' | 'trial';
+export type SaveProfile = 'class' | 'trial' | 'demo';
+
+const DEMO_KEY = 'sanmon_demo_v1';
+/** デモモード中か */
+export function isDemo(): boolean {
+  try { return localStorage.getItem(DEMO_KEY) === '1'; } catch { return false; }
+}
 
 const ACTIVE_KEY = 'sanmon_active_profile';
 const stashKey = (p: SaveProfile) => `sanmon_profile_${p}`;
 /** 入れかえる中身（services/portal.ts の セーブの対象と同じ＋1問ごとの記録・送った時刻） */
 const isProfileKey = (k: string) => /^bm_|^battleMath|^fb_/.test(k) || k === 'sanmon_portal_saved_at';
 
-export const profileFor = (hasStudent: boolean): SaveProfile => (hasStudent ? 'class' : 'trial');
+export const profileFor = (hasStudent: boolean): SaveProfile => (hasStudent ? 'class' : isDemo() ? 'demo' : 'trial');
 
 export function activeProfile(): SaveProfile {
-  try { return localStorage.getItem(ACTIVE_KEY) === 'trial' ? 'trial' : 'class'; } catch { return 'class'; }
+  try {
+    const v = localStorage.getItem(ACTIVE_KEY);
+    return v === 'trial' || v === 'demo' ? v : 'class';
+  } catch { return 'class'; }
+}
+
+/** デモモードに入る（名乗りを消して、デモのセーブで読みなおす）。先生のパスワードは kit の JoinForm が確かめたあと */
+export function enterDemo(): void {
+  try { localStorage.setItem(DEMO_KEY, '1'); } catch { return; }
+  if (getStudent()) clearStudent();          // 記録が送られないように（clearStudent の通知でも入れかわる）
+  ensureProfile('demo');
+  window.location.reload();
+}
+
+/** デモモードを おわる（おためしのセーブにもどる） */
+export function exitDemo(): void {
+  try { localStorage.removeItem(DEMO_KEY); } catch { /* noop */ }
+  ensureProfile(profileFor(!!getStudent()));
+  window.location.reload();
 }
 
 /**
@@ -67,5 +94,7 @@ ensureProfile(profileFor(!!getStudent()));
 
 // 学級コードを入れた・消したら、セーブを入れかえて 読みなおす（別の端末の続きは App が サーバから取りこむ）
 subscribeStudent((s) => {
+  // デモ中に学級コードを入れたら、デモは おわり（学級のセーブにする）
+  if (s && isDemo()) { try { localStorage.removeItem(DEMO_KEY); } catch { /* noop */ } }
   if (ensureProfile(profileFor(!!s))) window.location.reload();
 });

@@ -62,7 +62,7 @@ const FractionText: React.FC<FractionTextProps> = ({ text, auto, className }) =>
  */
 export const PartialFractionDisplay: React.FC<{ raw: string; placeholder?: string }> = ({ raw, placeholder }) => {
   if (!raw) {
-    return <span className="text-red-800 text-sm">{placeholder || 'キーパッドで入力...'}</span>;
+    return <span className="text-emerald-800 text-sm">{placeholder || 'キーパッドで入力...'}</span>;
   }
   // 分数として解釈できない入力(選択肢の文字列など)はそのまま表示
   const { whole, num, den, hasFracPart } = parsePartialAnswer(raw);
@@ -73,7 +73,7 @@ export const PartialFractionDisplay: React.FC<{ raw: string; placeholder?: strin
 
   const box = (v: string) => (
     v ? <span className="px-1 text-[0.82em] leading-tight">{v}</span>
-      : <span className="px-1 text-[0.82em] leading-tight text-red-500/60 border border-dashed border-red-500/40 rounded min-w-[1.2em] text-center">&nbsp;</span>
+      : <span className="px-1 text-[0.82em] leading-tight text-emerald-500/60 border border-dashed border-emerald-500/40 rounded min-w-[1.2em] text-center">&nbsp;</span>
   );
 
   return (

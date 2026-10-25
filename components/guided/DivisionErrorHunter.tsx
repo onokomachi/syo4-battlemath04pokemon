@@ -68,8 +68,8 @@ const DivisionErrorHunter: React.FC<Props> = ({ data, onComplete }) => {
 
   return (
     <div className="w-full flex flex-col gap-3">
-      <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6">
-        <div className="text-xs font-black text-red-400/70 mb-2">この筆算</div>
+      <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6">
+        <div className="text-xs font-black text-emerald-400/70 mb-2">この筆算</div>
         <div className="flex flex-col items-center gap-2 py-2">
           <HissanBracket
             dividend={String(dividend)}
@@ -93,7 +93,7 @@ const DivisionErrorHunter: React.FC<Props> = ({ data, onComplete }) => {
 
       {stage === 'judge' && (
         <>
-          <p className="text-center text-red-200/80 font-bold text-sm">このこたえは…？</p>
+          <p className="text-center text-emerald-200/80 font-bold text-sm">このこたえは…？</p>
           <div className="flex justify-center gap-3">
             <button onClick={() => judge(true)} className="px-6 py-4 rounded-2xl bg-slate-900/60 border-2 border-emerald-500/40 text-emerald-300 font-black text-base hover:bg-emerald-950/40 active:scale-95 transition-all">✓ 正しい</button>
             <button onClick={() => judge(false)} className="px-6 py-4 rounded-2xl bg-slate-900/60 border-2 border-rose-500/40 text-rose-300 font-black text-base hover:bg-rose-950/40 active:scale-95 transition-all">✗ まちがい</button>
@@ -103,29 +103,29 @@ const DivisionErrorHunter: React.FC<Props> = ({ data, onComplete }) => {
 
       {stage === 'fix' && (
         <>
-          <p className="text-center text-red-200/80 font-black text-sm">正しいこたえは？(わりきれたらあまりは0)</p>
+          <p className="text-center text-emerald-200/80 font-black text-sm">正しいこたえは？(わりきれたらあまりは0)</p>
           <div className="flex items-center justify-center gap-3">
             <div className="text-center">
-              <div className="text-[10px] font-bold text-red-400/70 mb-1">商</div>
-              <button onClick={() => setActiveField('q')} className={`w-20 h-12 rounded-xl border-2 font-mono text-xl font-black flex items-center justify-center ${activeField === 'q' ? 'border-red-400 bg-red-500/10 text-red-200' : 'border-red-900/50 bg-slate-900/60 text-white'}`}>
+              <div className="text-[10px] font-bold text-emerald-400/70 mb-1">商</div>
+              <button onClick={() => setActiveField('q')} className={`w-20 h-12 rounded-xl border-2 font-mono text-xl font-black flex items-center justify-center ${activeField === 'q' ? 'border-emerald-400 bg-emerald-500/10 text-emerald-200' : 'border-emerald-900/50 bg-slate-900/60 text-white'}`}>
                 {qInput || '？'}
               </button>
             </div>
-            <span className="text-red-400 font-black">あまり</span>
+            <span className="text-emerald-400 font-black">あまり</span>
             <div className="text-center">
-              <div className="text-[10px] font-bold text-red-400/70 mb-1">あまり</div>
-              <button onClick={() => setActiveField('r')} className={`w-20 h-12 rounded-xl border-2 font-mono text-xl font-black flex items-center justify-center ${activeField === 'r' ? 'border-red-400 bg-red-500/10 text-red-200' : 'border-red-900/50 bg-slate-900/60 text-white'}`}>
+              <div className="text-[10px] font-bold text-emerald-400/70 mb-1">あまり</div>
+              <button onClick={() => setActiveField('r')} className={`w-20 h-12 rounded-xl border-2 font-mono text-xl font-black flex items-center justify-center ${activeField === 'r' ? 'border-emerald-400 bg-emerald-500/10 text-emerald-200' : 'border-emerald-900/50 bg-slate-900/60 text-white'}`}>
                 {rInput || '0'}
               </button>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => (
-              <button key={n} onClick={() => handleKey(activeField, String(n))} className="h-11 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-lg font-black text-white transition-all">{n}</button>
+              <button key={n} onClick={() => handleKey(activeField, String(n))} className="h-11 bg-slate-900/60 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl text-lg font-black text-white transition-all">{n}</button>
             ))}
-            <button onClick={() => handleKey(activeField, 'BACKSPACE')} className="h-11 bg-red-950/40 text-red-400 border border-red-500/20 rounded-xl">⌫</button>
+            <button onClick={() => handleKey(activeField, 'BACKSPACE')} className="h-11 bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 rounded-xl">⌫</button>
           </div>
-          <button onClick={submitFix} disabled={qInput === ''} className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${qInput !== '' ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95' : 'bg-slate-900 text-red-900'}`}>
+          <button onClick={submitFix} disabled={qInput === ''} className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${qInput !== '' ? 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95' : 'bg-slate-900 text-emerald-900'}`}>
             なおす！
           </button>
         </>
@@ -133,10 +133,10 @@ const DivisionErrorHunter: React.FC<Props> = ({ data, onComplete }) => {
 
       {stage === 'reason' && (
         <>
-          <p className="text-center text-red-200/80 font-black text-sm">なぜまちがえたのかな？</p>
+          <p className="text-center text-emerald-200/80 font-black text-sm">なぜまちがえたのかな？</p>
           <div className="flex flex-col gap-2">
             {reasonOptions.map((r, i) => (
-              <button key={i} onClick={() => chooseReason(i)} className="text-left p-4 rounded-2xl bg-slate-900/60 border-2 border-red-900/50 text-white font-bold hover:border-rose-400/60 active:scale-[0.99] transition-all">
+              <button key={i} onClick={() => chooseReason(i)} className="text-left p-4 rounded-2xl bg-slate-900/60 border-2 border-emerald-900/50 text-white font-bold hover:border-rose-400/60 active:scale-[0.99] transition-all">
                 {r}
               </button>
             ))}
@@ -145,10 +145,10 @@ const DivisionErrorHunter: React.FC<Props> = ({ data, onComplete }) => {
       )}
 
       {stage === 'done' && (
-        <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-red-950/30 border-red-500/20'}`}>
+        <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-emerald-950/30 border-emerald-500/20'}`}>
           <span className="text-4xl">{mistakes === 0 ? '🏆' : '🎉'}</span>
-          <h3 className={`text-lg font-black ${mistakes === 0 ? 'text-emerald-300' : 'text-red-200'}`}>{mistakes === 0 ? 'パーフェクト！' : 'せいかい！'}</h3>
-          <p className="text-red-100/70 text-xs font-bold leading-relaxed">{explain}</p>
+          <h3 className={`text-lg font-black ${mistakes === 0 ? 'text-emerald-300' : 'text-emerald-200'}`}>{mistakes === 0 ? 'パーフェクト！' : 'せいかい！'}</h3>
+          <p className="text-emerald-100/70 text-xs font-bold leading-relaxed">{explain}</p>
         </div>
       )}
     </div>

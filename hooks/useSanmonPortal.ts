@@ -13,6 +13,7 @@ import {
 import { MATH_CATEGORIES } from '../constants';
 import { PORTAL, isPortalConfigured } from '../services/portal';
 import { useLevelCaps } from '../data/adventure/growth';
+import { isDemo } from '../services/saveProfile';
 
 export interface SanmonPortal {
   student: StudentIdentity | null;
@@ -57,7 +58,11 @@ export function useSanmonPortal(): SanmonPortal {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [refresh]);
 
-  const units = useMemo(() => sanmonUnits(status), [status]);
+  // デモモード（アプリ紹介用）は すべての町を開く（記録は送らない・セーブは端末だけ。services/saveProfile.ts）
+  const units = useMemo(() => {
+    const u = sanmonUnits(status);
+    return isDemo() ? u.map((x) => ({ ...x, open: true })) : u;
+  }, [status]);
   const lockedUnitNames = useMemo(() => {
     const open = new Set(units.filter((u) => u.open).map((u) => u.name));
     return new Set(MATH_CATEGORIES.map((c) => c.name).filter((n) => !open.has(n)));

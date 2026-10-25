@@ -536,16 +536,16 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
           .lds-shake { animation: lds-shake 0.2s ease-in-out infinite; }
         `}</style>
 
-        <div className="bg-gradient-to-br from-indigo-950/40 to-amber-950/40 p-4 rounded-2xl border border-red-500/20">
+        <div className="bg-gradient-to-br from-indigo-950/40 to-amber-950/40 p-4 rounded-2xl border border-emerald-500/20">
           <h3 className="text-amber-300 font-black text-sm mb-1">👑 マスターモード</h3>
-          <p className="text-red-200/80 font-bold text-xs leading-relaxed">
+          <p className="text-emerald-200/80 font-bold text-xs leading-relaxed">
             ヒントはなしだよ！マスをタップして、じぶんで じゅんばんを決めながら すべてうめてね。
             「かける」は1マスに2けたまで入力すると、十の位が繰り上がりとして左のマスに小さく出るよ。
             うめおわったら「答え合わせ」だよ。
           </p>
         </div>
 
-        <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
+        <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
           <div className="font-mono text-2xl sm:text-3xl leading-none tracking-widest text-white select-none">
             <div id="lds-quotient-row" className="grid items-center text-center" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
               <div />
@@ -559,7 +559,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                     disabled={isFinished}
                     onClick={() => setMasterSelection({ kind: 'quotient', index: i })}
                     className={`w-9 h-11 flex items-center justify-center relative rounded-lg border-2 border-dashed transition-all ${
-                      isSelected ? 'border-red-400 bg-red-500/10 ring-2 ring-red-400 ring-inset' : 'border-amber-400/40 bg-amber-500/5 hover:bg-amber-500/10'
+                      isSelected ? 'border-emerald-400 bg-emerald-500/10 ring-2 ring-emerald-400 ring-inset' : 'border-amber-400/40 bg-amber-500/5 hover:bg-amber-500/10'
                     }`}
                   >
                     {isGraded ? (
@@ -590,8 +590,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                 const buf = masterCellBuffers[rowKey] ?? [];
                 return (
                   <div key={rowKey} className="grid items-center text-center relative h-11" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
-                    {isMultiplyRow && <div className="absolute right-0 bottom-0 border-b border-red-500/30" style={{ left: divisorColPx }} />}
-                    <div className="col-start-1 text-red-500/70 font-bold text-lg flex justify-end pr-2">
+                    {isMultiplyRow && <div className="absolute right-0 bottom-0 border-b border-emerald-500/30" style={{ left: divisorColPx }} />}
+                    <div className="col-start-1 text-emerald-500/70 font-bold text-lg flex justify-end pr-2">
                       {isMultiplyRow ? '×' : '-'}
                     </div>
                     {Array(dividendStr.length).fill(0).map((_, col) => {
@@ -615,7 +615,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                           disabled={isFinished}
                           onClick={() => setMasterSelection({ kind: 'column', rowKey, col: localIdx })}
                           className={`w-9 h-11 flex items-center justify-center relative rounded-lg border-2 border-dashed transition-all ${
-                            isSelected ? 'border-red-400 bg-red-500/10 ring-2 ring-red-400 ring-inset' : 'border-transparent hover:bg-slate-900/40'
+                            isSelected ? 'border-emerald-400 bg-emerald-500/10 ring-2 ring-emerald-400 ring-inset' : 'border-transparent hover:bg-slate-900/40'
                           }`}
                         >
                           {carry && (
@@ -623,7 +623,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                               {carry}
                             </span>
                           )}
-                          <span className="text-white">{display || (!isGraded && isSelected && !mainChar && <span className="text-red-800 animate-pulse">？</span>)}</span>
+                          <span className="text-white">{display || (!isGraded && isSelected && !mainChar && <span className="text-emerald-800 animate-pulse">？</span>)}</span>
                         </button>
                       );
                     })}
@@ -647,10 +647,10 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
             <span className="text-4xl">💡</span>
             <h3 className="text-lg font-black text-rose-300">おしい！</h3>
             <p className="text-rose-300/80 text-xs font-bold leading-relaxed">赤いマスのまちがっている数字を、もういちど見なおしてみてね。</p>
-            <button onClick={() => setIsGraded(false)} className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black transition-all active:scale-95">
+            <button onClick={() => setIsGraded(false)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black transition-all active:scale-95">
               まちがいをなおす
             </button>
-            <button onClick={resetAll} className="w-full py-2 bg-slate-900 border border-red-500/20 text-red-200 rounded-xl font-bold transition-all">
+            <button onClick={resetAll} className="w-full py-2 bg-slate-900 border border-emerald-500/20 text-emerald-200 rounded-xl font-bold transition-all">
               はじめからやりなおす
             </button>
           </div>
@@ -663,18 +663,18 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                 <button
                   key={n}
                   onClick={() => handleMasterDigit(n.toString())}
-                  className="h-12 bg-slate-900/60 hover:bg-red-900/40 active:bg-red-600 active:text-white border border-red-900/50 rounded-xl text-xl font-black text-white transition-all"
+                  className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 active:bg-emerald-600 active:text-white border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all"
                 >
                   {n}
                 </button>
               ))}
-              <button onClick={handleMasterBackspace} className="h-12 bg-red-950/40 text-red-400 border border-red-500/20 rounded-xl flex items-center justify-center transition-all">
+              <button onClick={handleMasterBackspace} className="h-12 bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center transition-all">
                 ⌫
               </button>
             </div>
             <button
               onClick={doGrading}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
             >
               答え合わせをする
             </button>
@@ -691,14 +691,14 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
         .lds-shake { animation: lds-shake 0.2s ease-in-out infinite; }
       `}</style>
 
-      <div className="text-center text-xs font-bold text-red-400/80 uppercase tracking-widest">
+      <div className="text-center text-xs font-bold text-emerald-400/80 uppercase tracking-widest">
         {['たてる', 'かける', 'ひく', 'おろす'].map((s, i) => {
           const stepWords: StepType[] = ['DIVIDE', 'MULTIPLY', 'SUBTRACT', 'BRING_DOWN'];
           const isActive = subStep === stepWords[i] || (subStep === 'PLACE' && i === 0);
           return (
             <span
               key={s}
-              className={`inline-block mx-1 px-2 py-1 rounded-lg ${isActive ? 'bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'text-red-800'}`}
+              className={`inline-block mx-1 px-2 py-1 rounded-lg ${isActive ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'text-emerald-800'}`}
             >
               {s}
             </span>
@@ -726,7 +726,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
           <div className="bg-slate-950 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center border-2 border-rose-500/60">
             <div className="text-4xl mb-3">🤔</div>
             <h3 className="text-base font-black text-rose-200 mb-2 whitespace-pre-wrap leading-relaxed">{rollbackPrompt.message}</h3>
-            <p className="text-red-300/70 text-xs font-bold mb-5">まちがいに気づけたのがすごい！けしゴムで消して、立て直そう。</p>
+            <p className="text-emerald-300/70 text-xs font-bold mb-5">まちがいに気づけたのがすごい！けしゴムで消して、立て直そう。</p>
             <button onClick={rollbackPrompt.action} className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-black transition-all active:scale-95">
               {rollbackPrompt.buttonLabel}
             </button>
@@ -734,7 +734,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
         </div>
       )}
 
-      <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
+      <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 flex justify-center overflow-x-auto">
         <div className="font-mono text-2xl sm:text-3xl leading-none tracking-widest text-white select-none">
           <div id="lds-quotient-row" className="grid items-center text-center" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
             <div />
@@ -753,11 +753,11 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
               const userVal = gridData[0]?.values?.[i];
               const isActiveCol = subStep === 'DIVIDE' && activeStep?.index === i;
               return (
-                <div key={i} className={`w-9 h-11 flex items-center justify-center relative ${isActiveCol ? 'bg-red-500/10 ring-2 ring-red-400 ring-inset rounded-lg' : ''}`}>
+                <div key={i} className={`w-9 h-11 flex items-center justify-center relative ${isActiveCol ? 'bg-emerald-500/10 ring-2 ring-emerald-400 ring-inset rounded-lg' : ''}`}>
                   {userVal != null ? (
                     <span className={trialQuotient !== null && activeStep?.index === i && !isFinished ? 'text-amber-400 border-b-2 border-dotted border-amber-400' : ''}>{userVal}</span>
                   ) : (
-                    isActiveCol && <span className="text-red-400 animate-pulse">{userInput || '？'}</span>
+                    isActiveCol && <span className="text-emerald-400 animate-pulse">{userInput || '？'}</span>
                   )}
                 </div>
               );
@@ -775,7 +775,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                     <button
                       type="button"
                       onClick={() => !isProcessing.current && checkAnswer()}
-                      className="bg-red-600 text-white w-8 h-8 flex items-center justify-center rounded-md shadow-lg animate-bounce active:scale-90 transition-transform cursor-pointer"
+                      className="bg-emerald-600 text-white w-8 h-8 flex items-center justify-center rounded-md shadow-lg animate-bounce active:scale-90 transition-transform cursor-pointer"
                       title="タップして おろす"
                     >
                       {d}
@@ -795,8 +795,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
               const isLastRow = idx === gridData.length - 3;
               return (
                 <div key={idx} className="grid items-center text-center relative h-11" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
-                  {row.type === 'multiply' && <div className="absolute right-0 bottom-0 border-b border-red-500/30" style={{ left: divisorColPx }} />}
-                  <div className="col-start-1 text-red-500/70 font-bold text-lg flex justify-end pr-2">
+                  {row.type === 'multiply' && <div className="absolute right-0 bottom-0 border-b border-emerald-500/30" style={{ left: divisorColPx }} />}
+                  <div className="col-start-1 text-emerald-500/70 font-bold text-lg flex justify-end pr-2">
                     {row.type === 'multiply' ? '×' : idx > 0 && gridData.slice(2)[idx - 1].type === 'multiply' ? '-' : ''}
                   </div>
                   {Array(dividendStr.length).fill(0).map((_, dividendIdx) => {
@@ -814,7 +814,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                             <button
                               type="button"
                               onClick={() => !isProcessing.current && checkAnswer()}
-                              className="absolute inset-1 border border-dashed border-red-400 rounded-md bg-red-500/10 flex items-center justify-center text-red-400 active:scale-90 transition-transform cursor-pointer"
+                              className="absolute inset-1 border border-dashed border-emerald-400 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-400 active:scale-90 transition-transform cursor-pointer"
                               title="タップして おろす"
                             >
                               ↓
@@ -825,8 +825,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                     }
                     return (
                       <div key={dividendIdx} className="w-9 h-11 flex justify-center items-center relative">
-                        <span className={isActiveDigitInDivision ? 'text-red-400 font-extrabold' : 'text-white'}>{char}</span>
-                        {isActiveDigitInDivision && <div className="absolute bottom-1 left-1 right-1 h-0.5 bg-red-400 rounded-full" />}
+                        <span className={isActiveDigitInDivision ? 'text-emerald-400 font-extrabold' : 'text-white'}>{char}</span>
+                        {isActiveDigitInDivision && <div className="absolute bottom-1 left-1 right-1 h-0.5 bg-emerald-400 rounded-full" />}
                       </div>
                     );
                   })}
@@ -837,8 +837,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
             {/* 現在の入力ゾーン(「かける」「ひく」): 位を選んでマスに入力する。
                 「かける」は2桁入力すると十の位が繰り上がりとして左のマスに小さく出る。 */}
             {!isFinished && (subStep === 'MULTIPLY' || subStep === 'SUBTRACT') && (
-              <div className="grid items-center text-center relative h-11 bg-red-500/10 ring-2 ring-red-400/40 rounded-xl mx-1" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
-                <div className="col-start-1 text-red-400 font-bold text-lg flex justify-end pr-2">{subStep === 'MULTIPLY' ? '×' : '-'}</div>
+              <div className="grid items-center text-center relative h-11 bg-emerald-500/10 ring-2 ring-emerald-400/40 rounded-xl mx-1" style={{ gridTemplateColumns: `${divisorColPx}px repeat(${dividendStr.length}, 40px)` }}>
+                <div className="col-start-1 text-emerald-400 font-bold text-lg flex justify-end pr-2">{subStep === 'MULTIPLY' ? '×' : '-'}</div>
                 {Array(dividendStr.length).fill(0).map((_, dividendIdx) => {
                   const digitsNeeded = cellBuffers.length || 1;
                   const offset = activeStep?.index ?? 0;
@@ -857,11 +857,11 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                         type="button"
                         onClick={() => handleCellTap(col)}
                         className={`w-9 h-11 flex justify-center items-center rounded-lg transition-all ${
-                          isSelected ? 'bg-slate-900 ring-2 ring-red-400 ring-inset' : 'bg-red-500/5 ring-1 ring-red-500/20 hover:bg-red-500/10'
+                          isSelected ? 'bg-slate-900 ring-2 ring-emerald-400 ring-inset' : 'bg-emerald-500/5 ring-1 ring-emerald-500/20 hover:bg-emerald-500/10'
                         }`}
                       >
-                        <span className="text-red-300 font-black">{char}</span>
-                        {isSelected && !char && <span className="text-red-800 animate-pulse absolute">？</span>}
+                        <span className="text-emerald-300 font-black">{char}</span>
+                        {isSelected && !char && <span className="text-emerald-800 animate-pulse absolute">？</span>}
                       </button>
                       {carry && (
                         <span className="absolute -top-1 right-0.5 text-[11px] font-black text-amber-400 bg-amber-950/80 border border-amber-500/40 rounded px-1 leading-tight z-10">
@@ -876,7 +876,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
           </div>
 
           {isFinished && (
-            <div className="mt-3 bg-red-600 text-white p-3 rounded-xl text-center inline-block">
+            <div className="mt-3 bg-emerald-600 text-white p-3 rounded-xl text-center inline-block">
               <div className="text-[10px] font-bold uppercase tracking-widest opacity-85">けいさん おわり！</div>
               <div className="text-xl font-black">あまり：{activeStep?.remainder ?? 0}</div>
             </div>
@@ -887,9 +887,9 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
       {!isFinished && (
         <>
           {hintRevealed ? (
-            <div className="bg-red-500/10 p-4 rounded-2xl border border-red-500/20">
-              <h3 className="text-red-300 font-black text-sm mb-1">💡 ヒント</h3>
-              <p className="text-red-100/80 font-medium text-xs leading-relaxed whitespace-pre-line">
+            <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
+              <h3 className="text-emerald-300 font-black text-sm mb-1">💡 ヒント</h3>
+              <p className="text-emerald-100/80 font-medium text-xs leading-relaxed whitespace-pre-line">
                 {subStep === 'PLACE' && '商は どの位から 立てられるかな？\n上のてんせんのマスをタップしよう！'}
                 {subStep === 'DIVIDE' && (activeStep?.type === 'ZERO'
                   ? `${activeStep?.dividendPart} の中に ${divisor} は あるかな？\nないときは どうするんだったかな？`
@@ -904,7 +904,7 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
           ) : (
             <button
               onClick={() => setHintRevealed(true)}
-              className="w-full py-2.5 bg-slate-900/60 border border-red-500/20 text-red-300/80 rounded-xl text-xs font-black transition-all hover:bg-red-950/30"
+              className="w-full py-2.5 bg-slate-900/60 border border-emerald-500/20 text-emerald-300/80 rounded-xl text-xs font-black transition-all hover:bg-emerald-950/30"
             >
               💡 まずは じぶんで考えてみよう（ヒントを見る）
             </button>
@@ -916,12 +916,12 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
                 <button
                   key={n}
                   onClick={() => handleKeypad(n.toString())}
-                  className="h-12 bg-slate-900/60 hover:bg-red-900/40 active:bg-red-600 active:text-white border border-red-900/50 rounded-xl text-xl font-black text-white transition-all"
+                  className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 active:bg-emerald-600 active:text-white border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all"
                 >
                   {n}
                 </button>
               ))}
-              <button onClick={handleBackspace} className="h-12 bg-red-950/40 text-red-400 border border-red-500/20 rounded-xl flex items-center justify-center transition-all">
+              <button onClick={handleBackspace} className="h-12 bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center transition-all">
                 ⌫
               </button>
             </div>
@@ -934,8 +934,8 @@ const LongDivisionSimulator: React.FC<Props> = ({ data, onComplete }) => {
               }
               className={`w-full py-4 rounded-2xl text-lg font-black shadow-lg transition-all ${
                 (subStep === 'MULTIPLY' || subStep === 'SUBTRACT' ? cellBuffers.some((c) => c !== '') : userInput !== '') || subStep === 'BRING_DOWN'
-                  ? 'bg-red-600 text-white hover:bg-red-500 active:scale-95'
-                  : 'bg-slate-900 text-red-900'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95'
+                  : 'bg-slate-900 text-emerald-900'
               }`}
             >
               {subStep === 'BRING_DOWN' ? 'つぎへ' : 'チェック'}

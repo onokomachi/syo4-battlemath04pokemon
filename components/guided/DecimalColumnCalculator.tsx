@@ -193,7 +193,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
   /** マスターモード共通の数字キーパッド。選ばれているマスに入力する。 */
   const MasterKeypad = (
     <div className="flex flex-col gap-2">
-      <p className="text-center text-xs text-red-300/70 font-bold">
+      <p className="text-center text-xs text-emerald-300/70 font-bold">
         マス(位)を タップして えらび、数字を 入力しよう。すべて うめたら 答え合わせだよ。
       </p>
       <div className="grid grid-cols-3 gap-2">
@@ -202,7 +202,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
             key={n}
             onClick={() => handleMasterDigit(String(n))}
             disabled={masterSelection === null}
-            className="h-12 bg-slate-900/60 hover:bg-red-900/40 disabled:opacity-40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all"
+            className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 disabled:opacity-40 border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all"
           >
             {n}
           </button>
@@ -210,7 +210,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
       </div>
       <button
         onClick={doGrading}
-        className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
+        className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-500 text-white rounded-2xl font-black text-lg shadow-xl transition-all active:scale-[0.98]"
       >
         答え合わせをする
       </button>
@@ -224,7 +224,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
     const { places, rowA, rowB, answer } = addSubModel;
     return (
       <div className="w-full flex flex-col gap-3">
-        <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 overflow-x-auto">
+        <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 overflow-x-auto">
           <div className="inline-block font-mono text-xl select-none" style={{ minWidth: OP_W + places.length * CELL }}>
             <Row cells={rowA} places={places} cellW={CELL} opW={OP_W} op="" />
             <Row cells={rowB} places={places} cellW={CELL} opW={OP_W} op={operator} />
@@ -237,15 +237,15 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
                 const isActive = !masterMode && activePlace === p;
                 const isSelected = masterMode && masterSelection === p;
                 return (
-                  <div key={p} className={`h-10 flex items-center justify-center relative font-black text-lg ${isActive || isSelected ? 'bg-red-500/10 ring-2 ring-red-400 rounded-lg' : ''}`}>
-                    {p === -1 && places.includes(0) && <span className="absolute -left-2 text-red-400">.</span>}
+                  <div key={p} className={`h-10 flex items-center justify-center relative font-black text-lg ${isActive || isSelected ? 'bg-emerald-500/10 ring-2 ring-emerald-400 rounded-lg' : ''}`}>
+                    {p === -1 && places.includes(0) && <span className="absolute -left-2 text-emerald-400">.</span>}
                     {masterMode && cell?.active !== false ? (
                       <button onClick={() => setMasterSelection(p)} className="w-full h-full text-white">
                         {val ?? (cell?.active ? '？' : '')}
                       </button>
                     ) : (
                       <span className={isGraded ? (val === cell?.expected ? 'text-emerald-400' : 'text-rose-400 bg-rose-950/60 px-1 rounded') : 'text-white'}>
-                        {val ?? (isActive ? <span className="text-red-400 animate-pulse">？</span> : '')}
+                        {val ?? (isActive ? <span className="text-emerald-400 animate-pulse">？</span> : '')}
                       </span>
                     )}
                   </div>
@@ -265,7 +265,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
         {!finished && !masterMode && (
           <div className="grid grid-cols-3 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => (
-              <button key={n} onClick={() => handleDigit(String(n))} className="h-12 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all">{n}</button>
+              <button key={n} onClick={() => handleDigit(String(n))} className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all">{n}</button>
             ))}
           </div>
         )}
@@ -273,7 +273,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
         {!finished && masterMode && !isGraded && MasterKeypad}
 
         {finished && (
-          <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 && !isGraded ? 'bg-emerald-950/40 border-emerald-500/30' : isGraded && mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-red-950/30 border-red-500/20'}`}>
+          <div className={`flex flex-col items-center p-5 rounded-2xl text-center gap-2 border ${mistakes === 0 && !isGraded ? 'bg-emerald-950/40 border-emerald-500/30' : isGraded && mistakes === 0 ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-emerald-950/30 border-emerald-500/20'}`}>
             <span className="text-4xl">🎉</span>
             <h3 className="text-lg font-black text-emerald-300">できました！</h3>
           </div>
@@ -286,16 +286,16 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
   const model = mulDivModel!;
   return (
     <div className="w-full flex flex-col gap-3">
-      <div className="bg-slate-950/60 rounded-2xl border border-red-500/20 p-4 sm:p-6 text-center">
+      <div className="bg-slate-950/60 rounded-2xl border border-emerald-500/20 p-4 sm:p-6 text-center">
         <p className="text-white font-black text-lg mb-3">{a} {operator} {b} = ?</p>
-        <p className="text-red-300/70 text-xs font-bold mb-3">まず 小数点が ないものとして 整数の{operator === '×' ? 'かけ算' : 'わり算'}を しよう。</p>
+        <p className="text-emerald-300/70 text-xs font-bold mb-3">まず 小数点が ないものとして 整数の{operator === '×' ? 'かけ算' : 'わり算'}を しよう。</p>
         <div className="inline-block font-mono text-2xl">
           {model.answer.map((c, idx) => {
             const val = answers[c.place];
             const isActive = !masterMode && activePlace === c.place;
             const isSelected = masterMode && masterSelection === c.place;
             return (
-              <span key={c.place} className={`inline-flex w-9 h-11 items-center justify-center mx-0.5 rounded-lg ${isActive || isSelected ? 'bg-red-500/10 ring-2 ring-red-400' : ''}`}>
+              <span key={c.place} className={`inline-flex w-9 h-11 items-center justify-center mx-0.5 rounded-lg ${isActive || isSelected ? 'bg-emerald-500/10 ring-2 ring-emerald-400' : ''}`}>
                 {masterMode ? (
                   <button onClick={() => setMasterSelection(c.place)} className="w-full h-full text-white">
                     {val ?? '？'}
@@ -303,7 +303,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
                 ) : isGraded ? (
                   <span className={val === c.expected ? 'text-emerald-400' : 'text-rose-400'}>{val ?? '?'}</span>
                 ) : (
-                  val ?? (isActive ? <span className="text-red-400 animate-pulse">？</span> : '')
+                  val ?? (isActive ? <span className="text-emerald-400 animate-pulse">？</span> : '')
                 )}
               </span>
             );
@@ -317,7 +317,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
                 <button
                   key={idx}
                   onClick={() => (masterMode ? setDotPlaced(idx) : handleDotPlace(idx))}
-                  className={`px-2 py-2 rounded-lg text-sm font-black ${dotPlaced === idx ? 'bg-red-600 text-white' : 'bg-slate-900/60 border border-red-900/50 text-red-300 hover:bg-red-900/30'}`}
+                  className={`px-2 py-2 rounded-lg text-sm font-black ${dotPlaced === idx ? 'bg-emerald-600 text-white' : 'bg-slate-900/60 border border-emerald-900/50 text-emerald-300 hover:bg-emerald-900/30'}`}
                 >
                   ｜{idx}
                 </button>
@@ -337,7 +337,7 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
       {!finished && !masterMode && !allDigitsDone && (
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => (
-            <button key={n} onClick={() => handleDigit(String(n))} className="h-12 bg-slate-900/60 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-xl font-black text-white transition-all">{n}</button>
+            <button key={n} onClick={() => handleDigit(String(n))} className="h-12 bg-slate-900/60 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl text-xl font-black text-white transition-all">{n}</button>
           ))}
         </div>
       )}
@@ -356,13 +356,13 @@ const DecimalColumnCalculator: React.FC<Props> = ({ data, onComplete }) => {
 
 const Row: React.FC<{ cells: Cell[]; places: number[]; cellW: number; opW: number; op: string }> = ({ cells, places, cellW, opW, op }) => (
   <div className="grid items-center" style={{ gridTemplateColumns: `${opW}px repeat(${places.length}, ${cellW}px)` }}>
-    <div className="text-red-400 font-black text-center">{op}</div>
+    <div className="text-emerald-400 font-black text-center">{op}</div>
     {places.map((p, i) => {
       const c = cells[i];
       return (
         <div key={p} className="h-10 flex items-center justify-center relative font-black text-white">
           {p === -1 && places.includes(0) && <span className="absolute -left-2 text-white">.</span>}
-          {c.kind === 'blank' ? '' : c.kind === 'helperZero' ? <span className="text-red-800">{c.digit}</span> : c.digit}
+          {c.kind === 'blank' ? '' : c.kind === 'helperZero' ? <span className="text-emerald-800">{c.digit}</span> : c.digit}
         </div>
       );
     })}
