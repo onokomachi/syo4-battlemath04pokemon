@@ -9,20 +9,18 @@ interface AdminPasswordModalProps {
  * 管理画面(ゲームマスター)に入る前の簡易パスワードゲート。
  * 実効的な保護は ADMIN_EMAILS(Googleログイン) + firestore.rules の isAdmin() が担っており、
  * これは「同じ端末を他の人が触ってしまう」ようなうっかり事故を防ぐための追加の一手間。
+ *
+ * 2026-10〜 Firebase を使わないので管理画面は動かない。パスワードをプログラムに書くと誰でも読めるので、
+ * 書いていた数字は消した（どの入力でも通さない）。学級ポータルの先生の操作は PRISM でする。
  */
-const ADMIN_PANEL_PASSWORD = '444325';
 
-const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({ onSuccess, onCancel }) => {
+const AdminPasswordModal: React.FC<AdminPasswordModalProps> = ({ onCancel }) => {
   const [input, setInput] = useState('');
   const [error, setError] = useState(false);
 
   const handleSubmit = () => {
-    if (input === ADMIN_PANEL_PASSWORD) {
-      onSuccess();
-    } else {
-      setError(true);
-      setInput('');
-    }
+    setError(true);
+    setInput('');
   };
 
   return (
