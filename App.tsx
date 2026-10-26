@@ -36,6 +36,7 @@ import GravityBackground from './components/GravityBackground';
 import PortalLoginScreen from './components/PortalLoginScreen';
 import PortalStatusBar from './components/PortalStatusBar';
 import { useSanmonPortal } from './hooks/useSanmonPortal';
+import type { SanmonModeKey } from 'learning-app-kit/sanmon';
 import { syncLearningToPortal, pushSave, pullSaveIfNewer } from './services/portal';
 import Matchmaking from './components/Matchmaking';
 import GameMaster from './components/GameMaster';
@@ -221,17 +222,31 @@ const App: React.FC = () => {
   const portal = useSanmonPortal();
   const requestBattle = portal.spendForBattle;
   // 先生が PRISM で閉じたモード（学級ごと）。メニューのボタンを押せない形にし、開くときにも止める
-  const isModeClosed = useCallback((mode: GameState): boolean => {
+  // 平日モード（PRISM で学級ごと。月〜金の授業の時間はゲームのモードを閉じる）もここに入る。サーバの時計で決まる
+  const modeKeyOf = (mode: GameState): SanmonModeKey | null => {
     switch (mode) {
-      case 'adventure': return !portal.modeOpen('adventure');
-      case 'speed_duel_setup': return !portal.modeOpen('speed');
-      case 'monster_duel_setup': return !portal.modeOpen('monster') && !portal.modeOpen('class_duel');
-      case 'practice_mode': return !portal.modeOpen('practice');
-      case 'review_mode': return !portal.modeOpen('review');
-      case 'mock_test': return !portal.modeOpen('mock_test');
-      default: return false;
+      case 'adventure': return 'adventure';
+      case 'speed_duel_setup': return 'speed';
+      case 'monster_duel_setup': return portal.modeOpen('monster') ? 'class_duel' : 'monster';
+      case 'practice_mode': return 'practice';
+      case 'review_mode': return 'review';
+      case 'mock_test': return 'mock_test';
+      default: return null;
     }
+  };
+  const isModeClosed = useCallback((mode: GameState): boolean => {
+    if (mode === 'monster_duel_setup') return !portal.modeOpen('monster') && !portal.modeOpen('class_duel');
+    const k = modeKeyOf(mode);
+    return !!k && !portal.modeOpen(k);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portal]);
+  /** メニューのボタンに出す 🔒 の文（開いていれば null） */
+  const modeLockLabel = useCallback((mode: GameState): string | null => {
+    if (!isModeClosed(mode)) return null;
+    const k = modeKeyOf(mode);
+    return k ? portal.modeLockShort(k) : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portal, isModeClosed]);
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
   /** モンスターが育ったときの小さなお知らせ（れんしゅう・ふくしゅう・対戦） */
   const [growthToast, setGrowthToast] = useState<string | null>(null);
@@ -1304,10 +1319,16 @@ const App: React.FC = () => {
           <PortalStatusBar portal={portal} />
           <MainMenu
             onSelectMode={mode => {
-              if (isModeClosed(mode)) { setPortalNotice('このモードは、先生が まだ ひらいていないよ'); return; }
+              if (isModeClosed(mode)) {
+                const k = modeKeyOf(mode);
+                setPortalNotice((k && portal.modeLock(k)) ?? 'このモードは、先生が まだ ひらいていないよ');
+                if (k) portal.reportLock(k);
+                return;
+              }
               setGameState(mode);
             }}
             isModeClosed={isModeClosed}
+            modeLockLabel={modeLockLabel}
             playerLevel={playerLevel}
             playerExp={playerExp}
             expForNextLevel={expForNextLevel(playerLevel)}
@@ -1445,6 +1466,8 @@ const App: React.FC = () => {
             pvpReady={!!portal.student}
             cpuOpen={portal.modeOpen('monster')}
             classDuelOpen={portal.modeOpen('class_duel')}
+            cpuLockText={portal.modeLockShort('monster')}
+            classDuelLockText={portal.modeLockShort('class_duel')}
           />
         );
 

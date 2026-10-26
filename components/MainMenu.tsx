@@ -27,6 +27,8 @@ interface MainMenuProps {
   equippedTitleName?: string | null;
   /** 先生がまだ開いていないモード（PRISM で学級ごとに決める）。押せない形で出す */
   isModeClosed?: (mode: GameState) => boolean;
+  /** 閉じているモードのボタンに出す文（先生が閉じた／平日モードで授業の時間）。押すと App がわけを出す */
+  modeLockLabel?: (mode: GameState) => string | null;
 }
 
 const PlayerStatus: React.FC<Omit<MainMenuProps, 'onSelectMode'>> = ({
@@ -159,7 +161,7 @@ const DailyMissionPreview: React.FC<{
 };
 
 const MainMenu: React.FC<MainMenuProps> = ({
-  onSelectMode, playerLevel, playerExp, expForNextLevel, isModeClosed = () => false,
+  onSelectMode, playerLevel, playerExp, expForNextLevel, isModeClosed = () => false, modeLockLabel = () => null,
   user, mathPoints, onLogout,
   loginStreak, onOpenQuests, onOpenLoginBonus,
   canAccessGameMaster, onOpenGameMaster,
@@ -253,8 +255,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
       <div className="w-full max-w-6xl px-4 sm:px-6 mb-4 sm:mb-6">
         <button
           onClick={() => onSelectMode('adventure')}
-          disabled={isModeClosed('adventure')}
-          className="disabled:opacity-40 disabled:cursor-not-allowed adventure-cta group relative w-full rounded-2xl sm:rounded-3xl px-6 sm:px-10 py-6 sm:py-8 md:py-10 flex items-center justify-center gap-4 sm:gap-6 overflow-hidden text-left"
+          aria-disabled={isModeClosed('adventure')}
+          className="aria-disabled:opacity-40 adventure-cta group relative w-full rounded-2xl sm:rounded-3xl px-6 sm:px-10 py-6 sm:py-8 md:py-10 flex items-center justify-center gap-4 sm:gap-6 overflow-hidden text-left"
         >
           <div className="corner-accent lt" />
           <div className="corner-accent rt" />
@@ -274,7 +276,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
               ぼうけんに でる
             </span>
             <span className="text-xs sm:text-sm text-emerald-50/90 font-bold mt-1.5">
-              {isModeClosed('adventure') ? '🔒 先生が まだ ひらいていないよ' : '3Dのナンバーランドを歩いて、モンスターと算数バトル！'}
+              {isModeClosed('adventure') ? (modeLockLabel('adventure') ?? '🔒 先生が まだ ひらいていないよ') : '3Dのナンバーランドを歩いて、モンスターと算数バトル！'}
             </span>
           </div>
         </button>
@@ -292,8 +294,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
           <button
             key={item.mode}
             onClick={() => onSelectMode(item.mode)}
-            disabled={isModeClosed(item.mode)}
-            className="disabled:opacity-40 disabled:cursor-not-allowed btn-tactical p-4 sm:p-6 md:p-8 rounded-2xl flex flex-col items-center gap-1.5 sm:gap-2 group relative overflow-hidden"
+            aria-disabled={isModeClosed(item.mode)}
+            className="aria-disabled:opacity-40 btn-tactical p-4 sm:p-6 md:p-8 rounded-2xl flex flex-col items-center gap-1.5 sm:gap-2 group relative overflow-hidden"
             style={{ animationDelay: `${i * 150}ms` }}
           >
             <div className="corner-accent lt" />
@@ -311,7 +313,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
               {item.label}
             </span>
             <span className="text-xs text-blue-300 font-bold opacity-70">
-              {isModeClosed(item.mode) ? '🔒 先生が まだ ひらいていないよ' : item.desc}
+              {isModeClosed(item.mode) ? (modeLockLabel(item.mode) ?? '🔒 先生が まだ ひらいていないよ') : item.desc}
             </span>
           </button>
         ))}
