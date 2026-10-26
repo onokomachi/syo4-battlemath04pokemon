@@ -23,9 +23,12 @@ interface MonsterDuelSetupProps {
   /** 先生が開いているか（PRISM で学級ごとに決める） */
   cpuOpen?: boolean;
   classDuelOpen?: boolean;
+  /** 閉じているときの文（平日モードなら「じゅぎょうの じかん」） */
+  cpuLockText?: string | null;
+  classDuelLockText?: string | null;
 }
 
-const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pvpReady, cpuOpen = true, classDuelOpen = true }) => {
+const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pvpReady, cpuOpen = true, classDuelOpen = true, cpuLockText, classDuelLockText }) => {
   const owned = useAdventureStore(s => s.save.owned);
   const partyUids = useAdventureStore(s => s.save.party);
 
@@ -166,13 +169,13 @@ const MonsterDuelSetup: React.FC<MonsterDuelSetupProps> = ({ onStart, onBack, pv
           <button onClick={() => handleStart('cpu')} disabled={!ready || !cpuOpen}
             className="btn-tactical py-5 rounded-2xl font-bold tracking-[0.15em] text-base disabled:opacity-40">
             <div className="text-lg font-black">CPU対戦</div>
-            <div className="text-[10px] text-emerald-400 opacity-70 mt-1">{cpuOpen ? 'コンピュータと たいせん' : '🔒 先生が まだ ひらいていないよ'}</div>
+            <div className="text-[10px] text-emerald-400 opacity-70 mt-1">{cpuOpen ? 'コンピュータと たいせん' : (cpuLockText ?? '🔒 先生が まだ ひらいていないよ')}</div>
           </button>
           <button onClick={() => handleStart('pvp')} disabled={!ready || !pvpReady || !classDuelOpen || usesRental}
             className="btn-tactical py-5 rounded-2xl font-bold tracking-[0.15em] text-base disabled:opacity-40">
             <div className="text-lg font-black">クラス対戦</div>
             <div className="text-[10px] text-emerald-400 opacity-70 mt-1">
-              {!classDuelOpen ? '🔒 先生が まだ ひらいていないよ' : !pvpReady ? 'がっきゅうコードを 入れると あそべるよ' : usesRental ? 'かりた なかまでは 出られないよ' : '同じ学級の ともだちと'}
+              {!classDuelOpen ? (classDuelLockText ?? '🔒 先生が まだ ひらいていないよ') : !pvpReady ? 'がっきゅうコードを 入れると あそべるよ' : usesRental ? 'かりた なかまでは 出られないよ' : '同じ学級の ともだちと'}
             </div>
           </button>
         </div>

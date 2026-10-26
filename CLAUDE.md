@@ -99,6 +99,10 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - 古い早押しの関数（`sanmon_duel_create / join / answer`）は、古い画面が残っているあいだのために残してある（パーティの部屋には入れないようにしてある）。後で消す。
 - **モードの開け閉めは先生が PRISM の SANMON タブで学級ごとに決める**（Supabase `sanmon_mode_settings`、子どもは関数 `sanmon_modes` で読む。一覧と判定は kit の `SANMON_MODES`・`isModeOpen`）。
   閉じたモードはメニューで 🔒。クラス対戦はサーバ（`_duel_check_open`）でも へやを作れない・入れない。きろくは いつも開いている。
+- **平日モード**（2026-10-26 先生と決めた。PRISM で学級ごとにオン）：月〜金（祝日をのぞく）の 開始〜終了（はじめは 8:00〜15:30）は、えらんだゲームのモード（ぼうけん・スピード・モンスター対戦・クラス対戦）が閉じる。
+  **判定はサーバの時計**（`_sanmon_effective_modes`。`sanmon_modes` が閉じたモードを false で返す）なので、ここでは `portal.modeOpen` を見るだけ。モードは2分ごとに読みなおす。
+  閉じたボタンは押せる形のまま（`aria-disabled`）にして、押すと わけ（「いまは じゅぎょうの じかん。15:30から あそべるよ」＝kit の `modeLockMessage`）を出し、`reportLock` でサーバに残す（PRISM に「押した回数」）。
+  通信が切れたときは kit が前に読めた設定で平日モードだけ効かせる（`offlineModes`）。
 
 ## 問題は 各単元アプリと同じ（2026-10〜）
 

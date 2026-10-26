@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStudent, subscribeStudent, type StudentIdentity } from 'learning-app-kit/sync';
 import {
   fetchSanmonStatus, fetchSanmonModes, sanmonUnits, sanmonShards, spendStamina, isModeOpen, SANMON_RULES,
+  modeLockMessage, isSchoolHoursLocked, reportLockHit,
   type SanmonStatus, type SanmonUnitProgress, type SanmonModes, type SanmonModeKey,
 } from 'learning-app-kit/sanmon';
 import { MATH_CATEGORIES } from '../constants';
@@ -27,6 +28,12 @@ export interface SanmonPortal {
   refresh: () => Promise<void>;
   /** 先生がそのモードを開いているか（PRISM の SANMON タブで学級ごとに決める）。読めないうちは開いている扱い */
   modeOpen: (key: SanmonModeKey) => boolean;
+  /** 閉じているモードを押したときの文（開いていれば null）。平日モード（授業の時間）なら「◯◯から あそべるよ」 */
+  modeLock: (key: SanmonModeKey) => string | null;
+  /** メニューのボタンに出す短い文（開いていれば null） */
+  modeLockShort: (key: SanmonModeKey) => string | null;
+  /** 平日モードで閉じているモードを押したことをサーバに残す（先生の PRISM に「押した回数」として出る） */
+  reportLock: (key: SanmonModeKey) => void;
   /** バトル1回ぶんのスタミナを使う。足りなければ false（使わない） */
   spendForBattle: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
@@ -51,6 +58,15 @@ export function useSanmonPortal(): SanmonPortal {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh, student?.studentId]);
+  // 平日モード（授業の時間）は時刻で開け閉めが変わるので、開いているあいだは2分ごとにモードだけ読みなおす（サーバの時計で決まる）
+  useEffect(() => {
+    if (!isPortalConfigured || !student) return;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void fetchSanmonModes(PORTAL, student.studentId).then((m) => { if (m.ok) setModes(m.modes); });
+    }, 120_000);
+    return () => clearInterval(t);
+  }, [student]);
   // 単元アプリで頑張ってから戻ってきたときに、スタミナと町を読みなおす
   useEffect(() => {
     const onVis = () => { if (!document.hidden) void refresh(); };
@@ -83,5 +99,12 @@ export function useSanmonPortal(): SanmonPortal {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     units, lockedUnitNames, refresh, spendForBattle,
     modeOpen: (key: SanmonModeKey) => isModeOpen(modes, key),
+    modeLock: (key: SanmonModeKey) => modeLockMessage(modes, key),
+    modeLockShort: (key: SanmonModeKey) => isModeOpen(modes, key) ? null
+      : isSchoolHoursLocked(modes, key) ? `🔒 じゅぎょうの じかん（${modes._school_hours!.end}から）` : '🔒 先生が まだ ひらいていないよ',
+    reportLock: (key: SanmonModeKey) => {
+      const s = getStudent();
+      if (s && isSchoolHoursLocked(modes, key)) void reportLockHit(PORTAL, s.studentId, key);
+    },
   };
 }
