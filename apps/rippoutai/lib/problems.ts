@@ -934,7 +934,7 @@ export function genEhEdges(): Question {
       choice({
         label: 'まちがいの もと', prompt: 'Aさんの まちがいの もとは どれ？', correct: kind === '面' ? '見えない 面を 数えて いない' : `見えない ${kind}を 数えて いない`,
         wrongs: [
-          { text: kind === '面' ? '面は 4つ だから' : '点線の ぶんを 2回 数えた', note: '図を もう一度 見よう。見えない ところは どう かかれて いる？' },
+          { text: kind === '面' ? '上と 下の 面を 1つと 数えた' : '点線の ぶんを 2回 数えて しまった', note: '図を もう一度 見よう。見えない ところは どう かかれて いる？' },
           { text: '直方体と 立方体で 数が ちがうから', note: '直方体も 立方体も、面・辺・頂点の 数は 同じだよ。' },
         ],
         why: `見取図では 見えない ところも ある（点線）。見えない ${kind}も 数えないと いけない。`,
@@ -964,7 +964,7 @@ export function genEhHidden(): Question {
         label: 'まちがい', prompt: 'Aさんの 見取図の まちがいは どれ？', correct: '見えない 辺も 実線で かいた',
         wrongs: [
           { text: '辺の 数が たりない', note: '辺は 12本 かいて あるよ。数は あって いる。' },
-          { text: '平行な 辺の 長さが ちがう', note: '平行な 辺は 同じ 長さに かけて いるよ。' },
+          { text: '平行な 辺を、ちがう 長さで かいて しまった', note: '平行な 辺は 同じ 長さに かけて いるよ。' },
         ],
         why: '見取図では、見えない 辺は 点線で かく。そうしないと、どこが 手前か わからない 図に なる。',
         hints: ['ほんとうの 箱を 前から 見ると、見えない 辺が ある。', '見えない 辺は どう かく 約束だった？', '点線。'],
@@ -980,6 +980,28 @@ export function genEhHidden(): Question {
 }
 
 export function genEhNet(): Question {
+  // 4回に1〜2回は ほんとうに 展開図に なる形を出す（いつも「正しくない」だと、考えずに 押すだけで 当たる。2026-11）
+  if (Math.random() < 0.4) {
+    let ok = randomHexomino();
+    for (let t = 0; t < 500 && !isCubeNet(ok); t++) ok = randomHexomino();
+    if (isCubeNet(ok)) {
+      return {
+        skillId: 'eh-net', title: '6つ つながれば 展開図？', emoji: '🕵️',
+        text: A_SAYS('正方形が 6つ つながって いるから、この 図は 立方体の 展開図だ。'),
+        figure: { type: 'net', rects: ok.map((c) => ({ x: c.x, y: c.y, w: 1, h: 1 })), grid: true },
+        steps: [
+          choice({
+            label: '正しい？', prompt: 'Aさんの 考えは 正しいですか。', correct: '正しい',
+            wrongs: [{ text: '正しくない', note: '頭の 中で 組み立てて みよう。重なる 面は ある？' }],
+            why: 'この 形は、組み立てると 重なる 面が なく、立方体に なる。ただし 6つ つながって いれば いつも 展開図に なるわけでは ない。',
+            hints: ['1つの 面を 底に して 組み立てて みよう。', '同じ ところに 2つの 面が こないか たしかめよう。', '立方体の 展開図は 全部で 11通り。'],
+          }),
+        ],
+        summary: 'この 形は 立方体の 展開図。でも、6つの 正方形が つながって いても 展開図に ならない 形も ある（展開図は 全部で 11通り）。',
+        label: '展開図になる形', q: 'Aさん「6つつながれば展開図」（この形は展開図）', a: '正しい',
+      };
+    }
+  }
   let cells = randomHexomino();
   for (let t = 0; t < 500 && isCubeNet(cells); t++) cells = randomHexomino();
   return {
@@ -1069,7 +1091,7 @@ export function genEhPerp(): Question {
         label: 'まちがい', prompt: 'Aさんの 考えの まちがいは どれ？', correct: `辺${skew}は 辺${name}と 交わらない`,
         wrongs: [
           { text: `辺${skew}は 辺${name}と 平行`, note: '向きが ちがう 辺は 平行では ないよ。' },
-          { text: 'Aさんは 正しい', note: '垂直な 辺は、直角に 交わる 辺だったね。2本の 辺は 交わって いる？' },
+          { text: `辺${skew}は 辺${name}と 直角に 交わる`, note: '垂直な 辺は、直角に 交わる 辺だったね。2本の 辺は 交わって いる？' },
         ],
         why: '垂直な 辺は、直角に 交わる 辺。向きが ちがっても、交わらない 辺は 垂直とは いわない。',
         hints: ['垂直の 約束を 思い出そう。', `辺${name}と 辺${skew}は、どこかで 交わって いる？`, '交わって いなければ 垂直とは いわない。'],
