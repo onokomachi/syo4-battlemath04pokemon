@@ -15,7 +15,7 @@
  * デモモード（2026-10 先生と決めた。学級コード 0000・番号 0 ＋先生のパスワード）は 3つ目のセーブ 'demo'。
  * アプリの紹介用で、すべての町が開く・記録は送らない・セーブは端末だけ。おためし・学級のセーブとは まざらない。
  */
-import { clearStudent, getStudent, subscribeStudent } from 'learning-app-kit/sync';
+import { clearStudent, getStudent, subscribeStudent, isTrial as isTrialTab } from 'learning-app-kit/sync';
 
 export type SaveProfile = 'class' | 'trial' | 'demo';
 
@@ -89,11 +89,23 @@ export function ensureProfile(want: SaveProfile): boolean {
 /** おためし中か（学級コードが入っていない） */
 export const isTrial = (): boolean => !getStudent();
 
-// 読みこんだ時点で、いまの名乗りに合わせる（ストアが localStorage を読む前）
-ensureProfile(profileFor(!!getStudent()));
+/**
+ * 学級コードが入っている端末で、体験のリンク（SOL の #trial）から開いたか（2026-11-07）。
+ * このタブでは遊ばせない：体験のタブで おためしのセーブに入れかえると、同じ端末で開いている ふつうのタブと
+ * localStorage を取りあって、学級のセーブ（モンスター・レベル）を こわすおそれがあるため。
+ * 'lak_student_v1' は kit が名乗りを覚えるキー（体験中は getStudent() が null を返すので、直接見る）。
+ */
+export function trialOnClassDevice(): boolean {
+  if (!isTrialTab()) return false;
+  try { return !!localStorage.getItem('lak_student_v1') && activeProfile() === 'class'; } catch { return false; }
+}
+
+// 読みこんだ時点で、いまの名乗りに合わせる（ストアが localStorage を読む前）。学級の端末の体験タブでは 何も動かさない
+if (!trialOnClassDevice()) ensureProfile(profileFor(!!getStudent()));
 
 // 学級コードを入れた・消したら、セーブを入れかえて 読みなおす（別の端末の続きは App が サーバから取りこむ）
 subscribeStudent((s) => {
+  if (trialOnClassDevice()) return;
   // デモ中に学級コードを入れたら、デモは おわり（学級のセーブにする）
   if (s && isDemo()) { try { localStorage.removeItem(DEMO_KEY); } catch { /* noop */ } }
   if (ensureProfile(profileFor(!!s))) window.location.reload();

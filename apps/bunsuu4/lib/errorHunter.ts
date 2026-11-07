@@ -14,7 +14,7 @@
  *   eh-cmp    … 分母が大きいほど大きい             3/6 ＜ 3/8
  *   eh-mixcmp … 見えている数字だけでくらべる       2と1/5 ＜ 9/5
  *   eh-eq     … 等しい分数を「たし算」でつくる     2/3 ＝ 5/6
- * eh-judge は「正しいノート」を見せる（正しいものを正しいと見ぬく力）。
+ * eh-judge は、正しいノートと まちがいのノートを 半々に見せる（正しいものを正しいと見ぬく力。いつも正しいと 押すだけで当たるので 半々にした）。
  */
 import { F, M, rnd, pick, shuffle, retry, plain } from './frac';
 import { type Step, type Scratch, type FracScratch, type Ans, type Inp, guard, NAMES, tr, tp, showVal, plainVal, bothVal, type Term } from './problems';
@@ -37,7 +37,7 @@ export interface ErrProb {
 }
 
 export const ERROR_TYPES = [
-  { id: 'eh-judge', label: '正しい ノートを 見ぬく', desc: 'まちがいが ないことも あるよ' },
+  { id: 'eh-judge', label: '正しい ノートを 見ぬく', desc: '正しい ノートと まちがいの ノートが まざって いるよ' },
   { id: 'eh-den', label: '分母まで たしてる？', desc: '5分の2 ＋ 5分の4 ＝ 10分の6 ?' },
   { id: 'eh-carry', label: 'くり上がりの まちがい', desc: '帯分数の たし算' },
   { id: 'eh-borrow', label: 'くり下がりの まちがい', desc: '帯分数の ひき算' },
@@ -50,11 +50,28 @@ export const ERROR_TYPES = [
   { id: 'eh-eq', label: '等しい 分数の まちがい', desc: '分母に 3 たしたら 分子にも ?' },
 ] as const;
 
-/** 理由の選択肢（正しい理由 ＋ ほかの理由3つ）。位置は毎回入れかえる */
+/**
+ * 理由の選択肢（正しい理由 ＋ ほかの理由3つ）。位置は毎回入れかえる。
+ * ほかの理由は、**ほかの まちがいの型の「正しい理由」**から えらぶ（2026-11）。
+ * 前は「九九を まちがえた」などの 短い決まり文句だったので、正しい理由が いつも いちばん長く、読まずに当てられた。
+ * 同じ形・同じくらいの長さの 考えちがいどうしを くらべることで、どの考えちがいかを 見分ける問題になる。
+ * SIMILAR は、まぎらわしくて どちらも当てはまりそうな 型の組（同じ問題には いっしょに出さない）。
+ */
+const SIMILAR: string[][] = [['くり下げ']];
+const similar = (a: string, b: string) => SIMILAR.some((g) => g.some((w) => a.includes(w)) && g.some((w) => b.includes(w)));
+const REASON_POOL = new Set<string>();
+let collecting = false;
+function reasonPool(): string[] {
+  if (REASON_POOL.size === 0) {
+    // どの型の「正しい理由」も ここで1回だけ集める（作り方の中で reasonSet が呼ばれるので、それを記録する）
+    collecting = true;
+    try { for (const make of Object.values(MAKERS)) for (let i = 0; i < 40; i++) make(false); } finally { collecting = false; }
+  }
+  return [...REASON_POOL];
+}
 function reasonSet(right: string): { reasons: string[]; correctReason: number } {
-  const others = shuffle([
-    '九九を まちがえた', '単位を つけ わすれた', '式の 数を 書きまちがえた', 'たし算と ひき算を 取りちがえた', '答えの 書きうつしを まちがえた',
-  ]).slice(0, 3);
+  if (collecting) { REASON_POOL.add(right); return { reasons: [right], correctReason: 0 }; }
+  const others = shuffle(reasonPool().filter((r) => r !== right && !similar(r, right))).slice(0, 3);
   const reasons = shuffle([right, ...others]);
   return { reasons, correctReason: reasons.indexOf(right) };
 }
@@ -327,12 +344,14 @@ const EH_PADS: Record<string, FracScratch['tools']> = {
 };
 const padFor = (kind: string): FracScratch | undefined => (EH_PADS[kind] ? { kind: 'frac', tools: EH_PADS[kind]! } : undefined);
 
-/** 型の記号から1問つくる。eh-judge は、どれかの型の「正しいノート」 */
+/** 型の記号から1問つくる。eh-judge は、どれかの型の ノート（正しい・まちがいが 半々） */
 export function generateError(skillId: string): ErrProb {
   const character = pick(NAMES);
   if (skillId === 'eh-judge') {
+    // 正しいノートと まちがいのノートを 半々に出す（いつも正しいと「正しい」を押すだけで当たる。2026-11）
     const kind = pick(Object.keys(MAKERS));
-    return { skillId, character, isCorrect: true, scratch: padFor(kind), ...MAKERS[kind]!(true) };
+    const ok = Math.random() < 0.5;
+    return { skillId, character, isCorrect: ok, scratch: padFor(kind), ...MAKERS[kind]!(ok) };
   }
   const mkr = MAKERS[skillId];
   if (!mkr) throw new Error(`unknown error type: ${skillId}`);

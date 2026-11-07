@@ -24,7 +24,7 @@ import { playClear, playCorrect, playSoftTry } from '../../lib/sound';
 
 interface Props { onExit: () => void; }
 
-/** 型を選ぶか、ぜんぶ まぜるか（まぜるときは、4回に1回くらい 正しいノートが出る） */
+/** 型を選ぶか、ぜんぶ まぜるか（まぜるときは、半分を eh-judge（正しい・まちがいが 半々）にして、4回に1回くらい 正しいノートが出る） */
 export const ErrorHunterModule: React.FC<Props> = ({ onExit }) => {
   const [mode, setMode] = useState<'setup' | 'play'>('setup');
   const [skill, setSkill] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export const ErrorHunterModule: React.FC<Props> = ({ onExit }) => {
     );
   }
 
-  const chosen = skill ?? (Math.random() < 0.25 ? 'eh-judge' : pick(ERROR_TYPES.filter((t) => t.id !== 'eh-judge')).id);
+  const chosen = skill ?? (Math.random() < 0.5 ? 'eh-judge' : pick(ERROR_TYPES.filter((t) => t.id !== 'eh-judge')).id);
   return (
     <AppShell title="エラーハンター" subtitle="まちがい さがし" onBack={() => setMode('setup')}>
       <ErrorRound key={round} skillId={chosen} onNext={() => setRound((r) => r + 1)} />

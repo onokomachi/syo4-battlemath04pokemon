@@ -5,7 +5,8 @@
  * 子ども用ハブと同じ関数で判定するので、ハブで「開いた」町は SANMON でも必ず開いている。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getStudent, subscribeStudent, type StudentIdentity } from 'learning-app-kit/sync';
+import { getStudent, subscribeStudent, isTrial, trialAllows, type StudentIdentity } from 'learning-app-kit/sync';
+import { usePortalConfig } from 'learning-app-kit/react';
 import {
   fetchSanmonStatus, fetchSanmonModes, sanmonUnits, sanmonShards, spendStamina, isModeOpen, SANMON_RULES,
   modeLockMessage, isSchoolHoursLocked, reportLockHit,
@@ -44,6 +45,10 @@ export function useSanmonPortal(): SanmonPortal {
   const [modes, setModes] = useState<SanmonModes>({});
 
   useEffect(() => subscribeStudent((s) => setStudent(s)), []);
+  // 体験版（SOL の体験の入口から開いたとき）：モードは PRISM の管理タブの設定で決まる。クラス対戦は学級が要るので いつも閉じる
+  const portalCfg = usePortalConfig();
+  const trial = isTrial();
+  const trialOpen = (key: SanmonModeKey) => key !== 'class_duel' && trialAllows(key, portalCfg);
 
   const refresh = useCallback(async () => {
     const s = getStudent();
@@ -98,9 +103,9 @@ export function useSanmonPortal(): SanmonPortal {
   return {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     units, lockedUnitNames, refresh, spendForBattle,
-    modeOpen: (key: SanmonModeKey) => isModeOpen(modes, key),
-    modeLock: (key: SanmonModeKey) => modeLockMessage(modes, key),
-    modeLockShort: (key: SanmonModeKey) => isModeOpen(modes, key) ? null
+    modeOpen: (key: SanmonModeKey) => (trial ? trialOpen(key) : isModeOpen(modes, key)),
+    modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ') : modeLockMessage(modes, key)),
+    modeLockShort: (key: SanmonModeKey) => trial ? (trialOpen(key) ? null : '🔒 たいけんばんでは つかえないよ') : isModeOpen(modes, key) ? null
       : isSchoolHoursLocked(modes, key) ? `🔒 じゅぎょうの じかん（${modes._school_hours!.end}から）` : '🔒 先生が まだ ひらいていないよ',
     reportLock: (key: SanmonModeKey) => {
       const s = getStudent();

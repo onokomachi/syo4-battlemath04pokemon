@@ -103,8 +103,12 @@ export const KawariRound: React.FC<Props> = ({
   const handleComplete = () => {
     if (reported.current) return;
     reported.current = true;
-    const perfect = misses === 0;
-    onAnswered(perfect, misses);
+    // misses（state）は、同じ操作の中で handleMiss が呼ばれていても まだ前の値のまま。
+    // テストでは「まちがえた → すぐ確定」が1回の操作で起きるので、ref で数える
+    // （state を読むと、まちがえた答えが パーフェクト＝正解 として採点されていた）
+    const n = missesRef.current;
+    const perfect = n === 0;
+    onAnswered(perfect, n);
     if (perfect) playClear(); else playCorrect();
     if (autoAdvance) { onNext(); return; }
     setDone(true);
@@ -173,8 +177,11 @@ export const KawariRound: React.FC<Props> = ({
           >
             <Sparkles size={44} />
           </motion.div>
-          <h3 className="text-xl font-black text-content mt-2 mb-1">{misses === 0 ? 'パーフェクト！' : 'できたね！'}</h3>
-          <p className="text-muted font-bold mb-3">{praiseClear(misses === 0)}</p>
+          {/* テストでは 1回で確定する。まちがえて確定したときに「できたね！」と出さない */}
+          <h3 className="text-xl font-black text-content mt-2 mb-1">
+            {misses === 0 ? 'せいかい！ パーフェクト！' : testMode ? 'ざんねん…' : 'できたね！'}
+          </h3>
+          <p className="text-muted font-bold mb-3">{testMode && misses > 0 ? 'やり方を 見て、つぎに いかそう。' : praiseClear(misses === 0)}</p>
           <p className="text-content font-bold bg-surface border border-line rounded-2xl px-4 py-3 leading-relaxed">
             {problem.explain}
           </p>
