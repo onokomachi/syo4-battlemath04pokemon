@@ -106,6 +106,9 @@ npm run build    # 本番ビルド(コミット前に必ず)
   **判定はサーバの時計**（`_sanmon_effective_modes`。`sanmon_modes` が閉じたモードを false で返す）なので、ここでは `portal.modeOpen` を見るだけ。モードは2分ごとに読みなおす。
   閉じたボタンは押せる形のまま（`aria-disabled`）にして、押すと わけ（「いまは じゅぎょうの じかん。15:30から あそべるよ」＝kit の `modeLockMessage`）を出し、`reportLock` でサーバに残す（PRISM に「押した回数」）。
   通信が切れたときは kit が前に読めた設定で平日モードだけ効かせる（`offlineModes`）。
+  **ゲームの中にいるあいだに閉じたら、すぐメニューにもどす**（2026-11-09 先生と決めた。`App.tsx` の `playingModeKey` の effect）：ぼうけん・スピードデュエル・モンスター対戦（CPU）・クラス対戦。
+  2分ごと・タブにもどったときのモードの読みなおし（前からある）で気づくので、通信は増えない。れんしゅう・ふくしゅう・本番テストは とちゅうで切らない（メニューで止まる）。
+  サーバでも、バトルのスタミナ（`sanmon_spend`）がモードを確かめる（reason で見分ける：`speed_duel`→speed、`monster_duel`→monster、ほか→adventure。SQL は `supabase-sql/2026-11-09-sanmon-spend-mode-check.sql`）。ことわられたらモードを読みなおす（`useSanmonPortal` の `spendForBattle`）。
 
 ## 問題は 各単元アプリと同じ（2026-10〜）
 

@@ -97,6 +97,17 @@ export function useSanmonPortal(): SanmonPortal {
     const r = await spendStamina(PORTAL, s.studentId, eventId, SANMON_RULES.battleCost, reason);
     if (r.stamina != null) setStatus((st) => (st ? { ...st, stamina: r.stamina! } : st));
     if (r.ok) return { ok: true };
+    // サーバがことわった（そのモードが閉じている＝授業の時間・先生が閉じた）ときは、モードを読みなおす。
+    // 閉じていれば App がメニューにもどす（2026-11-09）。sanmon_spend は reason でモードを見分ける
+    if (r.stamina == null) {
+      const m = await fetchSanmonModes(PORTAL, s.studentId);
+      if (m.ok) {
+        setModes(m.modes);
+        const key: SanmonModeKey = reason === 'speed_duel' ? 'speed' : reason === 'monster_duel' ? 'monster' : 'adventure';
+        const lock = modeLockMessage(m.modes, key);
+        if (lock) return { ok: false, message: lock };
+      }
+    }
     return { ok: false, message: r.stamina == null ? r.message : `スタミナが たりないよ（いま ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。単元の アプリで れんしゅうすると たまるよ` };
   }, []);
 
