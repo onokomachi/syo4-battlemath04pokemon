@@ -248,6 +248,30 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portal, isModeClosed]);
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
+  // ゲームの中にいるあいだに モードが閉じたら（平日モードの時間になった・先生が PRISM で閉じた）、すぐメニューにもどす（2026-11-09 先生と決めた）。
+  // モードは useSanmonPortal が 2分ごと・タブにもどったときに読みなおすので、新しい通信は増えない。
+  // 学習（れんしゅう・ふくしゅう・本番テスト）は とちゅうで切らない（メニューで止まる）。
+  const playingModeKey = (s: GameState): SanmonModeKey | null => {
+    switch (s) {
+      case 'adventure': return 'adventure';
+      case 'speed_duel_setup': return 'speed';
+      case 'speed_duel': return battleType === 'monster_duel' ? 'monster' : 'speed';
+      case 'party_cpu': return 'monster';
+      case 'class_duel': return 'class_duel';
+      default: return null;
+    }
+  };
+  useEffect(() => {
+    const k = playingModeKey(gameState);
+    const closed = gameState === 'monster_duel_setup'
+      ? !portal.modeOpen('monster') && !portal.modeOpen('class_duel')
+      : !!k && !portal.modeOpen(k);
+    if (!closed) return;
+    const key = k ?? 'monster';
+    setPortalNotice(portal.modeLock(key) ?? 'このモードは、いまは つかえないよ');
+    setGameState('main_menu');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState, battleType, portal]);
   /** モンスターが育ったときの小さなお知らせ（れんしゅう・ふくしゅう・対戦） */
   const [growthToast, setGrowthToast] = useState<string | null>(null);
   useEffect(() => {
