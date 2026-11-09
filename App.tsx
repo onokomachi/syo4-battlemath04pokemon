@@ -1383,6 +1383,7 @@ const App: React.FC = () => {
             lockedUnits={portal.lockedUnitNames}
             unitProgress={portal.units}
             onRequestBattle={requestBattle}
+            stamina={portal.student ? { common: portal.stamina, towns: portal.towns } : undefined}
             mathPoints={mathPoints}
             onAddMathPoints={n => addBoostedMp(n)}
             onSpendMathPoints={n => {

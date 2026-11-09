@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStudent, subscribeStudent, isTrial, trialAllows, type StudentIdentity } from 'learning-app-kit/sync';
 import { usePortalConfig } from 'learning-app-kit/react';
 import {
-  fetchSanmonStatus, fetchSanmonModes, sanmonUnits, sanmonShards, spendStamina, isModeOpen, SANMON_RULES,
+  fetchSanmonStatus, fetchSanmonModes, staminaForTown, sanmonUnits, sanmonShards, spendStamina, isModeOpen, SANMON_RULES,
   modeLockMessage, isSchoolHoursLocked, reportLockHit,
   type SanmonStatus, type SanmonUnitProgress, type SanmonModes, type SanmonModeKey,
 } from 'learning-app-kit/sanmon';
@@ -21,7 +21,12 @@ export interface SanmonPortal {
   student: StudentIdentity | null;
   /** サーバから読めたか（読めないうちは アプリの無い町だけ開く） */
   loaded: boolean;
+  /** 共通スタミナ（どこでも使える。がんばりボーナスでたまる） */
   stamina: number;
+  /** 町のスタミナ（町の key → その町で使える分。その単元アプリの正解でたまる。2026-11-09〜） */
+  towns: Record<string, number>;
+  /** その町で使えるスタミナ（町・共通・合計）。町の key は kit の SANMON_UNITS の key */
+  staminaIn: (townKey: string | null) => { town: number; common: number; total: number };
   earnedToday: number;
   units: SanmonUnitProgress[];
   /** まだ開いていない町の単元名（MATH_CATEGORIES の name）。ぼうけん・デュエルで使う */
@@ -102,25 +107,35 @@ export function useSanmonPortal(): SanmonPortal {
     // おためし（学級コードなし）: スタミナを使わずに バトルできる。記録は サーバに送らず、セーブも学級とは別（services/saveProfile.ts）
     if (!isPortalConfigured || !s) return { ok: true };
     const eventId = `battle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // ぼうけんの町のバトルは reason が「wild@div1」のように町つき。サーバが 町 → 共通 の順に使う（2026-11-09）
+    const base = reason.split('@')[0];
+    const townKey = reason.includes('@') ? reason.split('@')[1] : null;
     const r = await spendStamina(PORTAL, s.studentId, eventId, SANMON_RULES.battleCost, reason);
     if (r.stamina != null) setStatus((st) => (st ? { ...st, stamina: r.stamina! } : st));
-    if (r.ok) return { ok: true };
+    // 町のスタミナも変わるので読みなおす（バトルを始めるときだけ。1回 数十ms）
+    if (r.ok) { void refresh(); return { ok: true }; }
     // サーバがことわった（そのモードが閉じている＝授業の時間・先生が閉じた）ときは、モードを読みなおす。
     // 閉じていれば App がメニューにもどす（2026-11-09）。sanmon_spend は reason でモードを見分ける
     if (r.stamina == null) {
       const m = await fetchSanmonModes(PORTAL, s.studentId);
       if (m.ok) {
         setModes(m.modes);
-        const key: SanmonModeKey = reason === 'speed_duel' ? 'speed' : reason === 'monster_duel' ? 'monster' : 'adventure';
+        const key: SanmonModeKey = base === 'speed_duel' ? 'speed' : base === 'monster_duel' ? 'monster' : 'adventure';
         const lock = studentLocked(m.modes, key) ? STUDENT_LOCK_MESSAGE : modeLockMessage(m.modes, key);
         if (lock) return { ok: false, message: lock };
       }
     }
-    return { ok: false, message: r.stamina == null ? r.message : `スタミナが たりないよ（いま ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。単元の アプリで れんしゅうすると たまるよ` };
-  }, []);
+    if (r.stamina == null) return { ok: false, message: r.message };
+    if (townKey) {
+      const t = status?.towns?.[townKey] ?? 0;
+      return { ok: false, message: `スタミナが たりないよ（この町 ${t}・共通 ${r.stamina}。バトルには ${SANMON_RULES.battleCost}）。この町の 単元アプリで れんしゅうすると、この町の スタミナが たまるよ` };
+    }
+    return { ok: false, message: `スタミナが たりないよ（共通 ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。本番テストで 8わり・実力の階段・はじめての熟達で 共通スタミナが たまるよ` };
+  }, [refresh, status]);
 
   return {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
+    towns: status?.towns ?? {}, staminaIn: (townKey: string | null) => staminaForTown(status, townKey),
     units, lockedUnitNames, refresh, spendForBattle,
     modeOpen: (key: SanmonModeKey) => (trial ? trialOpen(key) : isModeOpen(modes, key)),
     modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ')

@@ -21,7 +21,7 @@ import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
 import { GACHA_RULES } from '../../data/adventure/gacha';
-import type { SanmonUnitProgress } from 'learning-app-kit/sanmon';
+import { SANMON_RULES, sanmonTownKeyOf, type SanmonUnitProgress } from 'learning-app-kit/sanmon';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
   title, onClose, children, accent = '#0ea5e9',
@@ -470,7 +470,9 @@ export const MapScreen: React.FC<{
   lockedUnits: Set<string>;
   /** 町ごとの「あと どれだけ」。とじた町に、開く条件を1行で出す */
   unitProgress?: SanmonUnitProgress[];
-}> = ({ onClose, onTravel, onLeague, lockedUnits, unitProgress }) => {
+  /** 町のスタミナ（kit の SANMON_UNITS の key → その町で使える分）。名乗っているときだけ */
+  townStamina?: Record<string, number>;
+}> = ({ onClose, onTravel, onLeague, lockedUnits, unitProgress, townStamina }) => {
   const save = useAdventureStore(s => s.save);
   const allBadges = TOWNS.every(t => save.badges.includes(t.id));
   const inLeague = save.townId === LEAGUE_TOWN.id;
@@ -518,6 +520,12 @@ export const MapScreen: React.FC<{
                   {t.unit}
                 </span>
                 {here && <span className="text-[11px] font-black text-amber-600">いまここ</span>}
+                {townStamina && (() => {
+                  const k = sanmonTownKeyOf(t.unit);
+                  return k && k in townStamina
+                    ? <span className={`text-[10px] font-black tabular-nums ${locked ? 'text-white/50' : 'text-slate-400'}`}>🏘{townStamina[k]}/{SANMON_RULES.townCap}</span>
+                    : null;
+                })()}
               </div>
               {locked && (() => {
                 const u = unitProgress?.find(x => x.name === t.unit);
