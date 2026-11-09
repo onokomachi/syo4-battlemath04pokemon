@@ -108,6 +108,8 @@ npm run build    # 本番ビルド(コミット前に必ず)
   通信が切れたときは kit が前に読めた設定で平日モードだけ効かせる（`offlineModes`）。
   **ゲームの中にいるあいだに閉じたら、すぐメニューにもどす**（2026-11-09 先生と決めた。`App.tsx` の `playingModeKey` の effect）：ぼうけん・スピードデュエル・モンスター対戦（CPU）・クラス対戦。
   2分ごと・タブにもどったときのモードの読みなおし（前からある）で気づくので、通信は増えない。れんしゅう・ふくしゅう・本番テストは とちゅうで切らない（メニューで止まる）。
+  **番号ごとの停止**（2026-11-09。PRISM の SANMON タブで先生が番号を押す。SQL は class-portal-teacher の `supabase/sql/2026-11-09-sanmon-student-lock.sql`）：サーバの `sanmon_modes` がゲームの4つを false＋`_student_lock: true` で返す。
+  ここでは「せんせいと おはなししてね」を出すだけ（`useSanmonPortal` の `studentLocked`。理由は出さない）。メニューにもどすのは上と同じ effect。
   サーバでも、バトルのスタミナ（`sanmon_spend`）がモードを確かめる（reason で見分ける：`speed_duel`→speed、`monster_duel`→monster、ほか→adventure。SQL は `supabase-sql/2026-11-09-sanmon-spend-mode-check.sql`）。ことわられたらモードを読みなおす（`useSanmonPortal` の `spendForBattle`）。
 
 ## 問題は 各単元アプリと同じ（2026-10〜）

@@ -39,6 +39,14 @@ export interface SanmonPortal {
   spendForBattle: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
 
+/**
+ * 先生が PRISM の SANMON タブで、この子の番号だけゲームを止めているか（2026-11-09。サーバの sanmon_modes が _student_lock を付ける）。
+ * 理由は出さない（友だちに見られても分からないように）。止まるのはゲームだけで、れんしゅう・ふくしゅう・テストはできる。
+ */
+const STUDENT_LOCK_MESSAGE = 'せんせいと おはなししてね';
+const studentLocked = (modes: SanmonModes, key: SanmonModeKey) =>
+  !isModeOpen(modes, key) && (modes as SanmonModes & { _student_lock?: boolean })._student_lock === true;
+
 export function useSanmonPortal(): SanmonPortal {
   const [student, setStudent] = useState<StudentIdentity | null>(() => getStudent());
   const [status, setStatus] = useState<SanmonStatus | null>(null);
@@ -104,7 +112,7 @@ export function useSanmonPortal(): SanmonPortal {
       if (m.ok) {
         setModes(m.modes);
         const key: SanmonModeKey = reason === 'speed_duel' ? 'speed' : reason === 'monster_duel' ? 'monster' : 'adventure';
-        const lock = modeLockMessage(m.modes, key);
+        const lock = studentLocked(m.modes, key) ? STUDENT_LOCK_MESSAGE : modeLockMessage(m.modes, key);
         if (lock) return { ok: false, message: lock };
       }
     }
@@ -115,8 +123,10 @@ export function useSanmonPortal(): SanmonPortal {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     units, lockedUnitNames, refresh, spendForBattle,
     modeOpen: (key: SanmonModeKey) => (trial ? trialOpen(key) : isModeOpen(modes, key)),
-    modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ') : modeLockMessage(modes, key)),
+    modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ')
+      : studentLocked(modes, key) ? STUDENT_LOCK_MESSAGE : modeLockMessage(modes, key)),
     modeLockShort: (key: SanmonModeKey) => trial ? (trialOpen(key) ? null : '🔒 たいけんばんでは つかえないよ') : isModeOpen(modes, key) ? null
+      : studentLocked(modes, key) ? `🔒 ${STUDENT_LOCK_MESSAGE}`
       : isSchoolHoursLocked(modes, key) ? `🔒 じゅぎょうの じかん（${modes._school_hours!.end}から）` : '🔒 先生が まだ ひらいていないよ',
     reportLock: (key: SanmonModeKey) => {
       const s = getStudent();
