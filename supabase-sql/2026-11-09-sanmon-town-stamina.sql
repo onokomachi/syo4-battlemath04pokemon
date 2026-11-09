@@ -9,7 +9,7 @@
 --       わり算の筆算 hissan：筆算 hissan-?-1 → ÷1けた（div1）、hissan-?-2・?-3 → ÷2けた（div2）、ほかの項目は2つの町の共有（app:hissan）
 --       小数 syousu：アプリの「小数のかけ算とわり算」の項目 → decmuldiv、そのほかの小数のしくみの項目 → decimal、分からない項目は共有（app:syousu）
 --   - 町の無いアプリ（国語・英語・5〜6年など）の正解は 共通 にたまる。
---   - 切りかえ（2026-11-09 13:00）より前にたまっていた分は すべて 共通。それより前の使った分も共通から引く。
+--   - 切りかえ（2026-11-09 13:39:00）より前にたまっていた分は すべて 共通。それより前の使った分も共通から引く。
 -- どの町で使ったかは、sanmon_spend の reason の「@町」で分かる（例 'wild@div1'）。@ が無い使い方は共通から。
 -- たまる・使うは 時刻の順に1つずつ数える（2026-11-09-sanmon-stamina-chronological.sql と同じ）。
 
@@ -54,7 +54,7 @@ create or replace function public._sanmon_pools(p_student_id uuid)
 returns jsonb language plpgsql stable security definer set search_path to '' as $function$
 declare
   p_cutover constant date := date '2026-10-25';
-  town_cut constant bigint := (extract(epoch from timestamptz '2026-11-09 13:00:00+09') * 1000)::bigint;
+  town_cut constant bigint := (extract(epoch from timestamptz '2026-11-09 13:39:00+09') * 1000)::bigint;
   town_cap constant numeric := 50;
   today date := (now() at time zone 'Asia/Tokyo')::date;
   sy int := public._school_year((now() at time zone 'Asia/Tokyo')::date);
