@@ -13,7 +13,7 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
   return (
     <div className="relative z-30 w-full max-w-3xl mx-auto px-3 pt-3">
       <button onClick={() => setOpen((v) => !v)} className="w-full hud-panel rounded-xl px-4 py-2 flex items-center gap-3 text-left">
-        <span className="text-amber-300 font-black text-sm shrink-0">⚡ スタミナ</span>
+        <span className="text-amber-300 font-black text-sm shrink-0">⚡ 共通スタミナ</span>
         <span className="flex-1 h-2.5 rounded-full bg-black/50 overflow-hidden border border-amber-400/30">
           <span className="block h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${pct}%` }} />
         </span>
@@ -24,11 +24,11 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
         <div className="mt-2 hud-panel rounded-xl p-3 text-xs text-gray-200 space-y-2">
           {portal.student ? (
             <p>
-              きょう たまった スタミナ：<b className="text-amber-300">{portal.earnedToday}</b>（ためられるのは {SANMON_RULES.maxStamina} まで）。
-              単元の アプリで 1問 正解すると 1。ただし 1つの項目で 1日 5まで、もう熟達した項目は 半分だよ。
-              いろいろな項目・にがてな項目に ちょうせんすると よく たまる。
-              ボーナス：本番テスト 8わり合格 +5・実力の階段で 新しい段 +3・はじめて熟達 +2。
-              バトル1回で {SANMON_RULES.battleCost} つかう。れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。
+              きょう たまった スタミナ：<b className="text-amber-300">{portal.earnedToday}</b>。
+              スタミナは 2しゅるい。<b className="text-amber-300">町のスタミナ</b>：単元の アプリで 1問 正解すると、その単元の 町に 1（1つの項目で 1日 5まで・もう熟達した項目は 半分。町ごとに {SANMON_RULES.townCap} まで）。その町の ぼうけんで つかえる。
+              <b className="text-amber-300">共通スタミナ</b>（上の ⚡）：本番テスト 8わり合格 +5・実力の階段で 新しい段 +3・はじめて熟達 +2（{SANMON_RULES.maxStamina} まで）。どこでも つかえる。
+              ぼうけんの バトル1回で {SANMON_RULES.battleCost}（町のスタミナ → 共通 の じゅん）。スピード・モンスター対戦・クラス対戦と、アプリの ない 町は 共通を つかう。
+              れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。
             </p>
           ) : (
             <p>
@@ -40,6 +40,7 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
             {portal.units.map((u) => (
               <div key={u.key} className={`rounded-lg px-2 py-1.5 border ${u.open ? 'border-emerald-400/50 bg-emerald-900/30 text-emerald-100' : 'border-white/10 bg-black/30 text-gray-400'}`}>
                 <div className="font-bold truncate">{u.open ? '🔓' : '🔒'} {u.name}</div>
+                {portal.student && u.appId && <div className="text-[10px] text-amber-200/80 tabular-nums">🏘 町のスタミナ {portal.towns[u.key] ?? 0}/{SANMON_RULES.townCap}</div>}
                 {!u.open && u.practice && (
                   <div className="text-[10px] mt-0.5 tabular-nums">
                     練習{u.practice.have}/{u.practice.need}・テスト{u.test!.have}/{u.test!.need}・階段{u.trial!.have}/{u.trial!.need}・{u.days!.have}/{u.days!.need}日

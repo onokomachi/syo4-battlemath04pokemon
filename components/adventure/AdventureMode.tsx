@@ -5,7 +5,7 @@
  * NPCとの会話・イベント進行をまとめている。学習データ(問題・採点・SRS・学習記録)は
  * すべて既存のものをそのまま使い、このモードは「入れもの」に徹している。
  */
-import type { SanmonUnitProgress } from 'learning-app-kit/sanmon';
+import { SANMON_RULES, SANMON_UNITS, sanmonTownKeyOf, type SanmonUnitProgress } from 'learning-app-kit/sanmon';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BattleResultSummary, BattleSetup, FieldNpcDef, TownDef,
@@ -60,6 +60,11 @@ interface Props {
    * 各単元アプリで練習した分がスタミナになる（learning-app-kit/sanmon）。
    */
   onRequestBattle?: (reason: string) => Promise<{ ok: boolean; message?: string }>;
+  /**
+   * スタミナ（学級ポータルで名乗っているときだけ）。共通と、町ごと（kit の SANMON_UNITS の key → その町で使える分）。
+   * 町のバトルは 町 → 共通 の順に使う（2026-11-09）。おためしでは出さない。
+   */
+  stamina?: { common: number; towns: Record<string, number> };
 }
 
 type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save' | 'gacha';
@@ -73,7 +78,7 @@ interface Dialogue {
 }
 
 const AdventureMode: React.FC<Props> = ({
-  onExit, lockedUnits, unitProgress, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle,
+  onExit, lockedUnits, unitProgress, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle, stamina,
 }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
@@ -99,7 +104,9 @@ const AdventureMode: React.FC<Props> = ({
     if (!onRequestBattle) { setBattle(setup); return; }
     if (requestingRef.current) return;
     requestingRef.current = true;
-    void onRequestBattle(setup.kind).then((r) => {
+    // どの町のバトルか（町のスタミナを使う）。リーグ・アジトなど単元の無い所は共通だけ
+    const townKey = sanmonTownKeyOf(getTown(setup.townId ?? '')?.unit);
+    void onRequestBattle(townKey ? `${setup.kind}@${townKey}` : setup.kind).then((r) => {
       requestingRef.current = false;
       if (r.ok) setBattle(setup);
       else setDialogue({ speaker: 'スタミナ', lines: [r.message ?? 'スタミナが たりないよ'], onDone: () => setDialogue(null) });
@@ -1202,6 +1209,16 @@ const AdventureMode: React.FC<Props> = ({
             <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/{TOWNS.length}</span>
             <span className="text-xs font-black text-slate-600">⚪ {save.items.ball ?? 0}</span>
             <span className="text-xs font-black text-amber-600">MP {mathPoints}</span>
+            {stamina && (() => {
+              // 小さく：⚡共通 ・ 🏘この町（町のスタミナ。アプリの無い町は出さない）
+              const key = sanmonTownKeyOf(town.unit);
+              const hasTown = !!key && SANMON_UNITS.some(u => u.key === key && u.appId);
+              return (
+                <span className="text-[10px] font-black text-slate-500 tabular-nums" title="バトル1回で5。この町のスタミナを先に使い、たりなければ共通から">
+                  ⚡{stamina.common}{hasTown && <> ・ 🏘{stamina.towns[key!] ?? 0}/{SANMON_RULES.townCap}</>}
+                </span>
+              );
+            })()}
             {(save.items.teamshard ?? 0) > 0 && (
               <span className="text-xs font-black text-orange-600">🔶 {save.items.teamshard}</span>
             )}
@@ -1406,6 +1423,7 @@ const AdventureMode: React.FC<Props> = ({
           onLeague={enterLeague}
           lockedUnits={lockedUnits}
           unitProgress={unitProgress}
+          townStamina={stamina?.towns}
         />
       )}
       {overlay === 'save' && <SaveSlotsModal onClose={() => setOverlay('none')} />}
