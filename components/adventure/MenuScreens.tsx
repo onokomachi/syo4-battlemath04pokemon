@@ -523,7 +523,7 @@ export const MapScreen: React.FC<{
                 {townStamina && (() => {
                   const k = sanmonTownKeyOf(t.unit);
                   return k && k in townStamina
-                    ? <span className={`text-[10px] font-black tabular-nums ${locked ? 'text-white/50' : 'text-slate-400'}`}>🏘{townStamina[k]}/{SANMON_RULES.townCap}</span>
+                    ? <span className={`text-[10px] font-black tabular-nums ${locked ? 'text-white/50' : 'text-slate-500'}`}>町のスタミナ {townStamina[k]}/{SANMON_RULES.townCap}</span>
                     : null;
                 })()}
               </div>

@@ -1209,20 +1209,28 @@ const AdventureMode: React.FC<Props> = ({
             <span className="text-xs font-black text-slate-600">🏅 {save.badges.length}/{TOWNS.length}</span>
             <span className="text-xs font-black text-slate-600">⚪ {save.items.ball ?? 0}</span>
             <span className="text-xs font-black text-amber-600">MP {mathPoints}</span>
-            {stamina && (() => {
-              // 小さく：⚡共通 ・ 🏘この町（町のスタミナ。アプリの無い町は出さない）
-              const key = sanmonTownKeyOf(town.unit);
-              const hasTown = !!key && SANMON_UNITS.some(u => u.key === key && u.appId);
-              return (
-                <span className="text-[10px] font-black text-slate-500 tabular-nums" title="バトル1回で5。この町のスタミナを先に使い、たりなければ共通から">
-                  ⚡{stamina.common}{hasTown && <> ・ 🏘{stamina.towns[key!] ?? 0}/{SANMON_RULES.townCap}</>}
-                </span>
-              );
-            })()}
             {(save.items.teamshard ?? 0) > 0 && (
               <span className="text-xs font-black text-orange-600">🔶 {save.items.teamshard}</span>
             )}
           </div>
+          {stamina && (() => {
+            // スタミナを文字で（この町 → 共通 の順に使う。アプリの無い町は共通だけ）
+            const key = sanmonTownKeyOf(town.unit);
+            const hasTown = !!key && SANMON_UNITS.some(u => u.key === key && u.appId);
+            const here = hasTown ? (stamina.towns[key!] ?? 0) : 0;
+            const battles = Math.floor((here + stamina.common) / SANMON_RULES.battleCost);
+            return (
+              <div className="mt-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 leading-tight">
+                <p className="text-[10px] font-black text-amber-700">スタミナ</p>
+                <p className="text-[11px] font-bold text-slate-700 tabular-nums">
+                  {hasTown && <>この町 {here}/{SANMON_RULES.townCap} ・ </>}共通 {stamina.common}/{SANMON_RULES.maxStamina}
+                </p>
+                <p className={`text-[11px] font-black tabular-nums ${battles > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                  ▶ バトル あと {battles}回<span className="font-bold text-slate-500">（1回 {SANMON_RULES.battleCost}）</span>
+                </p>
+              </div>
+            );
+          })()}
           {/* 手持ち3体の合計HP。1体ずつ戦う方式なので「パーティ全体の元気さ」を出す。 */}
           <div className="mt-1 w-full h-2 rounded-full bg-slate-200 overflow-hidden">
             <div
