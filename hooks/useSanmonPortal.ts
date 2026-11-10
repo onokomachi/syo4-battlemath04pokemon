@@ -128,9 +128,9 @@ export function useSanmonPortal(): SanmonPortal {
     if (r.stamina == null) return { ok: false, message: r.message };
     if (townKey) {
       const t = status?.towns?.[townKey] ?? 0;
-      return { ok: false, message: `スタミナが たりないよ（この町 ${t}・共通 ${r.stamina}。バトルには ${SANMON_RULES.battleCost}）。この町の 単元アプリで れんしゅうしたり 本番テストを うけたりすると、この町の スタミナが たまるよ` };
+      return { ok: false, message: `スタミナが たりないよ（この町 ${t}・共通 ${r.stamina}。バトルには ${SANMON_RULES.battleCost}）。この町の 単元アプリで れんしゅう・本番テスト・実力の階段を すると、この町の スタミナが たまるよ` };
     }
-    return { ok: false, message: `スタミナが たりないよ（共通 ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。実力の階段・はじめての熟達で 共通スタミナが たまるよ` };
+    return { ok: false, message: `スタミナが たりないよ（共通 ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。実力の階段の はじめての段・はじめての熟達で 共通スタミナが たまるよ` };
   }, [refresh, status]);
 
   return {
