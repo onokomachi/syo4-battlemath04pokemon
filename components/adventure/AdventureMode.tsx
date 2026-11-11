@@ -64,7 +64,7 @@ interface Props {
    * スタミナ（学級ポータルで名乗っているときだけ）。共通と、町ごと（kit の SANMON_UNITS の key → その町で使える分）。
    * 町のバトルは 町 → 共通 の順に使う（2026-11-09）。おためしでは出さない。
    */
-  stamina?: { common: number; towns: Record<string, number> };
+  stamina?: { common: number; towns: Record<string, number>; costOf?: (townKey: string | null) => number };
 }
 
 type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save' | 'gacha';
@@ -1219,7 +1219,9 @@ const AdventureMode: React.FC<Props> = ({
             // サーバが町のスタミナを返す町（アプリの町＋2026-11-11 からは 大きい数・折れ線グラフ・角も）
             const hasTown = !!key && key in stamina.towns;
             const here = hasTown ? (stamina.towns[key!] ?? 0) : 0;
-            const battles = Math.floor((here + stamina.common) / SANMON_RULES.battleCost);
+            // バトル1回のスタミナは 町の達成度で 2〜5（2026-11-11）
+            const cost = stamina.costOf ? stamina.costOf(key) : SANMON_RULES.battleCost;
+            const battles = Math.floor((here + stamina.common) / cost);
             return (
               <div className="mt-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 leading-tight">
                 <p className="text-[10px] font-black text-amber-700">スタミナ</p>
@@ -1227,7 +1229,7 @@ const AdventureMode: React.FC<Props> = ({
                   {hasTown && <>この町 {here}/{SANMON_RULES.townCap} ・ </>}共通 {stamina.common}/{SANMON_RULES.maxStamina}
                 </p>
                 <p className={`text-[11px] font-black tabular-nums ${battles > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                  ▶ バトル あと {battles}回<span className="font-bold text-slate-500">（1回 {SANMON_RULES.battleCost}）</span>
+                  ▶ バトル あと {battles}回<span className="font-bold text-slate-500">（1回 {cost}）</span>
                 </p>
               </div>
             );

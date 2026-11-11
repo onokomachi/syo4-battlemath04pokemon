@@ -41,7 +41,7 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
               実力の階段：のぼった 段 ×3（アプリごとに その日 1回目。2回目は 半分）。
               <b className="text-amber-300">共通スタミナ</b>（{SANMON_RULES.maxStamina} まで・どこでも つかえる）：実力の階段で はじめての段 +3・はじめて熟達 +2・まとめの テスト。
               スタミナに なるのは 4年の 算数だけ（国語・英語は ならないよ）。
-              ぼうけんの バトル1回で {SANMON_RULES.battleCost}（町のスタミナ → 共通 の じゅん）。スピード・モンスター対戦・クラス対戦は 共通を つかう。
+              ぼうけんの バトル1回で {SANMON_RULES.battleCost}（町のスタミナ → 共通 の じゅん）。その単元の アプリの 練習の 項目を「熟達」に するほど 安くなる（半分 → 4・4分の3 → 3・ぜんぶ → 2）。スピード・モンスター対戦・クラス対戦は 共通を つかう。
               れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。
             </p>
           ) : (
@@ -54,7 +54,7 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
             {portal.units.map((u) => (
               <div key={u.key} className={`rounded-lg px-2 py-1.5 border ${u.open ? 'border-emerald-400/50 bg-emerald-900/30 text-emerald-100' : 'border-white/10 bg-black/30 text-gray-400'}`}>
                 <div className="font-bold truncate">{u.open ? '🔓' : '🔒'} {u.name}</div>
-                {portal.student && u.key in portal.towns && <div className="text-[10px] text-amber-200/80 tabular-nums">町のスタミナ {portal.towns[u.key] ?? 0}/{SANMON_RULES.townCap} ▶ バトル あと {Math.floor(((portal.towns[u.key] ?? 0) + portal.stamina) / SANMON_RULES.battleCost)}回</div>}
+                {portal.student && u.key in portal.towns && <div className="text-[10px] text-amber-200/80 tabular-nums">町のスタミナ {portal.towns[u.key] ?? 0}/{SANMON_RULES.townCap} ▶ バトル あと {Math.floor(((portal.towns[u.key] ?? 0) + portal.stamina) / portal.townCost(u.key))}回（1回 {portal.townCost(u.key)}）</div>}
                 {!u.open && u.practice && (
                   <div className="text-[10px] mt-0.5 tabular-nums">
                     練習{u.practice.have}/{u.practice.need}・テスト{u.test!.have}/{u.test!.need}・階段{u.trial!.have}/{u.trial!.need}・{u.days!.have}/{u.days!.need}日
