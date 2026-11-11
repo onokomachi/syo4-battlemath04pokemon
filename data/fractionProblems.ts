@@ -448,7 +448,7 @@ const kuriagariTashizan: Problem[] = ([
   return t(`{${w1}と${n1}/${d}} + {${w2}と${n2}/${d}} =`, ans, {
     hint: [
       `分数の 部分は {${n1}/${d}} + {${n2}/${d}} = {${fracSum}/${d}}。1を こえたね。`,
-      `{${fracSum}/${d}} = {${carry}${rest === 0 ? '' : `と${rest}/${d}`}} に なおして、整数に くり上げよう。${w1} + ${w2} + ${carry} = ${w1 + w2 + carry} だよ。`,
+      `{${fracSum}/${d}} = {${carry}${rest === 0 ? '' : `と${rest}/${d}`}} に なおして、整数に くり上げよう。整数の部分は ${w1} + ${w2} + ${carry} を 計算しよう。`,
     ],
   });
 });
