@@ -148,7 +148,21 @@ body {
 </style>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!-- 読みこみ中の表示（React が起動すると、この中身は入れかわって消える。0.4秒より早く読めたときは出ない） -->
+      <div class="boot-loading" role="status" aria-live="polite">
+        <style>
+          .boot-loading{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;opacity:0;animation:boot-in .3s ease-out .4s forwards;font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif}
+          .boot-loading .boot-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 28px;border-radius:18px;background:rgba(255,255,255,.92);color:#334155;box-shadow:0 6px 24px rgba(15,23,42,.14)}
+          .boot-loading .boot-name{font-size:17px;font-weight:800;letter-spacing:.02em}
+          .boot-loading .boot-msg{font-size:13px;color:#64748b}
+          .boot-loading .boot-ring{width:26px;height:26px;border-radius:50%;border:3px solid #cbd5e1;border-top-color:#3b82f6;animation:boot-spin .9s linear infinite}
+          @keyframes boot-in{to{opacity:1}}
+          @keyframes boot-spin{to{transform:rotate(360deg)}}
+          @media (prefers-reduced-motion: reduce){.boot-loading .boot-ring{animation-duration:2.4s}}
+        </style>
+        <div class="boot-card"><div class="boot-ring"></div><div class="boot-name">SANMON:04</div><div class="boot-msg">よみこみちゅう…</div></div>
+      </div>
+    </div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>
