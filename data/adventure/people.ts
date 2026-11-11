@@ -206,7 +206,7 @@ export const CHAMPION = {
 };
 
 export const getNpcSprite = (id: string): string =>
-  `${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/npc/${id}.png`;
+  `${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/npc/${id}.webp`;
 
 export const getPlayerSprite = (appearance: string, dir: 'front' | 'back' | 'side'): string =>
-  `${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/player/${appearance}-${dir}.png`;
+  `${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/player/${appearance}-${dir}.webp`;

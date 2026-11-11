@@ -371,7 +371,7 @@ const World: React.FC<SceneProps> = ({
           size={town.size}
           style={style}
           flat={indoor}
-          textureUrl={`${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/terrain/${town.biome}-ground.png`}
+          textureUrl={`${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/terrain/${town.biome}-ground.webp`}
         />
       </group>
 
