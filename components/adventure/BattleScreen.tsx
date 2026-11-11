@@ -330,6 +330,18 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     return getTypeMultiplier(lead.def.type, oppDef.type);
   }, [lead?.def, oppDef]);
 
+  /**
+   * 問題を使いきっても終わらないバトル（野生・野生の伝説 いがい）。どちらかが たおれるまで 続ける（2026-11-11）。
+   * 野生は「にげていった」、野生の伝説は「HPを半分けずって みとめられる」が 終わり方なので そのまま。
+   */
+  const keepsGoing = setup.kind !== 'wild' && setup.kind !== 'legend-wild';
+  /** いまの相手と同じ分野の問題を 足す（使いきったとき） */
+  const addMoreProblems = () => {
+    const st = oppDef?.subtopic ? [oppDef.subtopic] : subtopics;
+    const more = pickProblems(st.length ? st : subtopics, setup.questionsPerOpponent + 3);
+    setProblems((prev) => [...prev, ...more]);
+  };
+
   // ---- ダメージ計算 ----
   const damageToOpponent = (half: boolean): number => {
     let d = myAtk * 1.35 * typeMult;
@@ -524,6 +536,14 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setUserAnswer('');
     setHintPenalty(false);
     const next = qIndex + 1;
+    if (next >= problems.length && keepsGoing) {
+      // トレーナー・伝説などは、どちらかが たおれるまで 続ける（2026-11-11 先生と決めた）。
+      // 前は 問題（3〜6問＋3）を使いきると「きょうは ここまで」で終わり、伝説は 全問正解でも 勝てなかった。
+      addMoreProblems();
+      setQIndex(next);
+      setPhase('command');
+      return;
+    }
     if (next >= problems.length) {
       // 問題を使いきっても、勝ちにはしない（相手がにげる）。
       // 以前は「しのぎきった」として勝ち扱いにしていたが、ダメージが小さいので
@@ -579,6 +599,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       setHintPenalty(false);
       setHintOpen(false);
       if (qIndex + 1 < problems.length) setQIndex(qIndex + 1);
+      else if (keepsGoing) { addMoreProblems(); setQIndex(qIndex + 1); }
       else runOutAfterSwitch.current = true;
     }
     // 交代したら「1回だけ」系のとくせいは次の子のぶんとして復活させる

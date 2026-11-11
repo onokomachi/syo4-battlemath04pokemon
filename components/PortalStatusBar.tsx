@@ -33,17 +33,34 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
       {open && (
         <div className="mt-2 hud-panel rounded-xl p-3 text-xs text-gray-200 space-y-2">
           {portal.student ? (
-            <p>
-              きょう たまった スタミナ：<b className="text-amber-300">{portal.earnedToday}</b>。
-              スタミナは 2しゅるい。<b className="text-amber-300">町のスタミナ</b>（町ごとに {SANMON_RULES.townCap} まで・その町の ぼうけんで つかえる）：
-              単元の アプリで 1問 正解すると その単元の 町に 1（1つの項目で 1日 5まで・もう熟達した項目は 半分）。アプリの ない 大きい数・折れ線グラフ・角は、SANMON の れんしゅう・ふくしゅうで 正解すると その町に 1。
-              本番テスト（SANMON の テストも）：ぜんぶ（表と裏）で 100％なら 20、表だけ・裏だけは その分（その日 1回目。2・3回目は 半分）。
-              実力の階段：のぼった 段 ×3（アプリごとに その日 1回目。2回目は 半分）。
-              <b className="text-amber-300">共通スタミナ</b>（{SANMON_RULES.maxStamina} まで・どこでも つかえる）：実力の階段で はじめての段 +3・はじめて熟達 +2・まとめの テスト。
-              スタミナに なるのは 4年の 算数だけ（国語・英語は ならないよ）。
-              ぼうけんの バトル1回で {SANMON_RULES.battleCost}（町のスタミナ → 共通 の じゅん）。その単元の アプリの 練習の 項目を「熟達」に するほど 安くなる（半分 → 4・4分の3 → 3・ぜんぶ → 2）。スピード・モンスター対戦・クラス対戦は 共通を つかう。
-              れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。
-            </p>
+            // 子どもむけの説明（2026-11-11 先生の依頼で、長い文を 見出し＋短い1行に 分けた）
+            <div className="space-y-2 leading-relaxed">
+              <p className="text-amber-200 font-black text-[13px]">スタミナの しくみ　<span className="text-gray-300 font-bold">（きょう たまった：<b className="text-amber-300">{portal.earnedToday}</b>）</span></p>
+              <div className="rounded-lg bg-black/30 px-2.5 py-2">
+                <p className="font-black text-white">● バトルを すると スタミナを つかう</p>
+                <p>ぼうけんの バトル 1回で 5。その町の アプリの もんだいを「できた」に するほど 安くなるよ（はんぶん → 4・4分の3 → 3・ぜんぶ → 2）。</p>
+              </div>
+              <div className="rounded-lg bg-black/30 px-2.5 py-2">
+                <p className="font-black text-white">● スタミナは 2しゅるい</p>
+                <p>🏘 <b className="text-amber-300">町のスタミナ</b>：その町の ぼうけんだけで つかえる（{SANMON_RULES.townCap}まで）</p>
+                <p>⚡ <b className="text-amber-300">共通スタミナ</b>：どこでも つかえる（{SANMON_RULES.maxStamina}まで）</p>
+                <p className="text-gray-400">ぼうけんでは 町のスタミナから さきに つかうよ。スピード・対戦は 共通だけ。</p>
+              </div>
+              <div className="rounded-lg bg-black/30 px-2.5 py-2">
+                <p className="font-black text-white">● 町のスタミナを ためるには</p>
+                <p>・その単元の アプリで 正解する … 1問 +1（おなじ しゅるいの もんだいは 1日 5まで。つぎの日は また たまる）</p>
+                <p>・本番テストを うける … てんすうが 高いほど たくさん（100点まんてんなら 20）</p>
+                <p>・実力の階段を のぼる … のぼった 段 × 3</p>
+                <p>・大きい数・折れ線グラフ・角 … SANMON の れんしゅう・ふくしゅうで 正解する</p>
+                <p className="text-gray-400">おなじ ことを くりかえすより、日を かえて とりくむほうが たくさん たまるよ。</p>
+              </div>
+              <div className="rounded-lg bg-black/30 px-2.5 py-2">
+                <p className="font-black text-white">● 共通スタミナを ためるには</p>
+                <p>・実力の階段で はじめての 段に のぼる … +3</p>
+                <p>・もんだいを はじめて「できた」に する … +2</p>
+              </div>
+              <p className="text-gray-300">れんしゅう・ふくしゅう・本番テストは スタミナなしで できるよ。スタミナに なるのは 4年の 算数だけ（国語・英語は ならないよ）。</p>
+            </div>
           ) : (
             <p>
               いまは「おためし」。バトルは スタミナなしで できるけど、きろくは 先生に とどかないよ（セーブも べつ）。

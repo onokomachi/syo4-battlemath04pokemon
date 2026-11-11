@@ -52,6 +52,8 @@ npm run build    # 本番ビルド(コミット前に必ず)
   メニューの帯に「スタミナ 共通 n/100」と「共通だけで バトル あと n回」、ひらくと町ごと（`PortalStatusBar`）。
   かんたんな項目の周回では たまりにくく、いろいろな項目・苦手・テスト・階段で よく たまる。kit の `SANMON_RULES.dailyCap` は もう使っていない（子ども用ハブの説明が「30まで」なら 全体セッションで直す）。
 - **ぼうけんのバトルは、必ず `AdventureMode` の `startBattle` を通す**（スタミナの関門）。`setBattle({...})` を直接呼ばない。
+- **トレーナー・伝説などのバトルは、どちらかが たおれるまで続く**（2026-11-11 先生と決めた。`BattleScreen` の `keepsGoing`・`addMoreProblems`）：問題を使いきったら同じ分野の問題を足す。前は「1体につき 3〜6問＋3」で打ち切って「きょうは ここまで」になり、伝説は正解が9〜25回いるのに8〜9問しか無く、全問正解でも勝てなかった。野生（にげる）・野生の伝説（HPを半分けずって みとめられる）は前のまま。
+- 子どもむけのスタミナの説明はメニューの帯をひらいたところ（`PortalStatusBar`）。見出し＋短い1行で書く（2026-11-11）。きまりを変えたら ここも直す。
 - 記録は `services/portal.ts` が学級ポータルへ送る（1問ごと→learning_event、本番テスト→test_result、セーブデータ→sanmon_save）。
   skill_id はサブトピック名そのもの（kit のカタログ `sanmon` と同じ）。サブトピックを足したら kit のカタログを作り直す。
 - 環境変数: `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`（publishable キーだけ）。
