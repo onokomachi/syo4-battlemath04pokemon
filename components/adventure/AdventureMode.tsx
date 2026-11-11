@@ -1216,7 +1216,8 @@ const AdventureMode: React.FC<Props> = ({
           {stamina && (() => {
             // スタミナを文字で（この町 → 共通 の順に使う。アプリの無い町は共通だけ）
             const key = sanmonTownKeyOf(town.unit);
-            const hasTown = !!key && SANMON_UNITS.some(u => u.key === key && u.appId);
+            // サーバが町のスタミナを返す町（アプリの町＋2026-11-11 からは 大きい数・折れ線グラフ・角も）
+            const hasTown = !!key && key in stamina.towns;
             const here = hasTown ? (stamina.towns[key!] ?? 0) : 0;
             const battles = Math.floor((here + stamina.common) / SANMON_RULES.battleCost);
             return (
