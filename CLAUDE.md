@@ -12,7 +12,9 @@
   (`.btn-tactical` `.hud-panel` `.text-hologram` `.corner-accent` `.adventure-cta` など)。
   CSSファイルを探しても見つからないので注意。
 - ぼうけんモードは動的インポートで分割している(初期読み込みを遅くしないため)。
-- `vercel.json` で `/assets/` を1年キャッシュ（ファイル名に版が入るので安全。2026-11-11）。Google Fonts は使っているものだけ読む（Inter・JetBrains Mono・Orbitron。使っていない Cinzel Decorative は外した）。
+- `vercel.json` で `/assets/` の**直下だけ**を1年キャッシュ（ビルドが作るファイルで、名前に版が入るので安全。2026-11-11）。
+  `public/assets/adventure/`（モンスターの絵・曲など、版の入らない名前）は対象外（`/assets/([^/]+)`）。2026-11-11 の数時間だけ `/assets/(.*)` で全部を1年キャッシュにしていたので、
+  **その日に開いた端末は、絵や曲を最長1年 古いまま持っている。絵・曲を描きかえるときは同じ名前で上書きせず、新しい名前で足す**（`legacyDex` の番号の絵を差しかえるなら、読みこむ側で `?v=2` などを付ける）。Google Fonts は使っているものだけ読む（Inter・JetBrains Mono・Orbitron。使っていない Cinzel Decorative は外した）。
 
 ```bash
 npm run dev      # 開発サーバ
