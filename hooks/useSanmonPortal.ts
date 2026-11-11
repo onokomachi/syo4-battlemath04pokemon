@@ -12,6 +12,7 @@ import {
   modeLockMessage, isSchoolHoursLocked, reportLockHit,
   type SanmonStatus, type SanmonUnitProgress, type SanmonModes, type SanmonModeKey,
 } from 'learning-app-kit/sanmon';
+import { townBattleCost } from '../utils/townCost';
 import { MATH_CATEGORIES } from '../constants';
 import { PORTAL, isPortalConfigured } from '../services/portal';
 import { useLevelCaps } from '../data/adventure/growth';
@@ -29,6 +30,8 @@ export interface SanmonPortal {
   staminaIn: (townKey: string | null) => { town: number; common: number; total: number };
   earnedToday: number;
   units: SanmonUnitProgress[];
+  /** ぼうけんのバトル1回のスタミナ（町の達成度で 2〜5。アプリの無い町・町なしは 5） */
+  townCost: (townKey: string | null) => number;
   /** まだ開いていない町の単元名（MATH_CATEGORIES の name）。ぼうけん・デュエルで使う */
   lockedUnitNames: Set<string>;
   refresh: () => Promise<void>;
@@ -110,7 +113,9 @@ export function useSanmonPortal(): SanmonPortal {
     // ぼうけんの町のバトルは reason が「wild@div1」のように町つき。サーバが 町 → 共通 の順に使う（2026-11-09）
     const base = reason.split('@')[0];
     const townKey = reason.includes('@') ? reason.split('@')[1] : null;
-    const r = await spendStamina(PORTAL, s.studentId, eventId, SANMON_RULES.battleCost, reason);
+    // 町のバトルは 町の達成度で安くなる（2026-11-11）。数はサーバが決め直すので、ここは画面と合わせるため
+    const cost = townKey ? townBattleCost(status, townKey) : SANMON_RULES.battleCost;
+    const r = await spendStamina(PORTAL, s.studentId, eventId, cost, reason);
     if (r.stamina != null) setStatus((st) => (st ? { ...st, stamina: r.stamina! } : st));
     // 町のスタミナも変わるので読みなおす（バトルを始めるときだけ。1回 数十ms）
     if (r.ok) { void refresh(); return { ok: true }; }
@@ -128,7 +133,7 @@ export function useSanmonPortal(): SanmonPortal {
     if (r.stamina == null) return { ok: false, message: r.message };
     if (townKey) {
       const t = status?.towns?.[townKey] ?? 0;
-      return { ok: false, message: `スタミナが たりないよ（この町 ${t}・共通 ${r.stamina}。バトルには ${SANMON_RULES.battleCost}）。この町の 単元アプリで れんしゅう・本番テスト・実力の階段を すると、この町の スタミナが たまるよ` };
+      return { ok: false, message: `スタミナが たりないよ（この町 ${t}・共通 ${r.stamina}。バトルには ${cost}）。この町の 単元アプリで れんしゅう・本番テスト・実力の階段を すると、この町の スタミナが たまるよ` };
     }
     return { ok: false, message: `スタミナが たりないよ（共通 ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。実力の階段の はじめての段・はじめての熟達で 共通スタミナが たまるよ` };
   }, [refresh, status]);
@@ -137,6 +142,7 @@ export function useSanmonPortal(): SanmonPortal {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     towns: status?.towns ?? {}, staminaIn: (townKey: string | null) => staminaForTown(status, townKey),
     units, lockedUnitNames, refresh, spendForBattle,
+    townCost: (townKey: string | null) => (townKey ? townBattleCost(status, townKey) : SANMON_RULES.battleCost),
     modeOpen: (key: SanmonModeKey) => (trial ? trialOpen(key) : isModeOpen(modes, key)),
     modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ')
       : studentLocked(modes, key) ? STUDENT_LOCK_MESSAGE : modeLockMessage(modes, key)),
