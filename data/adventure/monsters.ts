@@ -188,7 +188,7 @@ export const BOSS_BY_UNIT: Record<string, MonsterDef> = Object.fromEntries(
 
 /** スプライトのパス。生成前でもレイアウトが崩れないようフォールバックを用意する。 */
 export const getMonsterSprite = (id: string): string =>
-  `${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/monsters/${id}.png`;
+  `${(import.meta as any).env?.BASE_URL ?? '/'}assets/adventure/monsters/${id}.webp`;
 
 // ---- レベルとステータス ----
 

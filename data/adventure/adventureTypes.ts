@@ -159,7 +159,7 @@ export interface FieldNpcDef {
     // 話しかけなくても自動でバトルになる(FieldScene が npcs とは別に扱う)。
     | 'ambush';
   name: string;
-  /** スプライトのファイル名(assets/adventure/npc/<sprite>.png) */
+  /** スプライトのファイル名(assets/adventure/npc/<sprite>.png。画面は同じ名前の .webp を読む) */
   sprite: string;
   /** フィールド座標 */
   x: number;

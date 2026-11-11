@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/strip-png-from-dist.mjs",
     "preview": "vite preview",
     "platform": "learning-app-kit-platform check",
     "prebuild": "npm run platform",
-    "check": "npm run platform && npx tsc --noEmit && node scripts/verify-app-rounds.mjs && node scripts/sim-party-duel.mjs && npm run build && node scripts/audit-problems.mjs",
+    "check": "npm run platform && npx tsc --noEmit && node scripts/make-webp.mjs --check && node scripts/verify-app-rounds.mjs && node scripts/sim-party-duel.mjs && npm run build && node scripts/audit-problems.mjs",
     "sync-apps": "node scripts/sync-app-sources.mjs"
   },
   "dependencies": {

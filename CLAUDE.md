@@ -195,6 +195,12 @@ node scripts/import-sprite.mjs <画像> <出力名> # 手描き・外部生成�
 `scripts/manual-sprites.json` に載っている絵は手で用意したものなので、
 生成スクリプトで上書きしない(スクリプト側が自動で避ける)。
 
+**画面が読むのは同じ名前の `.webp`**（2026-11-11 先生と決めた。品質90で見た目はほぼ同じ・通信は約4分の1。monsters/terrain/npc/player の 23MB → 6.7MB）。
+元の PNG はそのまま残し、絵を作る・直すスクリプトも PNG のまま。**PNG を足した・描きかえたら `node scripts/make-webp.mjs` を流してコミットする**
+（`npm run check` の `make-webp.mjs --check` が、作り直しの要る絵を止める。覚えは `scripts/webp-manifest.json`）。
+本番には PNG を出さない（`npm run build` のあとの `scripts/strip-png-from-dist.mjs`）。
+曲（`audio/*.mp3`）は 128kbps（2026-11-11。前は192kbps。66MB → 45MB）。曲を足すときも 128kbps にそろえる（`ffmpeg -i 元.mp3 -b:a 128k 新.mp3`）。
+
 ## 秘密情報
 
 Cloudflare の APIトークンは **環境変数か `.env.local` からしか読まない**。
