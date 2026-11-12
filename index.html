@@ -145,6 +145,16 @@ body {
       /* 同じく、SANMON では はたらかない「もどる」（上）と「さいしょから／もう１問」（下）は出さない（次の問題は SANMON が出す） */
       .app-paper .simulator-container > div:first-child > button:first-child { visibility: hidden; }
       .app-paper .simulator-container button.border-t { display: none; }
+      /* バトルの制限時間を超えたときの「こうげきされた」演出（BattleScreen。2026-11-12） */
+      @keyframes adv-shake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-7px,2px); } 40% { transform: translate(7px,-2px); } 60% { transform: translate(-5px,1px); } 80% { transform: translate(5px,-1px); } }
+      .adv-shake { animation: adv-shake .45s ease-in-out; }
+      @keyframes adv-lunge { 0% { transform: scale(1); } 35% { transform: scale(1.9) translateY(10px); } 100% { transform: scale(1); } }
+      .adv-lunge { animation: adv-lunge .5s ease-out; }
+      @keyframes adv-attack-banner { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.6); } 15% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } 75% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-62%) scale(1); } }
+      .adv-attack-banner { animation: adv-attack-banner .95s ease-out forwards; }
+      @keyframes adv-attack-flash { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+      .adv-attack-flash { animation: adv-attack-flash .6s ease-out forwards; }
+      @media (prefers-reduced-motion: reduce) { .adv-shake, .adv-lunge { animation: none; } }
 </style>
 </head>
   <body>

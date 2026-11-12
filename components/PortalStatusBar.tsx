@@ -38,7 +38,7 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
               <p className="text-amber-200 font-black text-[13px]">スタミナの しくみ　<span className="text-gray-300 font-bold">（きょう たまった：<b className="text-amber-300">{portal.earnedToday}</b>）</span></p>
               <div className="rounded-lg bg-black/30 px-2.5 py-2">
                 <p className="font-black text-white">● バトルを すると スタミナを つかう</p>
-                <p>ぼうけんの バトル 1回で 5。その町の アプリの もんだいを「できた」に するほど 安くなるよ（はんぶん → 4・4分の3 → 3・ぜんぶ → 2）。</p>
+                <p>ぼうけんの バトル 1回で 5。その町の アプリの もんだいを「できた」に するほど 安くなるよ（はんぶん → 4・4分の3 → 3・ぜんぶ → 2）。アプリの ない 町（大きい数・折れ線グラフ・角）は 1回 3。</p>
               </div>
               <div className="rounded-lg bg-black/30 px-2.5 py-2">
                 <p className="font-black text-white">● スタミナは 2しゅるい</p>

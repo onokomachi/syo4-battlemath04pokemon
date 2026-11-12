@@ -12,7 +12,7 @@ import type {
 } from '../../data/adventure/adventureTypes';
 import type { ItemId } from '../../data/adventure/adventureTypes';
 import { TOWNS, SPAWN, BADGE_NAMES, getTown } from '../../data/adventure/towns';
-import { MONSTERS_BY_UNIT, getMonster, getMonsterSprite } from '../../data/adventure/monsters';
+import { MONSTERS_BY_UNIT, BOSS_BY_UNIT, getMonster, getMonsterSprite } from '../../data/adventure/monsters';
 import { battleProblems } from '../../data';
 import { ELEMENTS } from '../../data/adventure/elements';
 import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure/people';
@@ -77,6 +77,9 @@ interface Dialogue {
   onDone: () => void;
 }
 
+/** ジムリーダーに勝った町で、草むらにボスモンスターが出る確率（2026-11-12。10回に1回） */
+const BOSS_WILD_RATE = 0.1;
+
 const AdventureMode: React.FC<Props> = ({
   onExit, lockedUnits, unitProgress, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle, stamina,
 }) => {
@@ -100,7 +103,11 @@ const AdventureMode: React.FC<Props> = ({
    * スタミナが足りなければ、そのことを ことばで知らせて始めない。
    */
   const requestingRef = useRef(false);
-  const startBattle = useCallback((setup: BattleSetup) => {
+  const startBattle = useCallback((raw: BattleSetup) => {
+    // 敵のレベルを 手持ちの育ちぐあい・バッジの数に合わせて引き上げる（2026-11-12。伝説・幻は そのまま）
+    const setup: BattleSetup = raw.kind === 'legend' || raw.kind === 'legend-wild'
+      ? raw
+      : { ...raw, opponents: raw.opponents.map(o => ({ ...o, level: scaledOpponentLevel(useAdventureStore.getState().save, o.level) })) };
     if (!onRequestBattle) { setBattle(setup); return; }
     if (requestingRef.current) return;
     requestingRef.current = true;
@@ -386,6 +393,10 @@ const AdventureMode: React.FC<Props> = ({
       });
     };
     (window as any).__advGive = (defId: string, level = 5) => store.catchMonster(defId, level);
+    // バッジをまとめて もらう（制限時間・ボスの野生出現の確かめ用。開発ビルドだけ）
+    (window as any).__advBadges = (n: number) => TOWNS.slice(0, n).forEach(t => store.awardBadge(t.id));
+    // いまの町で 野生と出会う（開発ビルドだけ）
+    (window as any).__advEncounter = () => handleEncounter();
     // ショップの店員さんまで歩かなくても ショップ（ガチャの入り口）を開けるように
     (window as any).__advOverlay = (o: Overlay) => setOverlay(o);
     (window as any).__advState = () => ({
@@ -448,8 +459,14 @@ const AdventureMode: React.FC<Props> = ({
     if (battle || dialogue) return;
     const pool = MONSTERS_BY_UNIT[town.unit] ?? [];
     if (pool.length === 0) return;
-    const def = pool[Math.floor(Math.random() * pool.length)];
-    const level = scaledOpponentLevel(save, Math.max(2, town.wildLevel + Math.floor(Math.random() * 3) - 1));
+    // ジムリーダー（マスター）に勝った町では、ジムリーダーだけが持っていたボスモンスターも
+    // まれに野生で出る（2026-11-12 先生と決めた。BOSS_WILD_RATE）。出題はボスと同じ「その単元でいちばん難しい項目」。
+    const boss = BOSS_BY_UNIT[town.unit];
+    const bossAppears = !!boss && save.badges.includes(town.id) && Math.random() < BOSS_WILD_RATE;
+    const def = bossAppears ? boss : pool[Math.floor(Math.random() * pool.length)];
+    const level = bossAppears
+      ? town.wildLevel + 5  // マスター戦のボスと同じ基準
+      : Math.max(2, town.wildLevel + Math.floor(Math.random() * 3) - 1);  // 手持ち・バッジでの引き上げは startBattle で
     startBattle({
       kind: 'wild',
       opponents: [{ defId: def.id, level }],
@@ -707,7 +724,7 @@ const AdventureMode: React.FC<Props> = ({
           trainerName: npc.name,
           trainerSprite: npc.sprite,
           trainerAfterLines: npc.afterLines,
-          opponents: (npc.party ?? []).map(o => ({ ...o, level: scaledOpponentLevel(save, o.level) })),
+          opponents: npc.party ?? [],  // 手持ち・バッジでの引き上げは startBattle で
           subtopics: npc.subtopics,
           questionsPerOpponent: npc.kind === 'master' ? 4 : trainerHasSlowGuided ? 2 : 3,
           catchable: false,
