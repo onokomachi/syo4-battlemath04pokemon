@@ -21,7 +21,7 @@ import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
 import { GACHA_RULES } from '../../data/adventure/gacha';
-import { abilityOf, releaseMp, stars } from '../../data/adventure/abilities';
+import { ABILITIES as POWERS, releaseMp, powerLabel, powerEffect } from '../../data/adventure/abilities';
 import { SANMON_RULES, sanmonTownKeyOf, type SanmonUnitProgress } from 'learning-app-kit/sanmon';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
@@ -383,6 +383,7 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
                 <img
                   src={getMonsterSprite(spriteIdFor(save, p.owned))}
                   alt=""
+                  style={p.owned.shiny ? { filter: 'drop-shadow(0 0 8px #facc15)' } : undefined}
                   className="w-20 h-20 object-contain shrink-0"
                   onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
                 />
@@ -423,12 +424,13 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
               <p className="mt-1 text-[11px] font-bold text-slate-500">
                 とくせい {ABILITIES[p.def.ability].icon} {ABILITIES[p.def.ability].name}
               </p>
-              {abilityOf(p.owned.power) && (
-                <p className="mt-0.5 text-[11px] font-black text-amber-600" title={abilityOf(p.owned.power)!.desc}>
-                  アビリティ {abilityOf(p.owned.power)!.icon} {stars(abilityOf(p.owned.power)!.rarity)} {abilityOf(p.owned.power)!.name}
-                  <span className="block text-[10px] font-bold text-slate-400">{abilityOf(p.owned.power)!.desc}</span>
+              {p.owned.shiny && <p className="mt-0.5 text-[11px] font-black text-yellow-600">✦ ひかりのこ（色ちがい）</p>}
+              {(p.owned.powers ?? []).map(pw => (
+                <p key={pw.id} className="mt-0.5 text-[11px] font-black text-amber-600">
+                  アビリティ {powerLabel(pw)}
+                  <span className="block text-[10px] font-bold text-slate-400">{powerEffect(pw)}</span>
                 </p>
-              )}
+              ))}
               {i === 0 && (
                 <p className="mt-1 text-[11px] font-black text-sky-600">せんとう</p>
               )}
@@ -471,6 +473,7 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
               <img
                 src={getMonsterSprite(spriteIdFor(save, o))}
                 alt=""
+                style={o.shiny ? { filter: 'drop-shadow(0 0 8px #facc15)' } : undefined}
                 className="w-full aspect-square object-contain"
                 onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
               />
@@ -478,9 +481,10 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
                 {displayNameFor(save, o)}
               </p>
               <p className="text-[10px] font-bold text-slate-500">Lv.{o.level}{shards ? `／${levelCapOf(def, shards)}` : ''}</p>
-              {abilityOf(o.power) && (
-                <p className="text-[10px] font-black text-amber-600 truncate" title={abilityOf(o.power)!.desc}>
-                  {abilityOf(o.power)!.icon}{stars(abilityOf(o.power)!.rarity)}
+              {(o.shiny || (o.powers ?? []).length > 0) && (
+                <p className="text-[10px] font-black text-amber-600 truncate" title={(o.powers ?? []).map(pw => `${powerLabel(pw)}（${powerEffect(pw)}）`).join('／')}>
+                  {o.shiny && <span className="text-yellow-500">✦</span>}
+                  {(o.powers ?? []).map(pw => `${POWERS[pw.id].icon}Lv${pw.lv}`).join(' ')}
                 </p>
               )}
             </button>
@@ -493,15 +497,16 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
         const o = save.owned.find(x => x.uid === releasing);
         const def = o ? getMonster(o.defId) : undefined;
         if (!o || !def) return null;
-        const pw = abilityOf(o.power);
-        const mp = releaseMp(o.power);
+        const pws = o.powers ?? [];
+        const mp = releaseMp(o);
         return (
           <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4" onClick={() => setReleasing(null)}>
             <div className="w-full max-w-sm rounded-3xl bg-white p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
               <img src={getMonsterSprite(spriteIdFor(save, o))} alt="" className="mx-auto h-24 w-24 object-contain" />
               <p className="mt-1 text-lg font-black text-slate-800">{displayNameFor(save, o)} Lv.{o.level} を にがす？</p>
-              {pw
-                ? <p className="mt-1 text-sm font-black text-amber-600">アビリティ {pw.icon} {stars(pw.rarity)} {pw.name}</p>
+              {o.shiny && <p className="mt-1 text-sm font-black text-yellow-600">✦ ひかりのこ（色ちがい）</p>}
+              {pws.length > 0
+                ? pws.map(pw => <p key={pw.id} className="mt-1 text-sm font-black text-amber-600">{powerLabel(pw)}<span className="block text-xs font-bold text-slate-500">{powerEffect(pw)}</span></p>)
                 : <p className="mt-1 text-sm font-bold text-slate-400">アビリティ なし</p>}
               <p className="mt-2 text-sm font-bold text-slate-600">にがすと MP {mp} もらえるよ。もう もどってこないよ。</p>
               <div className="mt-4 grid grid-cols-2 gap-2">

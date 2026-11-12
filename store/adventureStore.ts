@@ -23,7 +23,15 @@ import type { KidnappedRecord, OwnedMonster, TownDef } from '../data/adventure/a
 import { GROWTH_RULES, dailyEffective, levelCapOf, todayKey } from '../data/adventure/growth';
 import { GACHA_RULES, LEARNING_REWARDS, migrateOldStickers, rollGacha, type GachaPrize } from '../data/adventure/gacha';
 import { ITEMS, type ItemId } from '../data/adventure/adventureTypes';
-import { rollAbility, abilityHpMult, abilityExpMult, releaseMp } from '../data/adventure/abilities';
+import { rollPowers, abilityHpMult, abilityExpMult, releaseMp } from '../data/adventure/abilities';
+
+/** アビリティの しくみの版（これでない子は 読みこみ時に きめなおす） */
+export const POWER_VER = 2;
+const withPowers = <T extends OwnedMonster>(o: T): T => {
+  const { powers, shiny } = rollPowers();
+  const { power: _old, ...rest } = o;
+  return { ...rest, powers, shiny, powerVer: POWER_VER } as T;
+};
 
 const KEY = 'bm_adventure_v1';
 const SLOTS_KEY = 'bm_adventure_slots_v1';
@@ -192,9 +200,9 @@ const hydrateSave = (partial: Partial<AdventureSave> | null | undefined): Advent
     const mastery = getAllMastery();
     merged.masteryCoined = Object.keys(mastery).filter(k => mastery[k]?.mastered);
   }
-  // アビリティの機能より前に つかまえた子には、1回だけ アビリティを きめる（2026-11-12）
-  if (merged.owned.some(o => o.power === undefined)) {
-    merged.owned = merged.owned.map(o => (o.power === undefined ? { ...o, power: rollAbility() } : o));
+  // アビリティ（種類＋Lv。2026-11-12）が まだの子・前のしくみの子は、1回だけ きめなおす
+  if (merged.owned.some(o => o.powerVer !== POWER_VER)) {
+    merged.owned = merged.owned.map(o => (o.powerVer !== POWER_VER ? withPowers(o) : o));
   }
   return merged;
 };
@@ -256,7 +264,7 @@ export const playerMaxHp = (save: AdventureSave): number =>
 /** その個体の最大HP(レベルから毎回もとめる) */
 export const monsterMaxHp = (o: OwnedMonster): number => {
   const def = getMonster(o.defId);
-  return def ? Math.round(statsAtLevel(def, o.level).maxHp * abilityHpMult(o.power)) : 1;
+  return def ? Math.round(statsAtLevel(def, o.level).maxHp * abilityHpMult(o)) : 1;
 };
 
 /** その個体のいまのHP(未設定なら満タン扱い) */
@@ -403,9 +411,9 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
     },
 
     startGame: (playerName, appearance, starterDefId) => {
-      const starter: OwnedMonster = {
-        uid: newUid(), defId: starterDefId, level: 5, exp: 0, caughtAt: Date.now(), power: rollAbility(),
-      };
+      const starter: OwnedMonster = withPowers({
+        uid: newUid(), defId: starterDefId, level: 5, exp: 0, caughtAt: Date.now(),
+      });
       const base = emptySave();
       // ぼうけんを始める前に れんしゅう・ふくしゅうで もらったコインと道具は、なくさずに持っていく
       const before = get().save;
@@ -492,7 +500,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       if (!o) return { ok: false, reason: 'その子は いないよ' };
       if (s0.owned.length <= 1) return { ok: false, reason: 'さいごの 1体は にがせないよ' };
       if (s0.legends.includes(o.defId)) return { ok: false, reason: '伝説・幻の モンスターは にがせないよ' };
-      const mp = releaseMp(o.power);
+      const mp = releaseMp(o);
       update(s => {
         const owned = s.owned.filter(x => x.uid !== uid);
         let party = s.party.filter(x => x !== uid);
@@ -506,7 +514,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
     catchMonster: (defId, level) => {
       // つかまえた子は元気な状態で仲間になる(弱らせてから捕まえる都合上、
       // 捕獲時のHPをそのまま引きつぐと瀕死のまま加入してしまうため)
-      const mon: OwnedMonster = { uid: newUid(), defId, level, exp: 0, caughtAt: Date.now(), power: rollAbility() };
+      const mon: OwnedMonster = withPowers({ uid: newUid(), defId, level, exp: 0, caughtAt: Date.now() });
       mon.hp = monsterMaxHp(mon);
       update(s => {
         const party = s.party.length < 3 ? [...s.party, mon.uid] : s.party;
@@ -554,7 +562,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
           const cap = levelCapOf(getMonster(o.defId));
           let lv = o.level;
           // アビリティ「まなびのたね」は けいけんち +20%
-          let ex = o.exp + Math.round(exp * abilityExpMult(o.power));
+          let ex = o.exp + Math.round(exp * abilityExpMult(o));
           while (ex >= expToNext(lv) && lv < cap) {
             ex -= expToNext(lv);
             lv += 1;
