@@ -19,7 +19,7 @@ import { CHAMPION, ELITE_FOUR, RIVALS, getNpcSprite } from '../../data/adventure
 import {
   useAdventureStore, canChallengeLeague, gymProgress, earnedAdventureTitles,
   shrinesInTown, pendingTeamChapter, canEnterHideout, evolvableInParty,
-  ambushCondition, kidnappedInTown, pickKidnapCandidate, scaledOpponentLevel, partyHpTotals,
+  ambushCondition, kidnappedInTown, pickKidnapCandidate, scaledOpponentLevel, legendOpponentLevel, partyHpTotals,
 } from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
 import { getLegend, legendsInTown } from '../../data/adventure/legends';
@@ -105,9 +105,13 @@ const AdventureMode: React.FC<Props> = ({
   const requestingRef = useRef(false);
   const startBattle = useCallback((raw: BattleSetup) => {
     // 敵のレベルを 手持ちの育ちぐあい・バッジの数に合わせて引き上げる（2026-11-12。伝説・幻は そのまま）
-    const setup: BattleSetup = raw.kind === 'legend' || raw.kind === 'legend-wild'
-      ? raw
-      : { ...raw, opponents: raw.opponents.map(o => ({ ...o, level: scaledOpponentLevel(useAdventureStore.getState().save, o.level) })) };
+    // 伝説・幻は「決めてあるレベル」と「手持ちの平均＋10」の高い方（いつも一段えらい。2026-11-12）
+    const cur = useAdventureStore.getState().save;
+    const isLegend = raw.kind === 'legend' || raw.kind === 'legend-wild';
+    const setup: BattleSetup = {
+      ...raw,
+      opponents: raw.opponents.map(o => ({ ...o, level: isLegend ? legendOpponentLevel(cur, o.level) : scaledOpponentLevel(cur, o.level) })),
+    };
     if (!onRequestBattle) { setBattle(setup); return; }
     if (requestingRef.current) return;
     requestingRef.current = true;
@@ -842,7 +846,8 @@ const AdventureMode: React.FC<Props> = ({
       const legend = getLegend(setup.legendId);
       if (result.won && legend) {
         store.addLegend(legend.id);
-        store.catchMonster(legend.id, legend.level);
+        // たたかったときのレベルのまま 仲間になる（手持ちに合わせて上がっていることがある。2026-11-12）
+        store.catchMonster(legend.id, setup.opponents[0]?.level ?? legend.level);
         after.push({
           speaker: legend.name, accent: legend.shrine.color,
           lines: legend.joinText,
@@ -1436,7 +1441,7 @@ const AdventureMode: React.FC<Props> = ({
       {/* メニュー */}
       {overlay === 'dex' && <DexScreen onClose={() => setOverlay('none')} />}
       {overlay === 'card' && <TrainerCardScreen onClose={() => setOverlay('none')} />}
-      {overlay === 'party' && <PartyScreen onClose={() => setOverlay('none')} />}
+      {overlay === 'party' && <PartyScreen onClose={() => setOverlay('none')} onReleaseMp={mp => onAddMathPoints(mp)} />}
       {overlay === 'shop' && (
         <ShopScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onBuy={handleBuy} onOpenGacha={() => setOverlay('gacha')} />
       )}

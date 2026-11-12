@@ -29,15 +29,25 @@ export interface GymRequirement {
 }
 
 /** 単元の大きさから条件を決める。小さい町でいきなり詰まらないよう上限を設けている。 */
-export const requirementFor = (town: TownDef): GymRequirement => {
+/** バッジ1こごとに、つかまえる数・正解数を 1割ずつ ふやす（2026-11-12 先生と決めた） */
+export const GYM_STEP_PER_BADGE = 0.1;
+
+/**
+ * badges = いま持っているバッジの数（その町のバッジは まだ無い）。進むほど ジムに挑む条件が きびしくなる。
+ * つかまえる数は その単元のモンスターの数より ふやさない。
+ */
+export const requirementFor = (town: TownDef, badges = 0): GymRequirement => {
   const pool = MONSTERS_BY_UNIT[town.unit] ?? [];
   const size = pool.length;
+  const mult = 1 + GYM_STEP_PER_BADGE * Math.max(0, badges);
+  // サブトピックの約1/4。最低2体、最大6体（バッジぶん ふやす）。
+  const baseCatch = Math.max(2, Math.min(6, Math.round(size / 4)));
+  // サブトピック数の約1.5倍。最低6問、最大30問（バッジぶん ふやす）。
+  const baseCorrect = Math.max(6, Math.min(30, Math.round(size * 1.5)));
   return {
     trainerIds: town.npcs.filter(n => n.kind === 'trainer').map(n => n.id),
-    // サブトピックの約1/4。最低2体、最大6体。
-    catchCount: Math.max(2, Math.min(6, Math.round(size / 4))),
-    // サブトピック数の約1.5倍。最低6問、最大30問。
-    correctCount: Math.max(6, Math.min(30, Math.round(size * 1.5))),
+    catchCount: Math.min(Math.max(1, size), Math.round(baseCatch * mult)),
+    correctCount: Math.round(baseCorrect * mult),
   };
 };
 
