@@ -1,82 +1,102 @@
 /**
- * アビリティ（個体ごとの能力。2026-11-12 先生と決めた）。
+ * アビリティ（個体ごとの能力。2026-11-12 先生と決めた。同じ日に「種類＋Lv1〜5＋複数もち」に作りなおした）。
  *
- * 同じ種類のモンスターでも、つかまえるたびに ランダムで アビリティが つく（つかないことも多い）。
- * めずらしさは ★1〜★5。めずらしいほど 出にくい（★5 は 1000体に1体）。
- * 「にがす」と MP が もらえるので、いい アビリティの子を さがして 何度も つかまえられる。
+ * - アビリティの「種類」は11。どれも同じ出やすさ（種類ごとの めずらしさは つけない）。
+ * - 1つ1つに Lv1〜Lv5 があり、Lv が高いほど よく効き、出にくい。
+ * - たまに 2つ・3つ もっている子がいる。「どのアビリティか・Lv・いくつもっているか」で いい子を さがせる（厳選）。
+ * - 出やすさ（きびしめ）：数 なし55％・1つ40％・2つ4.5％・3つ0.5％／Lv（それぞれ）Lv1 55％・Lv2 28％・Lv3 12％・Lv4 4.5％・Lv5 0.5％。
+ * - 「✦ひかりのこ」（色ちがい）は アビリティとは別。1000体に1体。からだが光るだけで 強さは変わらない。
  *
- * - 種類ごとの「とくせい」（MonsterDef.ability）とは別のもの。名前が まざらないよう「アビリティ」と よぶ。
- * - 効くのは ぼうけんのバトル（BattleScreen）と けいけんち・HP。モンスター対戦・クラス対戦（サーバが決める）には効かない。
- * - セーブには id（数文字）だけを足す。通信・サーバの負担は ほぼ増えない。
+ * - 種類ごとの「とくせい」（MonsterDef.ability）とは別のもの。
+ * - 効くのは ぼうけんのバトル（BattleScreen）と さいだいHP・けいけんち。モンスター対戦・クラス対戦（サーバが決める）には効かない。
+ * - セーブには 種類と Lv（数十文字）だけを足す。通信・サーバの負担は ほぼ増えない。
  */
 export type PowerId =
   | 'gutsy' | 'sturdy' | 'patient'
   | 'keeneye' | 'tenacity' | 'shield'
   | 'healwind' | 'timeguard' | 'combo'
-  | 'scholar' | 'fortune'
-  | 'radiant';
+  | 'scholar' | 'fortune';
+
+export type PowerLv = 1 | 2 | 3 | 4 | 5;
+export interface OwnedPower { id: PowerId; lv: PowerLv }
 
 export interface AbilityDef {
   id: PowerId;
   name: string;
-  rarity: 1 | 2 | 3 | 4 | 5;
   icon: string;
-  /** 子ども向けの説明（短く） */
-  desc: string;
+  /** Lv1〜Lv5 の 効き目の数（index 0 が Lv1） */
+  values: [number, number, number, number, number];
+  /** 効き目を 子ども向けの ことばに する（v＝その Lv の数） */
+  text: (v: number) => string;
 }
 
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+/**
+ * 効き目の表（2026-11-12 先生と決めた。6つは そのまま・5つは 2倍）。
+ * そのまま：がんばりや・がっしり・ねばりごし・まもりのこころ・ときのまもり・れんげき
+ * 2倍：おちつき・きゅうしょのめ・いやしのかぜ・まなびのたね・こがねのつめ
+ */
 export const ABILITIES: Record<PowerId, AbilityDef> = {
-  // ★1
-  gutsy:     { id: 'gutsy',     rarity: 1, icon: '💪', name: 'がんばりや',     desc: 'こうげきが 少し強い（+5%）' },
-  sturdy:    { id: 'sturdy',    rarity: 1, icon: '🪨', name: 'がっしり',       desc: 'さいだいHPが 少し多い（+5%）' },
-  patient:   { id: 'patient',   rarity: 1, icon: '🍵', name: 'おちつき',       desc: 'せいげん時間が 3びょう 長い' },
-  // ★2
-  keeneye:   { id: 'keeneye',   rarity: 2, icon: '🎯', name: 'きゅうしょのめ', desc: 'せいかいしたとき 10%で こうげき2ばい' },
-  tenacity:  { id: 'tenacity',  rarity: 2, icon: '🦴', name: 'ねばりごし',     desc: 'バトルで1回だけ、たおれずに HP1で たえる' },
-  shield:    { id: 'shield',    rarity: 2, icon: '🛡️', name: 'まもりのこころ', desc: 'まちがえたときの ダメージが 2わり へる' },
-  // ★3
-  healwind:  { id: 'healwind',  rarity: 3, icon: '🍃', name: 'いやしのかぜ',   desc: 'せいかいするたび HPが さいだいの5% もどる' },
-  timeguard: { id: 'timeguard', rarity: 3, icon: '⏳', name: 'ときのまもり',   desc: 'せいげん時間 1.5ばい・時間の こうげき はんぶん' },
-  combo:     { id: 'combo',     rarity: 3, icon: '⚡', name: 'れんげき',       desc: '2もん れんぞく せいかいで こうげき +25%' },
-  // ★4
-  scholar:   { id: 'scholar',   rarity: 4, icon: '📚', name: 'まなびのたね',   desc: 'けいけんちが +20%' },
-  fortune:   { id: 'fortune',   rarity: 4, icon: '🪙', name: 'こがねのつめ',   desc: 'たおしたときの MPが +30%' },
-  // ★5
-  radiant:   { id: 'radiant',   rarity: 5, icon: '✨', name: 'ひかりのこ',     desc: 'こうげき・さいだいHP +10%、せいげん時間 +3びょう。からだが 光る' },
+  gutsy:     { id: 'gutsy',     icon: '💪', name: 'がんばりや',     values: [0.02, 0.04, 0.06, 0.08, 0.10], text: v => `こうげき +${pct(v)}` },
+  sturdy:    { id: 'sturdy',    icon: '🪨', name: 'がっしり',       values: [0.02, 0.04, 0.06, 0.08, 0.10], text: v => `さいだいHP +${pct(v)}` },
+  patient:   { id: 'patient',   icon: '🍵', name: 'おちつき',       values: [2, 4, 6, 8, 10],               text: v => `せいげん時間 +${v}びょう` },
+  keeneye:   { id: 'keeneye',   icon: '🎯', name: 'きゅうしょのめ', values: [0.08, 0.12, 0.16, 0.20, 0.24], text: v => `せいかいで ${pct(v)}の かくりつで こうげき2ばい` },
+  tenacity:  { id: 'tenacity',  icon: '🦴', name: 'ねばりごし',     values: [0.2, 0.4, 0.6, 0.8, 1.0],      text: v => `バトルで1回、${pct(v)}の かくりつで HP1で たえる` },
+  shield:    { id: 'shield',    icon: '🛡️', name: 'まもりのこころ', values: [0.04, 0.08, 0.12, 0.16, 0.20], text: v => `まちがえたときの ダメージ −${pct(v)}` },
+  healwind:  { id: 'healwind',  icon: '🍃', name: 'いやしのかぜ',   values: [0.02, 0.04, 0.06, 0.08, 0.10], text: v => `せいかいで HPが さいだいの${pct(v)} もどる` },
+  timeguard: { id: 'timeguard', icon: '⏳', name: 'ときのまもり',   values: [1.1, 1.2, 1.3, 1.4, 1.5],      text: v => `せいげん時間 ×${v}` },
+  combo:     { id: 'combo',     icon: '⚡', name: 'れんげき',       values: [0.05, 0.10, 0.15, 0.20, 0.25], text: v => `2もん れんぞく せいかいで こうげき +${pct(v)}` },
+  scholar:   { id: 'scholar',   icon: '📚', name: 'まなびのたね',   values: [0.08, 0.16, 0.24, 0.32, 0.40], text: v => `けいけんち +${pct(v)}` },
+  fortune:   { id: 'fortune',   icon: '🪙', name: 'こがねのつめ',   values: [0.12, 0.24, 0.36, 0.48, 0.60], text: v => `たおしたときの MP +${pct(v)}` },
+};
+export const POWER_IDS = Object.keys(ABILITIES) as PowerId[];
+
+/** いくつ もつか（きびしめ。合計100） */
+export const POWER_COUNT_WEIGHTS: [number, number, number, number] = [55, 40, 4.5, 0.5];
+/** Lv の出やすさ（それぞれ。Lv1〜Lv5。合計100） */
+export const POWER_LV_WEIGHTS: [number, number, number, number, number] = [55, 28, 12, 4.5, 0.5];
+/** 色ちがい（✦ひかりのこ）の かくりつ */
+export const SHINY_RATE = 0.001;
+
+const pickWeighted = (weights: number[], rand: () => number): number => {
+  let r = rand() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
+  return weights.length - 1;
 };
 
-/** めずらしさごとの出やすさ（合計100）。なし55％・★1 28％・★2 12％・★3 4％・★4 0.9％・★5 0.1％ */
-export const ABILITY_RARITY_WEIGHTS: Record<0 | 1 | 2 | 3 | 4 | 5, number> = {
-  0: 55, 1: 28, 2: 12, 3: 4, 4: 0.9, 5: 0.1,
-};
-
-/** つかまえたときに アビリティを きめる（null＝なし） */
-export function rollAbility(rand: () => number = Math.random): PowerId | null {
-  let r = rand() * 100;
-  let rarity: 0 | 1 | 2 | 3 | 4 | 5 = 0;
-  for (const k of [0, 1, 2, 3, 4, 5] as const) {
-    r -= ABILITY_RARITY_WEIGHTS[k];
-    if (r < 0) { rarity = k; break; }
-    rarity = k;
+/** つかまえたときに アビリティ（0〜3つ）と 色ちがいを きめる */
+export function rollPowers(rand: () => number = Math.random): { powers: OwnedPower[]; shiny: boolean } {
+  const count = pickWeighted(POWER_COUNT_WEIGHTS, rand);
+  const pool = POWER_IDS.slice();
+  const powers: OwnedPower[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = pool.splice(Math.floor(rand() * pool.length), 1)[0];
+    powers.push({ id, lv: (pickWeighted(POWER_LV_WEIGHTS, rand) + 1) as PowerLv });
   }
-  if (rarity === 0) return null;
-  const pool = Object.values(ABILITIES).filter(a => a.rarity === rarity);
-  return pool[Math.floor(rand() * pool.length)]?.id ?? null;
+  return { powers, shiny: rand() < SHINY_RATE };
 }
 
-export const abilityOf = (id: PowerId | null | undefined): AbilityDef | null => (id ? ABILITIES[id] ?? null : null);
+type HasPowers = { powers?: OwnedPower[] | null } | null | undefined;
+/** その子が もつ その アビリティの Lv（なければ 0） */
+export const powerLv = (o: HasPowers, id: PowerId): number => o?.powers?.find(p => p.id === id)?.lv ?? 0;
+/** その子の その アビリティの 効き目の数（なければ null） */
+export const powerValue = (o: HasPowers, id: PowerId): number | null => {
+  const lv = powerLv(o, id);
+  return lv ? ABILITIES[id].values[lv - 1] : null;
+};
 
-export const stars = (rarity: number): string => '★'.repeat(rarity);
+export const powerLabel = (p: OwnedPower): string => `${ABILITIES[p.id].icon} ${ABILITIES[p.id].name} Lv${p.lv}`;
+export const powerEffect = (p: OwnedPower): string => ABILITIES[p.id].text(ABILITIES[p.id].values[p.lv - 1]);
 
 /** さいだいHPの ばいりつ */
-export const abilityHpMult = (id: PowerId | null | undefined): number =>
-  id === 'sturdy' ? 1.05 : id === 'radiant' ? 1.1 : 1;
+export const abilityHpMult = (o: HasPowers): number => 1 + (powerValue(o, 'sturdy') ?? 0);
 /** こうげきの ばいりつ */
-export const abilityAtkMult = (id: PowerId | null | undefined): number =>
-  id === 'gutsy' ? 1.05 : id === 'radiant' ? 1.1 : 1;
+export const abilityAtkMult = (o: HasPowers): number => 1 + (powerValue(o, 'gutsy') ?? 0);
 /** けいけんちの ばいりつ */
-export const abilityExpMult = (id: PowerId | null | undefined): number => (id === 'scholar' ? 1.2 : 1);
+export const abilityExpMult = (o: HasPowers): number => 1 + (powerValue(o, 'scholar') ?? 0);
 
-/** にがしたときに もらえる MP（めずらしいほど多い） */
-export const RELEASE_MP: Record<0 | 1 | 2 | 3 | 4 | 5, number> = { 0: 10, 1: 20, 2: 40, 3: 100, 4: 250, 5: 600 };
-export const releaseMp = (id: PowerId | null | undefined): number => RELEASE_MP[(abilityOf(id)?.rarity ?? 0) as 0 | 1 | 2 | 3 | 4 | 5];
+/** にがしたときに もらえる MP（Lv が高いほど・数が多いほど・色ちがいは 多い） */
+export const RELEASE_MP_BY_LV = [0, 10, 25, 60, 150, 400];
+export const releaseMp = (o: (HasPowers & { shiny?: boolean }) | null | undefined): number =>
+  10 + (o?.powers ?? []).reduce((a, p) => a + RELEASE_MP_BY_LV[p.lv], 0) + (o?.shiny ? 300 : 0);

@@ -1,4 +1,4 @@
-import type { PowerId } from './abilities';
+import type { OwnedPower } from './abilities';
 
 /**
  * adventureTypes.ts — 3Dアドベンチャーモード(ナンバーランド)の型定義。
@@ -94,10 +94,15 @@ export interface OwnedMonster {
    */
   hp?: number;
   /**
-   * 個体ごとの アビリティ（data/adventure/abilities.ts。2026-11-12）。null＝なし。
-   * undefined は この機能より前に つかまえた子（読みこんだときに 1回だけ きめる）。
+   * 個体ごとの アビリティ（data/adventure/abilities.ts。種類と Lv1〜5。0〜3つ。2026-11-12）。
+   * powerVer が 2 でない子（前に つかまえた子・前のしくみの子）は、読みこんだときに 1回だけ きめなおす。
    */
-  power?: PowerId | null;
+  powers?: OwnedPower[];
+  /** 色ちがい（✦ひかりのこ）。光るだけで 強さは変わらない */
+  shiny?: boolean;
+  powerVer?: number;
+  /** 前のしくみ（2026-11-12 の数時間だけ）。読みこむと消す */
+  power?: string | null;
 }
 
 /**

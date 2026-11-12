@@ -37,7 +37,7 @@ import { DialogueBox } from './ui/DialogueBox';
 import { playBattleBgm, playLegendBgm, stopBattleBgm } from './audio/bgm';
 import { playHitSfx, playWinSfx, playLevelUpSfx } from './audio/sfx';
 import { TIME_LIMIT_MIN_BADGES, TIME_ATTACK_EVERY_SEC, TIME_ATTACK_RATIO, timeLimitSec } from '../../data/adventure/battleTimer';
-import { abilityOf, abilityAtkMult, stars } from '../../data/adventure/abilities';
+import { abilityAtkMult, powerValue, powerLabel, powerEffect, type PowerId } from '../../data/adventure/abilities';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -166,9 +166,10 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       prev.map((h, i) => (i === activeIdx ? Math.max(0, Math.min(fn(h), activeMaxHp)) : h)),
     );
   /** いま出ている子の アビリティ（個体ごと。data/adventure/abilities.ts） */
-  const power = active?.owned.power ?? null;
-  const powerDef = abilityOf(power);
-  const myAtk = active ? statsAtLevel(active.def, active.owned.level).atk * abilityAtkMult(power) : 8;
+  const activeOwned = active?.owned;
+  /** いま出ている子の その アビリティの 効き目（もっていなければ null。Lv で数が変わる） */
+  const pv = (id: PowerId): number | null => powerValue(activeOwned, id);
+  const myAtk = active ? statsAtLevel(active.def, active.owned.level).atk * abilityAtkMult(activeOwned) : 8;
   // いまのHP（タイマーなど あとから よばれる関数でも 最新を見るため）
   const hpRef = useRef(0);
   hpRef.current = hps[activeIdx] ?? 0;
@@ -181,7 +182,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     const cur = hpRef.current;
     let next = Math.max(0, cur - dmg);
     const uid = active?.owned.uid;
-    if (power === 'tenacity' && uid && !tenacityUsed.current.has(uid) && cur > 1 && next <= 0) {
+    if (uid && !tenacityUsed.current.has(uid) && cur > 1 && next <= 0 && Math.random() < (pv('tenacity') ?? 0)) {
       tenacityUsed.current.add(uid);
       next = 1;
       notePower(`🦴 ねばりごし！ ${active?.def.name} は HP1で たえた！`);
@@ -377,8 +378,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     }
     if (half) d *= 0.5;
     // アビリティ（個体ごと）
-    if (power === 'combo' && streak.current >= 2) d *= 1.25;
-    if (power === 'keeneye' && Math.random() < 0.1) { d *= 2; notePower('🎯 きゅうしょのめ！ こうげき 2ばい！'); }
+    if (streak.current >= 2 && pv('combo')) d *= 1 + (pv('combo') ?? 0);
+    if (pv('keeneye') && Math.random() < (pv('keeneye') ?? 0)) { d *= 2; notePower('🎯 きゅうしょのめ！ こうげき 2ばい！'); }
     // 相手の難易度が高いほど、少しだけタフにする
     d *= 1 - Math.min(0.25, ((oppDef?.difficulty ?? 2) - 1) * 0.05);
     return Math.max(4, Math.round(d));
@@ -396,7 +397,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       return 0;
     }
     // アビリティ「まもりのこころ」：まちがえたときの ダメージ 2わり へる
-    return Math.max(3, Math.round(oppStats.atk * 0.8 * (power === 'shield' ? 0.8 : 1)));
+    return Math.max(3, Math.round(oppStats.atk * 0.8 * (1 - (pv('shield') ?? 0))));
   };
   /** この答えで おまもりが ダメージを ふせいだか（結果の表示に使う） */
   const charmFired = useRef(false);
@@ -439,7 +440,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         setHp(v => v + 8);
       }
       // アビリティ「いやしのかぜ」: せいかいするたび さいだいHPの5% もどる
-      if (power === 'healwind') setHp(v => v + Math.max(1, Math.round(activeMaxHp * 0.05)));
+      if (pv('healwind')) setHp(v => v + Math.max(1, Math.round(activeMaxHp * (pv('healwind') ?? 0))));
     } else {
       streak.current = 0;
       if (!isRetry) {
@@ -523,7 +524,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         if (problem) countCorrect(problem.subTopic);
         const dmg = damageToOpponent(false);
         setOppHp(v => Math.max(0, v - dmg));
-        if (power === 'healwind') setHp(v => v + Math.max(1, Math.round(activeMaxHp * 0.05)));
+        if (pv('healwind')) setHp(v => v + Math.max(1, Math.round(activeMaxHp * (pv('healwind') ?? 0))));
         playHitSfx();
         setFlash('hit'); setShakeOpp(true);
         window.setTimeout(() => { setFlash('none'); setShakeOpp(false); }, 520);
@@ -692,7 +693,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     // 苦手ボーナス：前に まちがえた項目で正解して たおしたら、MP も 1.5倍
     const weakHit = byTopic.some(([sub]) => isWeakSubtopic(sub));
     // アビリティ「こがねのつめ」：たおしたときの MP +30%
-    stats.current.mp += Math.round((8 + oppLevel * 1.5) * (weakHit ? WEAK_BONUS : 1) * (power === 'fortune' ? 1.3 : 1));
+    stats.current.mp += Math.round((8 + oppLevel * 1.5) * (weakHit ? WEAK_BONUS : 1) * (1 + (pv('fortune') ?? 0)));
     const results = totalCorrect === 0
       ? []
       : byTopic.flatMap(([sub, n]) => store.growBySubtopic(
@@ -772,13 +773,13 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       if (ok) {
         const got = store.catchMonster(oppDef.id, oppLevel);
         caught.current = oppDef.id;
-        const gotPower = abilityOf(got.power);
+        const gotPowers = got.powers ?? [];
         setMessage([
           `やった！ ${oppDef.name} を つかまえた！`,
           `${oppDef.name} は 「${oppDef.subtopic}」の モンスターだ。`,
-          ...(gotPower
-            ? [`${gotPower.rarity >= 4 ? 'す、すごい！ ' : ''}アビリティ ${stars(gotPower.rarity)}「${gotPower.name}」を もっている！（${gotPower.desc}）`]
-            : []),
+          ...(got.shiny ? ['✦ からだが 光っている！ めずらしい「ひかりのこ」だ！'] : []),
+          ...(gotPowers.length >= 2 ? [`す、すごい！ アビリティを ${gotPowers.length}つも もっている！`] : []),
+          ...gotPowers.map(p => `${p.lv >= 4 ? 'すごい！ ' : ''}アビリティ「${powerLabel(p)}」（${powerEffect(p)}）`),
         ]);
         playWinSfx();
         setPhase('win');
@@ -862,10 +863,10 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // 伝説・幻とのバトルは、バッジの数に関係なく いつも制限時間＋こうげき。こうげきは ふつうの2倍（2026-11-12）
   const legendFight = setup.kind === 'legend' || setup.kind === 'legend-wild';
   const timeLimitOn = legendFight || save.badges.length >= TIME_LIMIT_MIN_BADGES;
-  const attackRatio = TIME_ATTACK_RATIO * (legendFight ? 2 : 1) * (power === 'timeguard' ? 0.5 : 1);
-  // アビリティ：おちつき・ひかりのこ +3びょう、ときのまもり 1.5ばい
+  const attackRatio = TIME_ATTACK_RATIO * (legendFight ? 2 : 1);
+  // アビリティ：おちつき（+びょう）・ときのまもり（ばい）。Lv で数が変わる
   const limitSec = Math.round(
-    (timeLimitSec(problem?.subTopic, problem?.data) + (power === 'patient' || power === 'radiant' ? 3 : 0)) * (power === 'timeguard' ? 1.5 : 1),
+    (timeLimitSec(problem?.subTopic, problem?.data) + (pv('patient') ?? 0)) * (pv('timeguard') ?? 1),
   );
   const timerRunning = timeLimitOn && phase === 'question' && !showAnswer && !confirmingGiveUp && !!problem;
   const elapsedMs = useRef(0);
@@ -1007,7 +1008,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           style={{
             filter: flash === 'hurt'
               ? 'brightness(0.55) saturate(0.4)'
-              : power === 'radiant' ? 'drop-shadow(0 0 14px #fde68a) drop-shadow(0 0 28px #facc15)' : 'none',
+              : activeOwned?.shiny ? 'drop-shadow(0 0 14px #fde68a) drop-shadow(0 0 28px #facc15)' : 'none',
           }}
         >
           <div className="relative">
@@ -1023,11 +1024,14 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             <span className="inline-block px-3 py-0.5 rounded-full bg-white/90 text-xs font-black text-slate-700 shadow">
               {lead.def.name} Lv.{lead.owned.level}
             </span>
-            {powerDef && (
-              <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-amber-100/95 text-[10px] font-black text-amber-800 shadow" title={powerDef.desc}>
-                {powerDef.icon} {stars(powerDef.rarity)} {powerDef.name}
-              </span>
+            {lead.owned.shiny && (
+              <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-yellow-200/95 text-[10px] font-black text-yellow-800 shadow">✦ ひかりのこ</span>
             )}
+            {(lead.owned.powers ?? []).map(p => (
+              <span key={p.id} className="ml-1 mt-0.5 inline-block px-2 py-0.5 rounded-full bg-amber-100/95 text-[10px] font-black text-amber-800 shadow" title={powerEffect(p)}>
+                {powerLabel(p)}
+              </span>
+            ))}
           </div>
         </div>
       )}
