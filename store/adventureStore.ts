@@ -14,7 +14,7 @@ import { doc, getDoc, setDoc } from '../services/firebaseOff';
 import { db } from '../firebase';
 import { MONSTER_DEX, MONSTERS_BY_UNIT, getMonster, statsAtLevel, expToNext } from '../data/adventure/monsters';
 import { TOWNS, BADGE_NAMES, getTown } from '../data/adventure/towns';
-import { GYM_REQUIREMENTS, requirementFor, type GymProgress } from '../data/adventure/gymRequirements';
+import { requirementFor, type GymProgress } from '../data/adventure/gymRequirements';
 import { ADVENTURE_TITLES, rankPoints, trainerRank, type AdventureTitleDef, type RankStatKey } from '../data/adventure/ranks';
 import { ALL_LEGENDS, legendsInTown, type LegendDef } from '../data/adventure/legends';
 import { TEAM_CHAPTERS, TEAM_HIDEOUT } from '../data/adventure/team';
@@ -23,6 +23,7 @@ import type { KidnappedRecord, OwnedMonster, TownDef } from '../data/adventure/a
 import { GROWTH_RULES, dailyEffective, levelCapOf, todayKey } from '../data/adventure/growth';
 import { GACHA_RULES, LEARNING_REWARDS, migrateOldStickers, rollGacha, type GachaPrize } from '../data/adventure/gacha';
 import { ITEMS, type ItemId } from '../data/adventure/adventureTypes';
+import { rollAbility, abilityHpMult, abilityExpMult, releaseMp } from '../data/adventure/abilities';
 
 const KEY = 'bm_adventure_v1';
 const SLOTS_KEY = 'bm_adventure_slots_v1';
@@ -191,6 +192,10 @@ const hydrateSave = (partial: Partial<AdventureSave> | null | undefined): Advent
     const mastery = getAllMastery();
     merged.masteryCoined = Object.keys(mastery).filter(k => mastery[k]?.mastered);
   }
+  // アビリティの機能より前に つかまえた子には、1回だけ アビリティを きめる（2026-11-12）
+  if (merged.owned.some(o => o.power === undefined)) {
+    merged.owned = merged.owned.map(o => (o.power === undefined ? { ...o, power: rollAbility() } : o));
+  }
   return merged;
 };
 
@@ -251,7 +256,7 @@ export const playerMaxHp = (save: AdventureSave): number =>
 /** その個体の最大HP(レベルから毎回もとめる) */
 export const monsterMaxHp = (o: OwnedMonster): number => {
   const def = getMonster(o.defId);
-  return def ? statsAtLevel(def, o.level).maxHp : 1;
+  return def ? Math.round(statsAtLevel(def, o.level).maxHp * abilityHpMult(o.power)) : 1;
 };
 
 /** その個体のいまのHP(未設定なら満タン扱い) */
@@ -281,6 +286,14 @@ export const partyHpTotals = (save: AdventureSave): { hp: number; maxHp: number 
  * 伝説・幻は そのまま（AdventureMode の scaleOpponents が外す）。
  */
 export const OPPONENT_CATCHUP = 0.9;
+/** 仲間にした伝説・幻が、担当の単元の正解で もらう けいけんちの わりあい（ふつうのモンスターの半分） */
+export const LEGEND_GROWTH_RATE = 0.5;
+/**
+ * 伝説・幻（敵）のレベル（2026-11-12 先生と決めた「常に一段えらい」）：決めてあるレベルと「手持ちの平均＋10」の高い方（65まで）。
+ * バッジの数とは関係なく、伝説戦は いつも制限時間＋こうげき（BattleScreen。こうげきは ふつうの2倍）。
+ */
+export const legendOpponentLevel = (save: AdventureSave, baseLevel: number): number =>
+  Math.min(65, Math.max(baseLevel, Math.round(partyAverageLevel(save)) + 10));
 export const scaledOpponentLevel = (save: AdventureSave, baseLevel: number): number => {
   const over = partyAverageLevel(save) - baseLevel;
   const catchUp = over > 0 ? Math.round(over * OPPONENT_CATCHUP) : 0;
@@ -318,7 +331,8 @@ interface AdventureState {
   // --- モンスター ---
   seeMonster: (defId: string) => void;
   catchMonster: (defId: string, level: number) => OwnedMonster;
-  releaseMonster: (uid: string) => void;
+  /** その子を にがす（MP の量を返す。にがせないときは reason）。図鑑の「つかまえた」は のこる */
+  releaseMonster: (uid: string) => { ok: true; mp: number } | { ok: false; reason: string };
   /** テキトウ団の下っ端に負けたとき、手持ちの1体をさらわれた記録にする */
   kidnapMonster: (uid: string, townId: string) => void;
   /** その町の奪還戦に勝ったとき、さらわれていた個体をすべて手持ちに戻す */
@@ -390,7 +404,7 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
 
     startGame: (playerName, appearance, starterDefId) => {
       const starter: OwnedMonster = {
-        uid: newUid(), defId: starterDefId, level: 5, exp: 0, caughtAt: Date.now(),
+        uid: newUid(), defId: starterDefId, level: 5, exp: 0, caughtAt: Date.now(), power: rollAbility(),
       };
       const base = emptySave();
       // ぼうけんを始める前に れんしゅう・ふくしゅうで もらったコインと道具は、なくさずに持っていく
@@ -472,10 +486,27 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
     seeMonster: defId =>
       update(s => (s.seen.includes(defId) ? s : { ...s, seen: [...s.seen, defId] })),
 
+    releaseMonster: uid => {
+      const s0 = get().save;
+      const o = s0.owned.find(x => x.uid === uid);
+      if (!o) return { ok: false, reason: 'その子は いないよ' };
+      if (s0.owned.length <= 1) return { ok: false, reason: 'さいごの 1体は にがせないよ' };
+      if (s0.legends.includes(o.defId)) return { ok: false, reason: '伝説・幻の モンスターは にがせないよ' };
+      const mp = releaseMp(o.power);
+      update(s => {
+        const owned = s.owned.filter(x => x.uid !== uid);
+        let party = s.party.filter(x => x !== uid);
+        // 手持ちが いなくなったら、のこっている子から 1体 入れる
+        if (party.length === 0 && owned.length > 0) party = [owned[0].uid];
+        return { ...s, owned, party };
+      });
+      return { ok: true, mp };
+    },
+
     catchMonster: (defId, level) => {
       // つかまえた子は元気な状態で仲間になる(弱らせてから捕まえる都合上、
       // 捕獲時のHPをそのまま引きつぐと瀕死のまま加入してしまうため)
-      const mon: OwnedMonster = { uid: newUid(), defId, level, exp: 0, caughtAt: Date.now() };
+      const mon: OwnedMonster = { uid: newUid(), defId, level, exp: 0, caughtAt: Date.now(), power: rollAbility() };
       mon.hp = monsterMaxHp(mon);
       update(s => {
         const party = s.party.length < 3 ? [...s.party, mon.uid] : s.party;
@@ -485,13 +516,6 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       });
       return mon;
     },
-
-    releaseMonster: uid =>
-      update(s => ({
-        ...s,
-        owned: s.owned.filter(o => o.uid !== uid),
-        party: s.party.filter(p => p !== uid),
-      })),
 
     kidnapMonster: (uid, townId) =>
       update(s => {
@@ -529,7 +553,8 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
           // レベルの上限は単元のかけらで上がる。上限では、つぎのレベルの手前までためておく（上限が上がったら すぐ1つ上がる）
           const cap = levelCapOf(getMonster(o.defId));
           let lv = o.level;
-          let ex = o.exp + exp;
+          // アビリティ「まなびのたね」は けいけんち +20%
+          let ex = o.exp + Math.round(exp * abilityExpMult(o.power));
           while (ex >= expToNext(lv) && lv < cap) {
             ex -= expToNext(lv);
             lv += 1;
@@ -573,7 +598,19 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
         const exp = Math.round(expFull * (d.effective / corrects));
         for (const o of sources.filter(x => x.defId === defId)) gains.push({ uid: o.uid, defId, exp, source: true });
       }
-      if (defIds.length) update(s => ({ ...s, growthLog: { date, used: log } }));
+      // 仲間にした伝説・幻は 分野が無いので、担当の単元（legend.units）の正解で 半分ずつ育つ（2026-11-12 先生と決めた）
+      const unit = MONSTER_DEX.find(m => m.subtopic === subtopic)?.unit;
+      const legendOwned = unit
+        ? s0.owned.filter(o => ALL_LEGENDS.some(l => l.id === o.defId && l.units.includes(unit)))
+        : [];
+      const legendIds = Array.from(new Set(legendOwned.map(o => o.defId)));
+      for (const defId of legendIds) {
+        const d = dailyEffective(log[defId] ?? 0, corrects);
+        log[defId] = d.used;
+        const exp = Math.round(expFull * LEGEND_GROWTH_RATE * (d.effective / corrects));
+        for (const o of legendOwned.filter(x => x.defId === defId)) gains.push({ uid: o.uid, defId, exp, source: true });
+      }
+      if (defIds.length || legendIds.length) update(s => ({ ...s, growthLog: { date, used: log } }));
       for (const g of gains) {
         if (g.exp <= 0) continue;
         const r = get().addExp(g.uid, g.exp);
@@ -792,7 +829,9 @@ export const canChallengeLeague = (save: AdventureSave): boolean =>
  */
 export const gymProgress = (save: AdventureSave, town: TownDef): GymProgress => {
   // リーグの回廊など、14の町にない場所でも落ちないようにその場で計算する
-  const req = GYM_REQUIREMENTS[town.id] ?? requirementFor(town);
+  // 持っているバッジが ふえるほど きびしくなる（その町のバッジは数えない。2026-11-12）
+  const badgesElsewhere = save.badges.filter(id => id !== town.id).length;
+  const req = requirementFor(town, badgesElsewhere);
   const trainersBeaten = req.trainerIds.filter(id => save.defeatedNpcs.includes(id)).length;
 
   const unitDefIds = new Set((MONSTERS_BY_UNIT[town.unit] ?? []).map(m => m.id));

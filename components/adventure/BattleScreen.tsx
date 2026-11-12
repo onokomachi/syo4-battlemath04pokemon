@@ -37,6 +37,7 @@ import { DialogueBox } from './ui/DialogueBox';
 import { playBattleBgm, playLegendBgm, stopBattleBgm } from './audio/bgm';
 import { playHitSfx, playWinSfx, playLevelUpSfx } from './audio/sfx';
 import { TIME_LIMIT_MIN_BADGES, TIME_ATTACK_EVERY_SEC, TIME_ATTACK_RATIO, timeLimitSec } from '../../data/adventure/battleTimer';
+import { abilityOf, abilityAtkMult, stars } from '../../data/adventure/abilities';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -164,7 +165,30 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setHps(prev =>
       prev.map((h, i) => (i === activeIdx ? Math.max(0, Math.min(fn(h), activeMaxHp)) : h)),
     );
-  const myAtk = active ? statsAtLevel(active.def, active.owned.level).atk : 8;
+  /** いま出ている子の アビリティ（個体ごと。data/adventure/abilities.ts） */
+  const power = active?.owned.power ?? null;
+  const powerDef = abilityOf(power);
+  const myAtk = active ? statsAtLevel(active.def, active.owned.level).atk * abilityAtkMult(power) : 8;
+  // いまのHP（タイマーなど あとから よばれる関数でも 最新を見るため）
+  const hpRef = useRef(0);
+  hpRef.current = hps[activeIdx] ?? 0;
+  /** アビリティ「ねばりごし」を使った子（バトルで1回だけ） */
+  const tenacityUsed = useRef<Set<string>>(new Set());
+  const [powerNote, setPowerNote] = useState<string | null>(null);
+  const notePower = (text: string) => { setPowerNote(text); window.setTimeout(() => setPowerNote(cur => (cur === text ? null : cur)), 1600); };
+  /** こちらが ダメージを うける（「ねばりごし」なら 1回だけ HP1で たえる） */
+  const hurt = (dmg: number) => {
+    const cur = hpRef.current;
+    let next = Math.max(0, cur - dmg);
+    const uid = active?.owned.uid;
+    if (power === 'tenacity' && uid && !tenacityUsed.current.has(uid) && cur > 1 && next <= 0) {
+      tenacityUsed.current.add(uid);
+      next = 1;
+      notePower(`🦴 ねばりごし！ ${active?.def.name} は HP1で たえた！`);
+    }
+    hpRef.current = next;
+    setHp(() => next);
+  };
   /** まだ戦える手持ちの数 */
   const aliveCount = hps.filter(h => h > 0).length;
 
@@ -352,6 +376,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       usedAbility.current.first = false;
     }
     if (half) d *= 0.5;
+    // アビリティ（個体ごと）
+    if (power === 'combo' && streak.current >= 2) d *= 1.25;
+    if (power === 'keeneye' && Math.random() < 0.1) { d *= 2; notePower('🎯 きゅうしょのめ！ こうげき 2ばい！'); }
     // 相手の難易度が高いほど、少しだけタフにする
     d *= 1 - Math.min(0.25, ((oppDef?.difficulty ?? 2) - 1) * 0.05);
     return Math.max(4, Math.round(d));
@@ -368,7 +395,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       charmFired.current = true;
       return 0;
     }
-    return Math.max(3, Math.round(oppStats.atk * 0.8));
+    // アビリティ「まもりのこころ」：まちがえたときの ダメージ 2わり へる
+    return Math.max(3, Math.round(oppStats.atk * 0.8 * (power === 'shield' ? 0.8 : 1)));
   };
   /** この答えで おまもりが ダメージを ふせいだか（結果の表示に使う） */
   const charmFired = useRef(false);
@@ -410,6 +438,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       if (ability === 'heal' && streak.current % 2 === 0) {
         setHp(v => v + 8);
       }
+      // アビリティ「いやしのかぜ」: せいかいするたび さいだいHPの5% もどる
+      if (power === 'healwind') setHp(v => v + Math.max(1, Math.round(activeMaxHp * 0.05)));
     } else {
       streak.current = 0;
       if (!isRetry) {
@@ -424,7 +454,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       }
       charmFired.current = false;
       const dmg = damageToPlayer(true);
-      setHp(v => Math.max(0, v - dmg));
+      hurt(dmg);
       setFlash('hurt');
       window.setTimeout(() => setFlash('none'), 520);
     }
@@ -465,7 +495,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     );
 
     const dmg = damageToPlayer();
-    setHp(v => Math.max(0, v - dmg));
+    hurt(dmg);
     setFlash('hurt');
     window.setTimeout(() => setFlash('none'), 520);
     setPhase('result');
@@ -493,6 +523,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         if (problem) countCorrect(problem.subTopic);
         const dmg = damageToOpponent(false);
         setOppHp(v => Math.max(0, v - dmg));
+        if (power === 'healwind') setHp(v => v + Math.max(1, Math.round(activeMaxHp * 0.05)));
         playHitSfx();
         setFlash('hit'); setShakeOpp(true);
         window.setTimeout(() => { setFlash('none'); setShakeOpp(false); }, 520);
@@ -502,7 +533,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           addIncorrectToSrs(problem.subTopic, (problem.data as any)?.question ?? problem.subTopic, problem.answer, problem.type);
         }
         charmFired.current = false;
-        setHp(v => Math.max(0, v - damageToPlayer(true)));
+        hurt(damageToPlayer(true));
         setFlash('hurt');
         window.setTimeout(() => setFlash('none'), 520);
       }
@@ -660,7 +691,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     correctsByTopic.current = {};
     // 苦手ボーナス：前に まちがえた項目で正解して たおしたら、MP も 1.5倍
     const weakHit = byTopic.some(([sub]) => isWeakSubtopic(sub));
-    stats.current.mp += Math.round((8 + oppLevel * 1.5) * (weakHit ? WEAK_BONUS : 1));
+    // アビリティ「こがねのつめ」：たおしたときの MP +30%
+    stats.current.mp += Math.round((8 + oppLevel * 1.5) * (weakHit ? WEAK_BONUS : 1) * (power === 'fortune' ? 1.3 : 1));
     const results = totalCorrect === 0
       ? []
       : byTopic.flatMap(([sub, n]) => store.growBySubtopic(
@@ -738,17 +770,21 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setPhase('catch');
     window.setTimeout(() => {
       if (ok) {
-        store.catchMonster(oppDef.id, oppLevel);
+        const got = store.catchMonster(oppDef.id, oppLevel);
         caught.current = oppDef.id;
+        const gotPower = abilityOf(got.power);
         setMessage([
           `やった！ ${oppDef.name} を つかまえた！`,
           `${oppDef.name} は 「${oppDef.subtopic}」の モンスターだ。`,
+          ...(gotPower
+            ? [`${gotPower.rarity >= 4 ? 'す、すごい！ ' : ''}アビリティ ${stars(gotPower.rarity)}「${gotPower.name}」を もっている！（${gotPower.desc}）`]
+            : []),
         ]);
         playWinSfx();
         setPhase('win');
       } else {
         setMessage([`ああっ！ ${oppDef.name} が でてきてしまった！`]);
-        setHp(v => Math.max(0, v - Math.round(oppStats.atk * 0.4)));
+        hurt(Math.round(oppStats.atk * 0.4));
         setPhase('faint');
       }
     }, 1400);
@@ -823,8 +859,14 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // ---- 制限時間（バッジ7こから・すべてのバトル。2026-11-12 先生と決めた。きまりは data/adventure/battleTimer.ts） ----
   // 問題ごとの制限時間を超えると、3秒ごとに 相手が こうげきしてくる（いま出ている子の 最大HPの4％）。
   // 答えを見ているあいだ・「こうさん/にげる」の確認中は止める（時間は「問題を考えている時間」だけ数える）。
-  const timeLimitOn = save.badges.length >= TIME_LIMIT_MIN_BADGES;
-  const limitSec = timeLimitSec(problem?.subTopic, problem?.data);
+  // 伝説・幻とのバトルは、バッジの数に関係なく いつも制限時間＋こうげき。こうげきは ふつうの2倍（2026-11-12）
+  const legendFight = setup.kind === 'legend' || setup.kind === 'legend-wild';
+  const timeLimitOn = legendFight || save.badges.length >= TIME_LIMIT_MIN_BADGES;
+  const attackRatio = TIME_ATTACK_RATIO * (legendFight ? 2 : 1) * (power === 'timeguard' ? 0.5 : 1);
+  // アビリティ：おちつき・ひかりのこ +3びょう、ときのまもり 1.5ばい
+  const limitSec = Math.round(
+    (timeLimitSec(problem?.subTopic, problem?.data) + (power === 'patient' || power === 'radiant' ? 3 : 0)) * (power === 'timeguard' ? 1.5 : 1),
+  );
   const timerRunning = timeLimitOn && phase === 'question' && !showAnswer && !confirmingGiveUp && !!problem;
   const elapsedMs = useRef(0);
   const timerHits = useRef(0);
@@ -846,8 +888,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       const over = elapsedMs.current / 1000 - limitSec;
       if (over >= 0 && over >= timerHits.current * TIME_ATTACK_EVERY_SEC) {
         timerHits.current += 1;
-        const dmg = Math.max(1, Math.round(activeMaxHp * TIME_ATTACK_RATIO));
-        setHp(v => Math.max(0, v - dmg));
+        const dmg = Math.max(1, Math.round(activeMaxHp * attackRatio));
+        hurt(dmg);
         playHitSfx();
         setFlash('hurt');
         setAttackFx({ n: t, dmg });
@@ -857,7 +899,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     }, 250);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerRunning, limitSec, activeIdx, activeMaxHp]);
+  }, [timerRunning, limitSec, activeIdx, activeMaxHp, attackRatio]);
   // 時間の こうげきで たおれたら、ふつうと同じく 次の子に交代（ぜんぶ たおれたら負け）
   useEffect(() => {
     if (phase === 'question' && !showAnswer && hp <= 0) handleActiveDown();
@@ -962,7 +1004,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       {lead && (
         <div
           className="absolute left-[8%] bottom-[6%] w-[30%] max-w-[240px]"
-          style={{ filter: flash === 'hurt' ? 'brightness(0.55) saturate(0.4)' : 'none' }}
+          style={{
+            filter: flash === 'hurt'
+              ? 'brightness(0.55) saturate(0.4)'
+              : power === 'radiant' ? 'drop-shadow(0 0 14px #fde68a) drop-shadow(0 0 28px #facc15)' : 'none',
+          }}
         >
           <div className="relative">
             <img
@@ -977,6 +1023,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             <span className="inline-block px-3 py-0.5 rounded-full bg-white/90 text-xs font-black text-slate-700 shadow">
               {lead.def.name} Lv.{lead.owned.level}
             </span>
+            {powerDef && (
+              <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-amber-100/95 text-[10px] font-black text-amber-800 shadow" title={powerDef.desc}>
+                {powerDef.icon} {stars(powerDef.rarity)} {powerDef.name}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -993,6 +1044,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
       {flash === 'hit' && (
         <div className="absolute inset-0 bg-white/45 pointer-events-none animate-ping" />
+      )}
+      {powerNote && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-[100] -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-4 py-1.5 text-sm font-black text-amber-950 shadow-lg">
+          {powerNote}
+        </div>
       )}
       {flash === 'hurt' && (
         <div className="absolute inset-0 bg-rose-500/25 pointer-events-none" />
@@ -1127,6 +1183,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             <span className="ml-2 text-amber-200">−{attackFx.dmg}</span>
           </div>
         </>
+      )}
+      {powerNote && (
+        <div className="pointer-events-none absolute left-1/2 top-14 z-[100] -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-4 py-1.5 text-sm font-black text-amber-950 shadow-lg">
+          {powerNote}
+        </div>
       )}
       {/* 上: この問題を出しているモンスター */}
       <div className="flex items-center gap-3 px-3 py-2 bg-slate-800/90 border-b-2 border-white/10 shrink-0">

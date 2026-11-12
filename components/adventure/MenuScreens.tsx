@@ -21,6 +21,7 @@ import { ADVENTURE_TITLES } from '../../data/adventure/ranks';
 import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
 import { GACHA_RULES } from '../../data/adventure/gacha';
+import { abilityOf, releaseMp, stars } from '../../data/adventure/abilities';
 import { SANMON_RULES, sanmonTownKeyOf, type SanmonUnitProgress } from 'learning-app-kit/sanmon';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
@@ -243,9 +244,14 @@ export const DexScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // てもち
 // ============================================================
 
-export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: number) => void }> = ({ onClose, onReleaseMp }) => {
   const save = useAdventureStore(s => s.save);
   const setParty = useAdventureStore(s => s.setParty);
+  const releaseMonster = useAdventureStore(s => s.releaseMonster);
+  // 「にがす」モード（2026-11-12）。モードのときに 下の子を タップすると、たしかめの まどが 出る
+  const [releaseMode, setReleaseMode] = useState(false);
+  const [releasing, setReleasing] = useState<string | null>(null);
+  const [releaseMsg, setReleaseMsg] = useState<string | null>(null);
   const shards = useLevelCaps(s => s.shards);
   const party = getPartyMonsters(save);
   // いま「いれかえる」対象として選んでいる手持ちのマス(0〜2)。null なら未選択。
@@ -275,6 +281,7 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   /** 箱(つかまえたモンスター全部)をタップしたときの処理 */
   const pickFromBox = (uid: string) => {
+    if (releaseMode) { setReleasing(uid); return; }
     if (selectedSlot === null) {
       // 選択中でなければ、いままでどおり タップで手持ちに出し入れ
       if (save.party.includes(uid)) {
@@ -414,8 +421,14 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 「{p.def.subtopic || p.def.unit}」の もんだいを とくと よく そだつ
               </p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">
-                {ABILITIES[p.def.ability].icon} {ABILITIES[p.def.ability].name}
+                とくせい {ABILITIES[p.def.ability].icon} {ABILITIES[p.def.ability].name}
               </p>
+              {abilityOf(p.owned.power) && (
+                <p className="mt-0.5 text-[11px] font-black text-amber-600" title={abilityOf(p.owned.power)!.desc}>
+                  アビリティ {abilityOf(p.owned.power)!.icon} {stars(abilityOf(p.owned.power)!.rarity)} {abilityOf(p.owned.power)!.name}
+                  <span className="block text-[10px] font-bold text-slate-400">{abilityOf(p.owned.power)!.desc}</span>
+                </p>
+              )}
               {i === 0 && (
                 <p className="mt-1 text-[11px] font-black text-sky-600">せんとう</p>
               )}
@@ -424,7 +437,21 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         })}
       </div>
 
-      <h3 className="text-white text-xl font-black mb-2">つかまえた モンスター({box.length})</h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-white text-xl font-black">つかまえた モンスター({box.length})</h3>
+        <button
+          onClick={() => { setReleaseMode(v => !v); setReleaseMsg(null); }}
+          className={`shrink-0 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm active:scale-95 ${releaseMode ? 'bg-rose-500 text-white' : 'bg-white/90 text-slate-700'}`}
+        >
+          {releaseMode ? 'にがすのを やめる' : '🕊 にがす'}
+        </button>
+      </div>
+      {releaseMode && (
+        <p className="mb-2 rounded-xl bg-rose-500/20 px-3 py-2 text-xs sm:text-sm font-bold text-rose-100">
+          にがしたい子を タップしてね。にがすと MPが もらえるよ（アビリティが めずらしいほど 多い）。図鑑の「つかまえた」は のこるよ。
+        </p>
+      )}
+      {releaseMsg && <p className="mb-2 rounded-xl bg-emerald-500/20 px-3 py-2 text-sm font-black text-emerald-100">{releaseMsg}</p>}
       <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-2">
         {box.map(o => {
           // 伝説も箱に入るので MONSTER_DEX ではなく全体から引く
@@ -451,10 +478,54 @@ export const PartyScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 {displayNameFor(save, o)}
               </p>
               <p className="text-[10px] font-bold text-slate-500">Lv.{o.level}{shards ? `／${levelCapOf(def, shards)}` : ''}</p>
+              {abilityOf(o.power) && (
+                <p className="text-[10px] font-black text-amber-600 truncate" title={abilityOf(o.power)!.desc}>
+                  {abilityOf(o.power)!.icon}{stars(abilityOf(o.power)!.rarity)}
+                </p>
+              )}
             </button>
           );
         })}
       </div>
+
+      {/* にがす たしかめ（window.confirm は使わない：一部の端末で出ずに false になるため） */}
+      {releasing && (() => {
+        const o = save.owned.find(x => x.uid === releasing);
+        const def = o ? getMonster(o.defId) : undefined;
+        if (!o || !def) return null;
+        const pw = abilityOf(o.power);
+        const mp = releaseMp(o.power);
+        return (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4" onClick={() => setReleasing(null)}>
+            <div className="w-full max-w-sm rounded-3xl bg-white p-5 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+              <img src={getMonsterSprite(spriteIdFor(save, o))} alt="" className="mx-auto h-24 w-24 object-contain" />
+              <p className="mt-1 text-lg font-black text-slate-800">{displayNameFor(save, o)} Lv.{o.level} を にがす？</p>
+              {pw
+                ? <p className="mt-1 text-sm font-black text-amber-600">アビリティ {pw.icon} {stars(pw.rarity)} {pw.name}</p>
+                : <p className="mt-1 text-sm font-bold text-slate-400">アビリティ なし</p>}
+              <p className="mt-2 text-sm font-bold text-slate-600">にがすと MP {mp} もらえるよ。もう もどってこないよ。</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button onClick={() => setReleasing(null)} className="rounded-2xl bg-slate-200 py-3 font-black text-slate-700 active:scale-95">やめる</button>
+                <button
+                  onClick={() => {
+                    const r = releaseMonster(o.uid);
+                    setReleasing(null);
+                    if (r.ok) {
+                      onReleaseMp?.(r.mp);
+                      setReleaseMsg(`${def.name} は げんきに かえっていった。MP ${r.mp} もらった！`);
+                    } else {
+                      setReleaseMsg('reason' in r ? r.reason : null);
+                    }
+                  }}
+                  className="rounded-2xl bg-rose-500 py-3 font-black text-white active:scale-95"
+                >
+                  にがす
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </Panel>
   );
 };

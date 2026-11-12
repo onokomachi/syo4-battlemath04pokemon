@@ -91,10 +91,12 @@ function collectSave(): Record<string, string> {
 }
 
 let lastSent = '';
+/** サーバのセーブを見ているあいだは送らない（古いセーブで 新しいセーブを上書きしないため） */
+let checkingRemote = false;
 /** セーブデータをサーバへ。中身が変わっていなければ送らない */
 export async function pushSave(): Promise<void> {
   const s = getStudent();
-  if (!isPortalConfigured || !s) return;
+  if (!isPortalConfigured || !s || checkingRemote) return;
   const data = collectSave();
   const body = JSON.stringify(data);
   if (body === lastSent) return;
@@ -112,7 +114,11 @@ export async function pushSave(): Promise<void> {
 export async function pullSaveIfNewer(): Promise<boolean> {
   const s = getStudent();
   if (!isPortalConfigured || !s) return false;
-  const r = await loadSanmonSave(PORTAL, s.studentId);
+  checkingRemote = true;
+  try { return await pullInner(s.studentId); } finally { checkingRemote = false; }
+}
+async function pullInner(studentId: string): Promise<boolean> {
+  const r = await loadSanmonSave(PORTAL, studentId);
   if (!r.ok || !r.data) return false;
   const remote = r.data as { savedAt?: number; keys?: Record<string, string> };
   const localAt = Number(localStorage.getItem(SAVED_AT) ?? 0);

@@ -48,8 +48,12 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   // ============ マスターモード: 自由選択入力 ============
   // 部分積は1マスずつ(繰り上がり表示つき)、合計は1行まとめて入力する。
   const [masterPartialBuffers, setMasterPartialBuffers] = useState<Record<string, string[]>>({});
-  const [masterSum, setMasterSum] = useState('');
-  type MasterSelection = { kind: 'partial'; idx: number; col: number } | { kind: 'sum' } | null;
+  // 合計（いちばん下の答え）も 部分積と同じく マスを えらんで 1つずつ入れる（2026-11-12 先生の依頼。前は右から順にしか入らなかった）
+  const finalStr = finalAnswer.toString();
+  const [masterSumBuf, setMasterSumBuf] = useState<string[]>(() => Array(finalStr.length).fill(''));
+  const masterSum = masterSumBuf.join('');
+  const setMasterSum = (v: string) => setMasterSumBuf(Array(finalStr.length).fill('').map((_, i) => v[i] ?? ''));
+  type MasterSelection = { kind: 'partial'; idx: number; col: number } | { kind: 'sum'; col: number } | null;
   const [masterSelection, setMasterSelection] = useState<MasterSelection>(null);
   const [isGraded, setIsGraded] = useState(false);
   const [hasMistakes, setHasMistakes] = useState(false);
@@ -75,7 +79,10 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   const handleMasterDigit = (d: string) => {
     if (!masterSelection || finished) return;
     if (masterSelection.kind === 'sum') {
-      if (masterSum.length < Math.max(finalAnswer.toString().length, 1)) setMasterSum((prev) => prev + d);
+      const col = masterSelection.col;
+      setMasterSumBuf((prev) => { const next = [...prev]; next[col] = d; return next; });
+      // 入れたら 1つ左（上の位）へ。いちばん左なら そのまま
+      if (col > 0) setMasterSelection({ kind: 'sum', col: col - 1 });
       return;
     }
     const key = `p-${masterSelection.idx}`;
@@ -90,7 +97,14 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   const handleMasterBackspace = () => {
     if (!masterSelection || finished) return;
     if (masterSelection.kind === 'sum') {
-      setMasterSum((prev) => prev.slice(0, -1));
+      const col = masterSelection.col;
+      setMasterSumBuf((prev) => {
+        const next = [...prev];
+        if (next[col]) { next[col] = ''; return next; }
+        // からのマスで けすと、1つ右（下の位）を けして そこへ もどる
+        if (col + 1 < next.length) { next[col + 1] = ''; setMasterSelection({ kind: 'sum', col: col + 1 }); }
+        return next;
+      });
       return;
     }
     const key = `p-${masterSelection.idx}`;
@@ -108,7 +122,7 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
         if ((buf[c] ?? '').slice(-1) !== correct[c]) errors = true;
       }
     });
-    if (needsSum && !isSumCorrect(masterSum)) errors = true;
+    if (needsSum && (masterSumBuf.some((c) => c === '') || !isSumCorrect(masterSum))) errors = true;
     setIsGraded(true);
     setHasMistakes(errors);
     setFinished(!errors);
@@ -129,7 +143,10 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   // 部分積の入力: 位を選んで1マスずつ入力する(2桁入力すると繰り上がりが左のマスに小さく出る)
   const [cellBuffers, setCellBuffers] = useState<string[]>([]);
   const [selectedCol, setSelectedCol] = useState<number | null>(null);
-  const [userInput, setUserInput] = useState(''); // 合計(SUMステップ)の入力
+  // 合計(SUMステップ)の入力: 部分積と同じく マスを えらんで 1つずつ入れる
+  const [sumBuffers, setSumBuffers] = useState<string[]>([]);
+  const [sumCol, setSumCol] = useState<number | null>(null);
+  const userInput = sumBuffers.join('');
   const [mistakeCount, setMistakeCount] = useState(0);
   const [hintRevealed, setHintRevealed] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -141,6 +158,14 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
 
   // 部分積のステップに入るたび、必要なマス数ぶんの入力バッファを用意し、
   // いちばん右(一の位)のマスをはじめに選んでおく。
+  // 合計のステップに入ったら、答えのけた数ぶんのマスを用意して いちばん右（一の位）を えらぶ
+  useEffect(() => {
+    if (!isSumStep || masterMode) return;
+    setSumBuffers(Array(finalStr.length).fill(''));
+    setSumCol(finalStr.length - 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSumStep, masterMode]);
+
   useEffect(() => {
     if (isSumStep || masterMode) return;
     const len = Math.max(1, partialStrs[stepIdx]?.length ?? 1);
@@ -153,11 +178,18 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
     if (normalFinished || isSumStep) return;
     setSelectedCol(col);
   };
+  const handleSumTap = (col: number) => {
+    if (normalFinished || !isSumStep) return;
+    setSumCol(col);
+  };
 
   const handleKeypad = (d: string) => {
     if (normalFinished) return;
     if (isSumStep) {
-      setUserInput((prev) => prev + d);
+      if (sumCol === null) return;
+      const col = sumCol;
+      setSumBuffers((prev) => { const next = [...prev]; next[col] = d; return next; });
+      if (col > 0) setSumCol(col - 1);
       return;
     }
     if (selectedCol === null) return;
@@ -172,7 +204,14 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
   const handleBackspace = () => {
     if (normalFinished) return;
     if (isSumStep) {
-      setUserInput((prev) => prev.slice(0, -1));
+      if (sumCol === null) return;
+      const col = sumCol;
+      setSumBuffers((prev) => {
+        const next = [...prev];
+        if (next[col]) { next[col] = ''; return next; }
+        if (col + 1 < next.length) { next[col + 1] = ''; setSumCol(col + 1); }
+        return next;
+      });
       return;
     }
     if (selectedCol === null) return;
@@ -213,10 +252,11 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
         setCellBuffers((prev) => prev.map(() => ''));
       }
     } else {
-      if (userInput === '') return;
+      if (sumBuffers.length === 0 || sumBuffers.some((c) => c === '')) return;
       if (parseInt(userInput, 10) === finalAnswer) {
         setEnteredSum(userInput);
-        setUserInput('');
+        setSumBuffers([]);
+        setSumCol(null);
         setNormalFinished(true);
         onComplete(mistakeCount === 0);
       } else {
@@ -224,7 +264,8 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
         setHintRevealed(true);
         setFeedback('それぞれの部分積を たてに たしてみよう。くり上がりに 気をつけてね。');
         shake();
-        setUserInput('');
+        setSumBuffers(Array(finalStr.length).fill(''));
+        setSumCol(finalStr.length - 1);
       }
     }
   };
@@ -274,20 +315,22 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
               );
             })}
             {needsSum && (
-              <SelectableRow
-                label=""
-                valStr={masterSum}
-                shift={0}
-                totalWidth={totalWidth}
-                rightOffset={rightOffset}
-                cellW={CELL}
-                isSelected={masterSelection?.kind === 'sum'}
-                onSelect={() => !finished && setMasterSelection({ kind: 'sum' })}
-                isGraded={isGraded}
-                correctVal={finalAnswer.toString()}
-                disabled={finished}
-                borderTop
-              />
+              <>
+                <div className="border-t-2 border-white my-1" />
+                <CellRow
+                  shift={0}
+                  totalWidth={totalWidth}
+                  rightOffset={rightOffset}
+                  cellW={CELL}
+                  width={finalStr.length}
+                  buffers={masterSumBuf}
+                  selectedCol={masterSelection?.kind === 'sum' ? masterSelection.col : null}
+                  onSelectCol={(col) => !finished && setMasterSelection({ kind: 'sum', col })}
+                  isGraded={isGraded}
+                  correctVal={finalStr}
+                  disabled={finished}
+                />
+              </>
             )}
           </div>
         </div>
@@ -400,7 +443,20 @@ const MultiplicationColumnSimulator: React.FC<Props> = ({ data, onComplete }) =>
             <Row label="" valStr={enteredSum} shift={0} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} />
           )}
           {isSumStep && !normalFinished && (
-            <Row label="" valStr={userInput || '？'} shift={0} totalWidth={totalWidth} rightOffset={rightOffset} cellW={CELL} highlight />
+            <CellRow
+              shift={0}
+              totalWidth={totalWidth}
+              rightOffset={rightOffset}
+              cellW={CELL}
+              width={sumBuffers.length || 1}
+              buffers={sumBuffers}
+              selectedCol={sumCol}
+              onSelectCol={handleSumTap}
+              isGraded={false}
+              correctVal=""
+              disabled={false}
+              activeInput
+            />
           )}
         </div>
       </div>

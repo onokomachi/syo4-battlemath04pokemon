@@ -1,3 +1,5 @@
+import type { PowerId } from './abilities';
+
 /**
  * adventureTypes.ts — 3Dアドベンチャーモード(ナンバーランド)の型定義。
  *
@@ -91,6 +93,11 @@ export interface OwnedMonster {
    * 最大HPは statsAtLevel(def, level).maxHp から毎回もとめる。
    */
   hp?: number;
+  /**
+   * 個体ごとの アビリティ（data/adventure/abilities.ts。2026-11-12）。null＝なし。
+   * undefined は この機能より前に つかまえた子（読みこんだときに 1回だけ きめる）。
+   */
+  power?: PowerId | null;
 }
 
 /**
@@ -287,7 +294,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     name: 'サンスウボール',
     description: 'よわらせたモンスターに投げてつかまえる、いちばんふつうのボール。',
     icon: '⚪',
-    price: 30,
+    price: 100,  // 2026-11-12 約3倍に（前は30）
     catchPower: 1,
   },
   greatball: {
@@ -295,7 +302,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     name: 'スーパーボール',
     description: 'サンスウボールよりつかまえやすい、青いボール。',
     icon: '🔵',
-    price: 90,
+    price: 300,  // 前は90
     catchPower: 1.8,
   },
   potion: {
@@ -303,21 +310,21 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     name: 'げんきドリンク',
     description: 'いま たたかっている モンスターの HPを 30 かいふくする。HPが まんたんの ときは 使えない。',
     icon: '🧃',
-    price: 60,
+    price: 150,  // 前は60
   },
   revive: {
     id: 'revive',
     name: 'げんきのかけら',
     description: 'バトルで たおれた なかま1体を、HP はんぶんで ふっかつさせる。',
     icon: '💠',
-    price: 150,
+    price: 400,  // 前は150
   },
   hintbook: {
     id: 'hintbook',
     name: 'ヒントのしおり',
     description: 'バトルで ヒントを 見ても、こうげきが よわくならない(1まいで1回)。ふくしゅうモードで せいかいすると もらえる。',
     icon: '🔖',
-    price: 50,
+    price: 150,  // 前は50
   },
   charm: {
     id: 'charm',

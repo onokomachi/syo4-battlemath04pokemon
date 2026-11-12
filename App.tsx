@@ -325,7 +325,14 @@ const App: React.FC = () => {
       saveTimer = setTimeout(() => { void pushSave(); }, 10000);
     });
     syncLearningToPortal(500);
-    const onHide = () => { if (document.hidden) { syncLearningToPortal(0); void pushSave(); } };
+    // 画面にもどったときは、先にサーバのセーブを見る（2026-11-12 バグ直し）。
+    // iPad では Chrome で開いたときと ホーム画面から開いたときで セーブの置き場所が別。開いたまま別の方で遊んでから もどると、
+    // 古いセーブのまま遊べてしまい、そのセーブをサーバへ送って 新しい進み具合（レベル）を上書きしていた。
+    // サーバの方が新しければ 取りこんで読みなおす。新しくなければ ふつうに続ける。
+    const onHide = () => {
+      if (document.hidden) { syncLearningToPortal(0); void pushSave(); return; }
+      void pullSaveIfNewer().then((pulled) => { if (pulled) window.location.reload(); });
+    };
     document.addEventListener('visibilitychange', onHide);
     const iv = setInterval(() => { void pushSave(); }, 60000);
     return () => { setLearningLogListener(null); document.removeEventListener('visibilitychange', onHide); clearInterval(iv); if (saveTimer) clearTimeout(saveTimer); };
