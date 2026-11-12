@@ -271,18 +271,20 @@ export const partyHpTotals = (save: AdventureSave): { hp: number; maxHp: number 
 };
 
 /**
- * 野生・NPCのレベルを、手持ちの育ちぐあいに応じて少しだけ引き上げる。
+ * 敵のレベルを、手持ちの育ちぐあいとバッジの数に合わせて引き上げる（2026-11-12 先生と決めた「強め」）。
  *
- * 町ごとのレベルは固定(単元の並び順で決まる)なので、14の町をどこから
- * 回ってもいい設計だと、先にレベルを上げてから「まだ弱い」町へ戻ると
- * 何もかもワンパンで終わってしまう。かといって町の基準どおりに完全一致
- * させると「育てた意味」が消えるので、育っている分の一部だけを追い上げる
- * (下方修正はしない。基準より弱いときは町の値のまま)。
+ * 町ごとのレベルは固定(単元の並び順で決まる)なので、14の町をどこから回ってもいい設計だと、
+ * 先にレベルを上げてから「まだ弱い」町へ戻ると何もかもワンパンで終わってしまう。
+ *   - 手持ちの平均レベルが町の基準より高いときは、その差の9割まで追いつく（いつも互角に近い勝負）
+ *   - さらにバッジ1こにつき +1（進むほど敵も強くなる）
+ * 下方修正はしない（基準より弱いときは町の値＋バッジぶん）。60（MAX_LEVEL）まで。
+ * 伝説・幻は そのまま（AdventureMode の scaleOpponents が外す）。
  */
+export const OPPONENT_CATCHUP = 0.9;
 export const scaledOpponentLevel = (save: AdventureSave, baseLevel: number): number => {
   const over = partyAverageLevel(save) - baseLevel;
-  if (over <= 0) return baseLevel;
-  return baseLevel + Math.min(15, Math.round(over * 0.35));
+  const catchUp = over > 0 ? Math.round(over * OPPONENT_CATCHUP) : 0;
+  return Math.min(60, baseLevel + catchUp + save.badges.length);
 };
 
 let uidCounter = 0;

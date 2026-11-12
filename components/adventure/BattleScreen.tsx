@@ -36,6 +36,7 @@ import FractionText from '../FractionText';
 import { DialogueBox } from './ui/DialogueBox';
 import { playBattleBgm, playLegendBgm, stopBattleBgm } from './audio/bgm';
 import { playHitSfx, playWinSfx, playLevelUpSfx } from './audio/sfx';
+import { TIME_LIMIT_MIN_BADGES, TIME_ATTACK_EVERY_SEC, TIME_ATTACK_RATIO, timeLimitSec } from '../../data/adventure/battleTimer';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -819,6 +820,51 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     setPhase('command');
   };
 
+  // ---- 制限時間（バッジ7こから・すべてのバトル。2026-11-12 先生と決めた。きまりは data/adventure/battleTimer.ts） ----
+  // 問題ごとの制限時間を超えると、3秒ごとに 相手が こうげきしてくる（いま出ている子の 最大HPの4％）。
+  // 答えを見ているあいだ・「こうさん/にげる」の確認中は止める（時間は「問題を考えている時間」だけ数える）。
+  const timeLimitOn = save.badges.length >= TIME_LIMIT_MIN_BADGES;
+  const limitSec = timeLimitSec(problem?.subTopic, problem?.data);
+  const timerRunning = timeLimitOn && phase === 'question' && !showAnswer && !confirmingGiveUp && !!problem;
+  const elapsedMs = useRef(0);
+  const timerHits = useRef(0);
+  const [elapsedView, setElapsedView] = useState(0);
+  const [attackFx, setAttackFx] = useState<{ n: number; dmg: number } | null>(null);
+  useEffect(() => {
+    elapsedMs.current = 0;
+    timerHits.current = 0;
+    setElapsedView(0);
+  }, [qIndex, isRetry, oppIndex, activeIdx]);
+  useEffect(() => {
+    if (!timerRunning) return;
+    let last = Date.now();
+    const id = window.setInterval(() => {
+      const t = Date.now();
+      elapsedMs.current += t - last;
+      last = t;
+      setElapsedView(elapsedMs.current);
+      const over = elapsedMs.current / 1000 - limitSec;
+      if (over >= 0 && over >= timerHits.current * TIME_ATTACK_EVERY_SEC) {
+        timerHits.current += 1;
+        const dmg = Math.max(1, Math.round(activeMaxHp * TIME_ATTACK_RATIO));
+        setHp(v => Math.max(0, v - dmg));
+        playHitSfx();
+        setFlash('hurt');
+        setAttackFx({ n: t, dmg });
+        window.setTimeout(() => setFlash('none'), 520);
+        window.setTimeout(() => setAttackFx(cur => (cur && cur.n === t ? null : cur)), 950);
+      }
+    }, 250);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerRunning, limitSec, activeIdx, activeMaxHp]);
+  // 時間の こうげきで たおれたら、ふつうと同じく 次の子に交代（ぜんぶ たおれたら負け）
+  useEffect(() => {
+    if (phase === 'question' && !showAnswer && hp <= 0) handleActiveDown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hp, phase, showAnswer]);
+  const remainSec = Math.max(0, limitSec - elapsedView / 1000);
+
   const accent = oppDef ? ELEMENTS[oppDef.type].color : '#38bdf8';
   const oppSprite = oppDef ? getMonsterSprite(oppDef.id) : '';
   // 伝説(祠・野生のおためし遭遇どちらも)は、ふだんの相手の絵より
@@ -1070,13 +1116,24 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   );
 
   const QuestionPanel = (
-    <div className="flex flex-col h-full min-h-0 bg-slate-900">
+    <div className={`relative flex flex-col h-full min-h-0 bg-slate-900 ${attackFx ? 'adv-shake' : ''}`}>
+      {/* 制限時間を超えたときの「こうげきされた」演出（赤い光・ゆれ・相手がとびかかる・文字） */}
+      {attackFx && (
+        <>
+          {/* 問題の画面は作り直さない（筆算の とちゅうの入力を消さないため）。演出の部品だけ key で毎回やり直す */}
+          <div key={`f-${attackFx.n}`} className="adv-attack-flash pointer-events-none absolute inset-0 z-[90] bg-rose-500/35" />
+          <div key={`b-${attackFx.n}`} className="adv-attack-banner pointer-events-none absolute left-1/2 top-1/2 z-[100] whitespace-nowrap rounded-2xl border-4 border-white bg-rose-600 px-5 py-3 text-center text-xl font-black text-white shadow-2xl sm:text-3xl">
+            💥 {oppDef?.name ?? 'あいて'} の こうげき！
+            <span className="ml-2 text-amber-200">−{attackFx.dmg}</span>
+          </div>
+        </>
+      )}
       {/* 上: この問題を出しているモンスター */}
       <div className="flex items-center gap-3 px-3 py-2 bg-slate-800/90 border-b-2 border-white/10 shrink-0">
         <img
           src={oppSprite}
           alt=""
-          className="w-12 h-12 object-contain shrink-0"
+          className={`w-12 h-12 object-contain shrink-0 relative z-20 ${attackFx ? 'adv-lunge' : ''}`}
           onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
         />
         <div className="min-w-0 flex-1">
@@ -1109,6 +1166,28 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           {MyHpBar}
         </div>
       </div>
+
+      {/* 制限時間（バッジ7こから） */}
+      {timeLimitOn && !showAnswer && (
+        <div className="shrink-0 px-3 pt-2">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs font-black">
+            <span className={remainSec > 0 ? 'text-white/80' : 'text-rose-300'}>
+              {remainSec > 0
+                ? `⏱ のこり ${Math.ceil(remainSec)}びょう`
+                : `⏱ じかんぎれ！ ${oppDef?.name ?? 'あいて'}が ${TIME_ATTACK_EVERY_SEC}びょうごとに こうげきしてくる`}
+            </span>
+            <span className="text-white/50">せいげん {limitSec}びょう</span>
+          </div>
+          <div className="mt-1 h-2 rounded-full bg-white/15 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width] duration-200 ${
+                remainSec / limitSec > 0.5 ? 'bg-emerald-400' : remainSec / limitSec > 0.2 ? 'bg-amber-400' : 'bg-rose-500'
+              }`}
+              style={{ width: `${Math.max(0, Math.min(100, (remainSec / limitSec) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 中: iPadを横に持ったとき、左に問題・右に入力が並ぶようにする。
           縦に細長い端末では自動的に上下に積まれる。 */}

@@ -2,7 +2,8 @@
  * ぼうけんのバトル1回のスタミナ（町の「達成度」で安くなる。2026-11-11 先生と決めた）。
  *
  * 達成度＝その町の単元の練習の項目のうち、熟達（5問れんぞくノーミス）した割合。
- *   100％ → 2、75％以上 → 3、50％以上 → 4、それより下 → 5。アプリの無い町は 5。
+ *   100％ → 2、75％以上 → 3、50％以上 → 4、それより下 → 5。
+ * アプリの無い町（大きい数・折れ線グラフ・角）は 3（2026-11-12 先生と決めた。前は 5）。町の無いバトル（スピード・対戦）は 5。
  * 決めるのはサーバ（sanmon_spend が _sanmon_town_cost で計算する。表 sanmon_town_skill）。
  * ここは画面に「1回 n」「あと n回」を出すための同じ数え方（kit の町の解放の「練習」のメーターと同じ項目・同じ熟達）。
  * 項目の一覧は kit のカタログ。カタログを変えたら、サーバの表も作り直す（scripts/export-town-skills.mjs）。
@@ -29,8 +30,13 @@ export function townMastery(status: Pick<SanmonStatus, 'apps'> | null | undefine
   return skills.filter((s) => mastered.has(s)).length / skills.length;
 }
 
+/** アプリの無い町のバトル1回のスタミナ（サーバの _sanmon_town_cost と同じ） */
+export const NO_APP_TOWN_COST = 3;
+
 /** その町のバトル1回のスタミナ */
 export function townBattleCost(status: Pick<SanmonStatus, 'apps'> | null | undefined, townKey: string | null | undefined): number {
+  const unit = townKey ? SANMON_UNITS.find((u) => u.key === townKey) : undefined;
+  if (unit && !unit.appId) return NO_APP_TOWN_COST;
   const r = townMastery(status, townKey);
   if (r == null) return SANMON_RULES.battleCost;
   if (r >= 1) return 2;
