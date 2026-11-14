@@ -40,3 +40,11 @@ root.render(
     <JoinGate config={PORTAL} chip={false} allowWithout={isDemo} onDemo={enterDemo} />
   </React.StrictMode>
 );
+
+// ぼうけんの絵と曲を端末に残す（public/sw.js。docs/OFFLINE_ASSETS.md）。開発中は入れない。
+// プログラム本体は残さないので、月曜の自動更新はこれまでどおり届く。
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* 入れられない端末は今までどおり */ });
+  });
+}

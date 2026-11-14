@@ -34,6 +34,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 | ぼうけんのバトル・敵のレベル・伝説・アビリティ・制限時間・育ち方・ごほうび・アイテム・ガチャ（`AdventureMode`・`BattleScreen`・`data/adventure/`・`store/adventureStore.ts`） | `docs/BATTLE.md` |
 | モンスター対戦・クラス対戦（`data/partyDuel.ts`・`components/duel/`・サーバの `_pduel_*`・`sanmon_pduel_*`） | `docs/DUEL.md` |
 | 単元アプリの問題の写し・図鑑番号・けいさんらん（`apps/`・`data/appRounds.ts`・`legacyDex.ts`・`ProblemScratch.tsx`） | `docs/APP_ROUNDS.md` |
+| 絵と曲を端末に残す Service Worker（`public/sw.js`）・絵や曲の差しかえ | `docs/OFFLINE_ASSETS.md` |
 | ぼうけんの全体設計・ゲーム要素 | `docs/ADVENTURE.md`・`docs/DESIGN.md`・`docs/GAME_ELEMENTS_PROPOSAL.md` |
 
 **新しく決めたことは、上の表の docs に書く。** ここに足すのは「守らないと壊れる」1行だけにする（このファイルは毎回のセッションで全部読まれるため）。
@@ -51,6 +52,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - **`apps/<app_id>/` は単元アプリの写し。手で直さない**（`npm run sync-apps`）。
 - **サブトピックを足したら**、図鑑の名簿（`legacyDex.ts` の `ADDED_DEX_ORDER`）の**いちばん後ろ**に足し、learning-app-kit のカタログ `sanmon` も作り直す。
 - **絵・曲は同じ名前で上書きしない**（端末に1年古いまま残ることがある。上の「スタック」）。PNG を足したら `node scripts/make-webp.mjs`。
+- **`public/sw.js` は `/assets/adventure/` の絵と曲だけを扱う。** プログラム本体（HTML・JS・CSS）を入れない（月曜の自動更新が届かなくなる）。
 
 ## いちばん大事な設計
 
