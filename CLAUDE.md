@@ -30,7 +30,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 | 触るところ | 先に読む |
 |---|---|
 | 名乗り・記録の送信・おためし・デモ・体験版・モードの開け閉め・平日モード・番号ごとの停止（`services/portal.ts`・`saveProfile.ts`・`useSanmonPortal`・`App.tsx` のモード） | `docs/PORTAL.md` |
-| スタミナ・町の解放・バトル1回の数（`townCost.ts`・`PortalStatusBar`・`MapScreen`・サーバの `_sanmon_*`） | `docs/STAMINA.md` |
+| スタミナ・町の解放・バトル1回の数（kit の `sanmonBattleCost`・`PortalStatusBar`・`MapScreen`・サーバの `_sanmon_*`） | `docs/STAMINA.md` |
 | ぼうけんのバトル・敵のレベル・伝説・アビリティ・制限時間・育ち方・ごほうび・アイテム・ガチャ（`AdventureMode`・`BattleScreen`・`data/adventure/`・`store/adventureStore.ts`） | `docs/BATTLE.md` |
 | モンスター対戦・クラス対戦（`data/partyDuel.ts`・`components/duel/`・サーバの `_pduel_*`・`sanmon_pduel_*`） | `docs/DUEL.md` |
 | 単元アプリの問題の写し・図鑑番号・けいさんらん（`apps/`・`data/appRounds.ts`・`legacyDex.ts`・`ProblemScratch.tsx`） | `docs/APP_ROUNDS.md` |

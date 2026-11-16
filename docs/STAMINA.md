@@ -21,8 +21,8 @@
   **アプリの無い町（大きい数・折れ線グラフ・角）にも町のスタミナ**（2026-11-11 10:50〜 先生と決めた。SQL は `supabase-sql/2026-11-11-sanmon-noapp-towns.sql`）：SANMON の れんしゅう・ふくしゅう の正解（learning_event の module_id＝町の key、label が「れんしゅう：」「ふくしゅう：」）を その町へ（アプリと同じ数え方）。
   バトル・デュエルの中の答えは数えない（バトルでスタミナが戻らないように）。SANMON の本番テスト「1. 大きい数」「2. 折れ線グラフ」も その町へ。画面は「サーバが towns を返す町」に町のスタミナを出す（`key in stamina.towns`）。
   **バトル1回のスタミナは町の達成度で安くなる**（2026-11-11 先生と決めた。SQL は `supabase-sql/2026-11-11-sanmon-town-cost.sql`）：達成度＝その町の単元の練習の項目のうち熟達（5れんぞくノーミス）した割合。100％→2・75％以上→3・50％以上→4・それより下→5。アプリの無い町・スピード・対戦は5。
-  決めるのはサーバ（`sanmon_spend` が `_sanmon_town_cost` で計算。送られた数は使わない）。画面の「1回 n」は `utils/townCost.ts`（同じ項目＝kit のカタログ・同じ熟達）。
-  **アプリの無い町（大きい数・折れ線グラフ・角）は 1回 3**（2026-11-12 先生と決めた。前は 5。SQL は `supabase-sql/2026-11-12-sanmon-noapp-town-cost.sql`、画面は `utils/townCost.ts` の `NO_APP_TOWN_COST`）。
+  決めるのはサーバ（`sanmon_spend` が `_sanmon_town_cost` で計算。送られた数は使わない）。画面の「1回 n」は kit の `sanmonBattleCost`（同じ項目＝kit のカタログ・同じ熟達。2026-11-16 に SANMON の `utils/townCost.ts` の写しから置きかえた）。
+  **アプリの無い町（大きい数・折れ線グラフ・角）は 1回 3**（2026-11-12 先生と決めた。前は 5。SQL は `supabase-sql/2026-11-12-sanmon-noapp-town-cost.sql`、画面は kit の `SANMON_RULES.noAppTownCost`）。
   **kit のカタログ（項目）を変えたら、サーバの表 `sanmon_town_skill` を作り直す**（`node scripts/export-town-skills.mjs` の行で）。
   わり算の筆算の2つの町（÷1けた・÷2けた）は、練習の条件も達成度も**同じ32項目**で数える（同じ条件で いっしょに開く）。筆算シミュレーターの5項目（hissan-2-1〜3-3）は 2026-11-11 に足した（kit 0.34.1。前はカタログに無く、筆算そのものが数えられていなかった。SQL は `supabase-sql/2026-11-11-sanmon-hissan-core-skills.sql`）。
   画面は**文字で**出す（2026-11-10）：ぼうけんの左上に「スタミナ／この町 n/50 ・ 共通 n/100／▶ バトル あと n回（1回 5）」、マップの町ごとに「町のスタミナ n/50」、

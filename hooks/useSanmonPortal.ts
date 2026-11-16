@@ -9,10 +9,9 @@ import { getStudent, subscribeStudent, isTrial, trialAllows, type StudentIdentit
 import { usePortalConfig } from 'learning-app-kit/react';
 import {
   fetchSanmonStatus, fetchSanmonModes, staminaForTown, sanmonUnits, sanmonShards, spendStamina, isModeOpen, SANMON_RULES,
-  modeLockMessage, isSchoolHoursLocked, reportLockHit,
+  modeLockMessage, isSchoolHoursLocked, reportLockHit, sanmonBattleCost,
   type SanmonStatus, type SanmonUnitProgress, type SanmonModes, type SanmonModeKey,
 } from 'learning-app-kit/sanmon';
-import { townBattleCost } from '../utils/townCost';
 import { MATH_CATEGORIES } from '../constants';
 import { PORTAL, isPortalConfigured } from '../services/portal';
 import { useLevelCaps } from '../data/adventure/growth';
@@ -52,6 +51,15 @@ export interface SanmonPortal {
  * 理由は出さない（友だちに見られても分からないように）。止まるのはゲームだけで、れんしゅう・ふくしゅう・テストはできる。
  */
 const STUDENT_LOCK_MESSAGE = 'せんせいと おはなししてね';
+
+/**
+ * 平日モード（授業の時間）だけで閉じているか。先生がまだ開いていない（平日モードの前の開け閉め base で閉じている）なら false。
+ * kit の modeLockMessage と同じ見分け方（kit 0.36.0〜。時間がきても開かないモードに「◯◯から」を出さない）。
+ */
+function schoolHoursOnly(modes: SanmonModes, key: SanmonModeKey): boolean {
+  const base = modes?._school_hours?.base;
+  return isSchoolHoursLocked(modes, key) && (!base || isModeOpen(base, key));
+}
 const studentLocked = (modes: SanmonModes, key: SanmonModeKey) =>
   !isModeOpen(modes, key) && (modes as SanmonModes & { _student_lock?: boolean })._student_lock === true;
 
@@ -113,8 +121,8 @@ export function useSanmonPortal(): SanmonPortal {
     // ぼうけんの町のバトルは reason が「wild@div1」のように町つき。サーバが 町 → 共通 の順に使う（2026-11-09）
     const base = reason.split('@')[0];
     const townKey = reason.includes('@') ? reason.split('@')[1] : null;
-    // 町のバトルは 町の達成度で安くなる（2026-11-11）。数はサーバが決め直すので、ここは画面と合わせるため
-    const cost = townKey ? townBattleCost(status, townKey) : SANMON_RULES.battleCost;
+    // 町のバトルは 町の達成度で安くなる（2026-11-11）。数はサーバが決め直すので、ここは画面と合わせるため（kit の sanmonBattleCost。町が無ければ 5）
+    const cost = sanmonBattleCost(status, townKey);
     const r = await spendStamina(PORTAL, s.studentId, eventId, cost, reason);
     if (r.stamina != null) setStatus((st) => (st ? { ...st, stamina: r.stamina! } : st));
     // 町のスタミナも変わるので読みなおす（バトルを始めるときだけ。1回 数十ms）
@@ -142,16 +150,16 @@ export function useSanmonPortal(): SanmonPortal {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     towns: status?.towns ?? {}, staminaIn: (townKey: string | null) => staminaForTown(status, townKey),
     units, lockedUnitNames, refresh, spendForBattle,
-    townCost: (townKey: string | null) => (townKey ? townBattleCost(status, townKey) : SANMON_RULES.battleCost),
+    townCost: (townKey: string | null) => sanmonBattleCost(status, townKey),
     modeOpen: (key: SanmonModeKey) => (trial ? trialOpen(key) : isModeOpen(modes, key)),
     modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ')
       : studentLocked(modes, key) ? STUDENT_LOCK_MESSAGE : modeLockMessage(modes, key)),
     modeLockShort: (key: SanmonModeKey) => trial ? (trialOpen(key) ? null : '🔒 たいけんばんでは つかえないよ') : isModeOpen(modes, key) ? null
       : studentLocked(modes, key) ? `🔒 ${STUDENT_LOCK_MESSAGE}`
-      : isSchoolHoursLocked(modes, key) ? `🔒 じゅぎょうの じかん（${modes._school_hours!.end}から）` : '🔒 先生が まだ ひらいていないよ',
+      : schoolHoursOnly(modes, key) ? `🔒 じゅぎょうの じかん（${modes._school_hours!.end}から）` : '🔒 先生が まだ ひらいていないよ',
     reportLock: (key: SanmonModeKey) => {
       const s = getStudent();
-      if (s && isSchoolHoursLocked(modes, key)) void reportLockHit(PORTAL, s.studentId, key);
+      if (s && schoolHoursOnly(modes, key)) void reportLockHit(PORTAL, s.studentId, key);
     },
   };
 }
