@@ -11,6 +11,7 @@
  * - 効くのは ぼうけんのバトル（BattleScreen）と さいだいHP・けいけんち。モンスター対戦・クラス対戦（サーバが決める）には効かない。
  * - セーブには 種類と Lv（数十文字）だけを足す。通信・サーバの負担は ほぼ増えない。
  */
+import { HELL_MARK_MULT } from './legendHell';
 export type PowerId =
   | 'gutsy' | 'sturdy' | 'patient'
   | 'keeneye' | 'tenacity' | 'shield'
@@ -77,7 +78,7 @@ export function rollPowers(rand: () => number = Math.random): { powers: OwnedPow
   return { powers, shiny: rand() < SHINY_RATE };
 }
 
-type HasPowers = { powers?: OwnedPower[] | null } | null | undefined;
+type HasPowers = { powers?: OwnedPower[] | null; hell?: boolean } | null | undefined;
 /** その子が もつ その アビリティの Lv（なければ 0） */
 export const powerLv = (o: HasPowers, id: PowerId): number => o?.powers?.find(p => p.id === id)?.lv ?? 0;
 /** その子の その アビリティの 効き目の数（なければ null） */
@@ -90,9 +91,9 @@ export const powerLabel = (p: OwnedPower): string => `${ABILITIES[p.id].icon} ${
 export const powerEffect = (p: OwnedPower): string => ABILITIES[p.id].text(ABILITIES[p.id].values[p.lv - 1]);
 
 /** さいだいHPの ばいりつ */
-export const abilityHpMult = (o: HasPowers): number => 1 + (powerValue(o, 'sturdy') ?? 0);
+export const abilityHpMult = (o: HasPowers): number => (1 + (powerValue(o, 'sturdy') ?? 0)) * (o?.hell ? HELL_MARK_MULT : 1);
 /** こうげきの ばいりつ */
-export const abilityAtkMult = (o: HasPowers): number => 1 + (powerValue(o, 'gutsy') ?? 0);
+export const abilityAtkMult = (o: HasPowers): number => (1 + (powerValue(o, 'gutsy') ?? 0)) * (o?.hell ? HELL_MARK_MULT : 1);
 /** けいけんちの ばいりつ */
 export const abilityExpMult = (o: HasPowers): number => 1 + (powerValue(o, 'scholar') ?? 0);
 

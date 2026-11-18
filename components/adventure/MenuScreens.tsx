@@ -425,6 +425,7 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
                 とくせい {ABILITIES[p.def.ability].icon} {ABILITIES[p.def.ability].name}
               </p>
               {p.owned.shiny && <p className="mt-0.5 text-[11px] font-black text-yellow-600">✦ ひかりのこ（色ちがい）</p>}
+              {p.owned.hell && <p className="mt-0.5 text-[11px] font-black text-red-600">🔥 HELL を のりこえた（HP・こうげき 1.1ばい）</p>}
               {(p.owned.powers ?? []).map(pw => (
                 <p key={pw.id} className="mt-0.5 text-[11px] font-black text-amber-600">
                   アビリティ {powerLabel(pw)}
@@ -481,8 +482,9 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
                 {displayNameFor(save, o)}
               </p>
               <p className="text-[10px] font-bold text-slate-500">Lv.{o.level}{shards ? `／${levelCapOf(def, shards)}` : ''}</p>
-              {(o.shiny || (o.powers ?? []).length > 0) && (
+              {(o.shiny || o.hell || (o.powers ?? []).length > 0) && (
                 <p className="text-[10px] font-black text-amber-600 truncate" title={(o.powers ?? []).map(pw => `${powerLabel(pw)}（${powerEffect(pw)}）`).join('／')}>
+                  {o.hell && <span className="text-red-600">🔥</span>}
                   {o.shiny && <span className="text-yellow-500">✦</span>}
                   {(o.powers ?? []).map(pw => `${POWERS[pw.id].icon}Lv${pw.lv}`).join(' ')}
                 </p>

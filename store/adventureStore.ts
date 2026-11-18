@@ -338,7 +338,7 @@ interface AdventureState {
 
   // --- モンスター ---
   seeMonster: (defId: string) => void;
-  catchMonster: (defId: string, level: number) => OwnedMonster;
+  catchMonster: (defId: string, level: number, opts?: { hell?: boolean }) => OwnedMonster;
   /** その子を にがす（MP の量を返す。にがせないときは reason）。図鑑の「つかまえた」は のこる */
   releaseMonster: (uid: string) => { ok: true; mp: number } | { ok: false; reason: string };
   /** テキトウ団の下っ端に負けたとき、手持ちの1体をさらわれた記録にする */
@@ -511,10 +511,10 @@ export const useAdventureStore = create<AdventureState>((set, get) => {
       return { ok: true, mp };
     },
 
-    catchMonster: (defId, level) => {
+    catchMonster: (defId, level, opts) => {
       // つかまえた子は元気な状態で仲間になる(弱らせてから捕まえる都合上、
       // 捕獲時のHPをそのまま引きつぐと瀕死のまま加入してしまうため)
-      const mon: OwnedMonster = withPowers({ uid: newUid(), defId, level, exp: 0, caughtAt: Date.now() });
+      const mon: OwnedMonster = withPowers({ uid: newUid(), defId, level, exp: 0, caughtAt: Date.now(), ...(opts?.hell ? { hell: true } : {}) });
       mon.hp = monsterMaxHp(mon);
       update(s => {
         const party = s.party.length < 3 ? [...s.party, mon.uid] : s.party;
