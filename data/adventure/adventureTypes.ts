@@ -100,6 +100,8 @@ export interface OwnedMonster {
   powers?: OwnedPower[];
   /** 色ちがい（✦ひかりのこ）。光るだけで 強さは変わらない */
   shiny?: boolean;
+  /** 伝説 HELL に勝って なかまにした子（🔥HELL のしるし。さいだいHP・こうげき 1.1倍。data/adventure/legendHell.ts） */
+  hell?: boolean;
   powerVer?: number;
   /** 前のしくみ（2026-11-12 の数時間だけ）。読みこむと消す */
   power?: string | null;
@@ -256,6 +258,8 @@ export interface BattleSetup {
   grantsBadge?: boolean;
   /** kind:'legend' のとき、勝ったら必ず仲間になる伝説のID */
   legendId?: string;
+  /** 伝説 HELL（祠の伝説で、伝説・幻を5体 なかまにしたあと。data/adventure/legendHell.ts） */
+  hell?: boolean;
   /** kind:'team' のとき、クリア扱いにする章ID */
   teamChapterId?: string;
   /** kind:'ambush' のとき、奪還戦(下っ端のかくれ家)かどうか。false/省略なら日常の待ち伏せ */

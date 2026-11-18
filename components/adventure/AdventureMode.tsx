@@ -23,6 +23,7 @@ import {
 } from '../../store/adventureStore';
 import { missingLines } from '../../data/adventure/gymRequirements';
 import { getLegend, legendsInTown } from '../../data/adventure/legends';
+import { isLegendHell } from '../../data/adventure/legendHell';
 import {
   TEAM_MEMBERS, TEAM_HIDEOUT, TEAM_CHAPTERS,
   AMBUSH_LINES, rescueLines, HIDEOUT_SKIP_SHARD_COST, HIDEOUT_SKIP_LINES,
@@ -110,6 +111,8 @@ const AdventureMode: React.FC<Props> = ({
     const isLegend = raw.kind === 'legend' || raw.kind === 'legend-wild';
     const setup: BattleSetup = {
       ...raw,
+      // 伝説 HELL：祠の伝説で、伝説・幻を5体 なかまにしたあと（2026-11-18。野生の伝説は今のまま）
+      hell: raw.kind === 'legend' && isLegendHell(cur.legends),
       opponents: raw.opponents.map(o => ({ ...o, level: isLegend ? legendOpponentLevel(cur, o.level) : scaledOpponentLevel(cur, o.level) })),
     };
     if (!onRequestBattle) { setBattle(setup); return; }
@@ -397,6 +400,17 @@ const AdventureMode: React.FC<Props> = ({
       });
     };
     (window as any).__advGive = (defId: string, level = 5) => store.catchMonster(defId, level);
+    // 祠の伝説と すぐ たたかう・伝説を なかまにした数を ふやす（伝説 HELL の確かめ用。開発ビルドだけ）
+    (window as any).__advShrineBattle = (defId: string) => {
+      const legend = getLegend(defId);
+      if (!legend) return;
+      startBattle({
+        kind: 'legend', trainerName: legend.name, opponents: [{ defId: legend.id, level: legend.level }],
+        subtopics: legendSubtopics(legend), questionsPerOpponent: 5, catchable: false,
+        reward: { mp: 1200, balls: 5 }, townId: town.id, legendId: legend.id,
+      });
+    };
+    (window as any).__advAddLegend = (defId: string) => store.addLegend(defId);
     // バッジをまとめて もらう（制限時間・ボスの野生出現の確かめ用。開発ビルドだけ）
     (window as any).__advBadges = (n: number) => TOWNS.slice(0, n).forEach(t => store.awardBadge(t.id));
     // いまの町で 野生と出会う（開発ビルドだけ）
@@ -546,7 +560,12 @@ const AdventureMode: React.FC<Props> = ({
       // 出現
       setDialogue({
         speaker: `${legend.name}の祠`, accent: legend.shrine.color,
-        lines: [...legend.legendText, ...legend.awakenText],
+        lines: [
+          ...legend.legendText, ...legend.awakenText,
+          ...(isLegendHell(save.legends)
+            ? ['🔥 HELL ―― 祠の 気配が いつもと ちがう。', '正解していても こうげきが くる。苦手な問題ばかり。ヒントも どうぐも つかえない。']
+            : []),
+        ],
         onDone: () => {
           setDialogue(null);
           startBattle({
@@ -847,10 +866,12 @@ const AdventureMode: React.FC<Props> = ({
       if (result.won && legend) {
         store.addLegend(legend.id);
         // たたかったときのレベルのまま 仲間になる（手持ちに合わせて上がっていることがある。2026-11-12）
-        store.catchMonster(legend.id, setup.opponents[0]?.level ?? legend.level);
+        store.catchMonster(legend.id, setup.opponents[0]?.level ?? legend.level, { hell: !!setup.hell });
         after.push({
           speaker: legend.name, accent: legend.shrine.color,
-          lines: legend.joinText,
+          lines: setup.hell
+            ? [...legend.joinText, `🔥 HELL を のりこえた あかし！ ${legend.name}の さいだいHPと こうげきが 1.1ばいに なった。`]
+            : legend.joinText,
           onDone: () => setDialogue(null),
         });
       } else if (legend) {

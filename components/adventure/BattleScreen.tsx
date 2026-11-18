@@ -38,6 +38,8 @@ import { playBattleBgm, playLegendBgm, stopBattleBgm } from './audio/bgm';
 import { playHitSfx, playWinSfx, playLevelUpSfx } from './audio/sfx';
 import { TIME_LIMIT_MIN_BADGES, TIME_ATTACK_EVERY_SEC, TIME_ATTACK_RATIO, timeLimitSec } from '../../data/adventure/battleTimer';
 import { abilityAtkMult, powerValue, powerLabel, powerEffect, type PowerId } from '../../data/adventure/abilities';
+import { HELL_TIME_MULT, HELL_CLOCK_DIV, HELL_CLOCK_RATIO, HELL_MISS_MULT, HELL_MISS_MIN_RATIO, HELL_MIN_HITS, weakSubtopics } from '../../data/adventure/legendHell';
+import { getAllMastery } from '../../services/learningLogService';
 
 type Phase =
   | 'intro'        // 登場のセリフ
@@ -132,7 +134,18 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const opponents = setup.opponents;
   const oppDef: MonsterDef | undefined = getMonster(opponents[oppIndex]?.defId ?? '');
   const oppLevel = opponents[oppIndex]?.level ?? 5;
-  const oppStats = oppDef ? statsAtLevel(oppDef, oppLevel) : { maxHp: 30, atk: 8 };
+  /** 伝説 HELL（祠の伝説・伝説と幻を5体 なかまにしたあと。きまりは data/adventure/legendHell.ts） */
+  const hell = !!setup.hell;
+  const baseOppStats = oppDef ? statsAtLevel(oppDef, oppLevel) : { maxHp: 30, atk: 8 };
+  // HELL の伝説は、手持ちで いちばん強い子でも 少なくとも HELL_MIN_HITS 問 正解しないと たおれない HP にする
+  const oppStats = useMemo(() => {
+    if (!hell || !oppDef) return baseOppStats;
+    const tough = 1 - Math.min(0.25, (oppDef.difficulty - 1) * 0.05);
+    const best = Math.max(8, ...getPartyMonsters(save).map(p =>
+      statsAtLevel(p.def, p.owned.level).atk * abilityAtkMult(p.owned) * getTypeMultiplier(p.def.type, oppDef.type)));
+    return { ...baseOppStats, maxHp: Math.max(baseOppStats.maxHp, Math.round(best * 1.35 * tough * HELL_MIN_HITS)) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hell, oppDef, oppLevel]);
   const [oppHp, setOppHp] = useState(oppStats.maxHp);
   // 一度でも捕まえたことがあるモンスターかどうか(再会したときに一目でわかるように)
   const oppCaught = oppDef ? save.dexCaught.includes(oppDef.id) : false;
@@ -200,7 +213,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     (window as any).__advForceMyHp = (v: number) => setHp(() => v);
     (window as any).__advForceDown = () => handleActiveDown();
     (window as any).__advBattleState = () => ({
-      hps, activeIdx, aliveCount, phase,
+      hps, activeIdx, aliveCount, phase, oppHp, oppMaxHp: oppStats.maxHp, hell,
       activeName: active?.def.name ?? null,
       partyNames: party.map(p => p.def.name),
       // 自動テストで正解を入れるため（開発ビルドだけ）
@@ -258,7 +271,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const recognized = useRef(false);
 
   const subtopics = useMemo(() => {
-    if (setup.subtopics?.length) return setup.subtopics;
+    // HELL は 苦手な問題（正答率の低い 3分の1）だけ
+    if (setup.subtopics?.length) return hell ? weakSubtopics(setup.subtopics, getAllMastery()) : setup.subtopics;
     return opponents
       .map(o => getMonster(o.defId)?.subtopic)
       .filter((s): s is string => Boolean(s));
@@ -294,6 +308,11 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       setMessage([`やせいの ${name} が とびだしてきた！`]);
     } else if (setup.trainerLines?.length) {
       setMessage([...setup.trainerLines, `${setup.trainerName} は ${name} をくりだした！`]);
+    } else if (hell) {
+      setMessage([
+        `🔥 HELL ―― ${name} が 本気を だした！`,
+        '正解していても、時間が たつと こうげきが くる。苦手な問題ばかり。ヒントと どうぐは つかえない。',
+      ]);
     } else {
       setMessage([`${setup.trainerName} は ${name} をくりだした！`]);
     }
@@ -391,13 +410,16 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       usedAbility.current.guard = true;
       return 0;
     }
-    if (charmOk && !usedCharm.current && store.useItem('charm')) {
+    if (charmOk && !hell && !usedCharm.current && store.useItem('charm')) {
       usedCharm.current = true;
       charmFired.current = true;
       return 0;
     }
     // アビリティ「まもりのこころ」：まちがえたときの ダメージ 2わり へる
-    return Math.max(3, Math.round(oppStats.atk * 0.8 * (1 - (pv('shield') ?? 0))));
+    const base = oppStats.atk * 0.8 * (1 - (pv('shield') ?? 0));
+    // HELL は まちがいが重い（1.5倍。いま出ている子の 最大HPの 35％ より 小さくはしない）
+    if (hell) return Math.max(3, Math.round(Math.max(base * HELL_MISS_MULT, activeMaxHp * HELL_MISS_MIN_RATIO)));
+    return Math.max(3, Math.round(base));
   };
   /** この答えで おまもりが ダメージを ふせいだか（結果の表示に使う） */
   const charmFired = useRef(false);
@@ -553,8 +575,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     }
     if (oppHp <= 0) { handleFaint(); return; }
 
-    if (!wasCorrect && !isRetry) {
-      // ヒントを見せて、もう一度おなじ問題に挑戦
+    if (!wasCorrect && !isRetry && !hell) {
+      // ヒントを見せて、もう一度おなじ問題に挑戦（HELL は もう一度なし。答えを見て 次へ）
       setIsRetry(true);
       setShowAnswer(false);
       setUserAnswer('');
@@ -866,16 +888,19 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   const attackRatio = TIME_ATTACK_RATIO * (legendFight ? 2 : 1);
   // アビリティ：おちつき（+びょう）・ときのまもり（ばい）。Lv で数が変わる
   const limitSec = Math.round(
-    (timeLimitSec(problem?.subTopic, problem?.data) + (pv('patient') ?? 0)) * (pv('timeguard') ?? 1),
+    (timeLimitSec(problem?.subTopic, problem?.data) + (pv('patient') ?? 0)) * (pv('timeguard') ?? 1) * (hell ? HELL_TIME_MULT : 1),
   );
   const timerRunning = timeLimitOn && phase === 'question' && !showAnswer && !confirmingGiveUp && !!problem;
   const elapsedMs = useRef(0);
   const timerHits = useRef(0);
+  /** HELL：制限時間の うちに きた 時計の こうげきの 回数（制限時間の 3分の1 ごと） */
+  const clockHits = useRef(0);
   const [elapsedView, setElapsedView] = useState(0);
-  const [attackFx, setAttackFx] = useState<{ n: number; dmg: number } | null>(null);
+  const [attackFx, setAttackFx] = useState<{ n: number; dmg: number; clock?: boolean } | null>(null);
   useEffect(() => {
     elapsedMs.current = 0;
     timerHits.current = 0;
+    clockHits.current = 0;
     setElapsedView(0);
   }, [qIndex, isRetry, oppIndex, activeIdx]);
   useEffect(() => {
@@ -887,7 +912,18 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       last = t;
       setElapsedView(elapsedMs.current);
       const over = elapsedMs.current / 1000 - limitSec;
-      if (over >= 0 && over >= timerHits.current * TIME_ATTACK_EVERY_SEC) {
+      // HELL：正解していても、制限時間の 3分の1 ごとに こうげきしてくる（時間を超えたあとは ふつうの こうげき）
+      const clockStep = limitSec / HELL_CLOCK_DIV;
+      if (hell && over < 0 && elapsedMs.current / 1000 >= (clockHits.current + 1) * clockStep) {
+        clockHits.current += 1;
+        const dmg = Math.max(1, Math.round(activeMaxHp * HELL_CLOCK_RATIO));
+        hurt(dmg);
+        playHitSfx();
+        setFlash('hurt');
+        setAttackFx({ n: t, dmg, clock: true });
+        window.setTimeout(() => setFlash('none'), 520);
+        window.setTimeout(() => setAttackFx(cur => (cur && cur.n === t ? null : cur)), 950);
+      } else if (over >= 0 && over >= timerHits.current * TIME_ATTACK_EVERY_SEC) {
         timerHits.current += 1;
         const dmg = Math.max(1, Math.round(activeMaxHp * attackRatio));
         hurt(dmg);
@@ -900,7 +936,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     }, 250);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerRunning, limitSec, activeIdx, activeMaxHp, attackRatio]);
+  }, [timerRunning, limitSec, activeIdx, activeMaxHp, attackRatio, hell]);
   // 時間の こうげきで たおれたら、ふつうと同じく 次の子に交代（ぜんぶ たおれたら負け）
   useEffect(() => {
     if (phase === 'question' && !showAnswer && hp <= 0) handleActiveDown();
@@ -1026,6 +1062,9 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             </span>
             {lead.owned.shiny && (
               <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-yellow-200/95 text-[10px] font-black text-yellow-800 shadow">✦ ひかりのこ</span>
+            )}
+            {lead.owned.hell && (
+              <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-red-600/95 text-[10px] font-black text-white shadow">🔥 HELL</span>
             )}
             {(lead.owned.powers ?? []).map(p => (
               <span key={p.id} className="ml-1 mt-0.5 inline-block px-2 py-0.5 rounded-full bg-amber-100/95 text-[10px] font-black text-amber-800 shadow" title={powerEffect(p)}>
@@ -1157,12 +1196,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       </button>
       <button
         onClick={() => setBag('tool')}
-        disabled={toolCount <= 0}
+        disabled={toolCount <= 0 || hell}
         className="rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-300 disabled:text-slate-500 active:scale-95 transition text-white font-black text-xl sm:text-2xl py-4 shadow-lg border-4 border-white/70"
       >
         🧃 どうぐ
         <span className="block text-xs font-bold opacity-90 mt-1">
-          {toolCount > 0 ? `${toolCount}こ もっている` : 'どうぐが ない'}
+          {hell ? '🔥 HELL では つかえない' : toolCount > 0 ? `${toolCount}こ もっている` : 'どうぐが ない'}
         </span>
       </button>
       <button
@@ -1183,7 +1222,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           {/* 問題の画面は作り直さない（筆算の とちゅうの入力を消さないため）。演出の部品だけ key で毎回やり直す */}
           <div key={`f-${attackFx.n}`} className="adv-attack-flash pointer-events-none absolute inset-0 z-[90] bg-rose-500/35" />
           <div key={`b-${attackFx.n}`} className="adv-attack-banner pointer-events-none absolute left-1/2 top-1/2 z-[100] whitespace-nowrap rounded-2xl border-4 border-white bg-rose-600 px-5 py-3 text-center text-xl font-black text-white shadow-2xl sm:text-3xl">
-            💥 {oppDef?.name ?? 'あいて'} の こうげき！
+            {attackFx.clock ? '🔥' : '💥'} {oppDef?.name ?? 'あいて'} の こうげき！
             <span className="ml-2 text-amber-200">−{attackFx.dmg}</span>
           </div>
         </>
@@ -1238,7 +1277,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           <div className="flex items-center justify-between text-[11px] sm:text-xs font-black">
             <span className={remainSec > 0 ? 'text-white/80' : 'text-rose-300'}>
               {remainSec > 0
-                ? `⏱ のこり ${Math.ceil(remainSec)}びょう`
+                ? `${hell ? '🔥 HELL ' : ''}⏱ のこり ${Math.ceil(remainSec)}びょう`
                 : `⏱ じかんぎれ！ ${oppDef?.name ?? 'あいて'}が ${TIME_ATTACK_EVERY_SEC}びょうごとに こうげきしてくる`}
             </span>
             <span className="text-white/50">せいげん {limitSec}びょう</span>
@@ -1314,7 +1353,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
 
       {/* 下: 決定ボタン */}
       <div className="shrink-0 p-2 sm:p-3 bg-slate-800/90 border-t-2 border-white/10 flex items-center gap-2">
-        {hint && (
+        {hint && !hell && (
           <button
             onClick={openHintVoluntarily}
             title={
@@ -1329,7 +1368,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
             💡 ヒント{hintPenalty ? '(使用ずみ)' : ''}
           </button>
         )}
-        {hint && hintWouldPenalize && (save.items.hintbook ?? 0) > 0 && (
+        {hint && !hell && hintWouldPenalize && (save.items.hintbook ?? 0) > 0 && (
           <button
             onClick={openHintWithBook}
             title="ヒントのしおりを 1まい つかうと、こうげきが よわくならないよ"
@@ -1377,7 +1416,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         <p className="mt-1 text-base sm:text-lg font-bold text-slate-700 text-center">
           {wasCorrect
             ? `${oppDef?.name} に こうげきが ヒット！`
-            : isRetry
+            : isRetry || hell
               ? 'つぎの もんだいへ いこう。'
               : 'かいせつを 見て、もういちど やってみよう！'}
         </p>
@@ -1414,7 +1453,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           />
         </div>
 
-        {!wasCorrect && isRetry && (
+        {!wasCorrect && (isRetry || hell) && (
           <p className="mt-3 text-sm font-bold text-slate-500 text-center">
             この もんだいは「ふくしゅうモード」に 入れておいたよ。
           </p>
@@ -1423,7 +1462,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           onClick={proceed}
           className="mt-5 w-full py-4 rounded-2xl bg-slate-800 text-white font-black text-xl sm:text-2xl shadow active:scale-95"
         >
-          {wasCorrect || isRetry ? 'つぎへ ▶' : 'もういちど やってみる ▶'}
+          {wasCorrect || isRetry || hell ? 'つぎへ ▶' : 'もういちど やってみる ▶'}
         </button>
       </div>
     </div>
