@@ -21,5 +21,5 @@
 - **時間（2026-10-24 先生と決めた）：さいしょの子が答えるまでは時間せいげんなし。どちらかが答えたら、のこりの子は60秒。** 2人とも答えないときだけ5分で打ち切り。
   画面に「わからない（このターンは パス）」ボタン（`DuelAnswerArea` の `allowPass`。スピードデュエルには出さない）。
   数は `PARTY_DUEL.afterFirstSeconds / capSeconds / guard` と サーバの `_pduel_after_first_seconds / _pduel_cap_seconds / _pduel_guard`（しめきりは `sanmon_pduel_answer` が さいしょの答えで ちぢめる）。
-- スタミナは部屋に入ったときにサーバが2人ぶん使う（`_duel_cost()` = 5）。ごほうびは勝ち負けの分＋せいかい1問ごとの MP。順位表は作らない。
+- **スタミナは、とりあえず使わない**（2026-11-19 先生と決めた。サーバの `_duel_cost()` = 0。0 のときは `sanmon_duel_join`・`sanmon_pduel_join` がスタミナの記録を入れない。元にもどすときは `_duel_cost()` を 5 にし、`ClassDuel.tsx` の説明文を直す）。前は部屋に入ったときにサーバが2人ぶん使っていた（5）。ごほうびは勝ち負けの分＋せいかい1問ごとの MP。順位表は作らない。
 - 古い早押しの関数（`sanmon_duel_create / join / answer`）は、古い画面が残っているあいだのために残してある（パーティの部屋には入れないようにしてある）。後で消す。
