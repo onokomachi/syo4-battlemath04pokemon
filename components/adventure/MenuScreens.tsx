@@ -384,7 +384,7 @@ export const PartyScreen: React.FC<{ onClose: () => void; onReleaseMp?: (mp: num
                   src={getMonsterSprite(spriteIdFor(save, p.owned))}
                   alt=""
                   style={p.owned.shiny ? { filter: 'drop-shadow(0 0 8px #facc15)' } : undefined}
-                  className="w-20 h-20 object-contain shrink-0"
+                  className={`${p.def.rarity ? 'w-32 h-32' : 'w-20 h-20'} object-contain shrink-0`}
                   onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
                 />
                 <div className="min-w-0">

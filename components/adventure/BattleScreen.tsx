@@ -21,7 +21,7 @@ import { ELEMENTS, getTypeMatchupLabel, getTypeMultiplier } from '../../data/adv
 import { ABILITIES, ITEMS } from '../../data/adventure/adventureTypes';
 import { getNpcSprite } from '../../data/adventure/people';
 import {
-  useAdventureStore, getPartyMonsters, monsterHp, monsterMaxHp,
+  useAdventureStore, getPartyMonsters, monsterHp, monsterMaxHp, spriteIdFor, displayNameFor,
 } from '../../store/adventureStore';
 import { checkAnswer as evaluateAnswer } from '../../utils/answerChecker';
 import { shuffleDeck } from '../../utils/shuffle';
@@ -160,6 +160,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // 手持ち3体はそれぞれ自分のHPを持つ。1体たおれたら次の子が出てきて、
   // 3体ぜんぶたおれたら負け(交代しても相手は攻撃してこない)。
   const party = getPartyMonsters(save);
+  /** こちらの子の 表示名（進化ずみなら 進化後。ニックネームがあれば それ） */
+  const nameOf = (p?: { def: { name: string }; owned: Parameters<typeof displayNameFor>[1] }) => (p ? displayNameFor(save, p.owned) : 'なかま');
   const [hps, setHps] = useState<number[]>(() => {
     const initial = party.map(p => monsterHp(p.owned));
     // 全員たおれた状態でバトルに入ってしまったときの保険(詰み防止)
@@ -198,7 +200,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     if (uid && !tenacityUsed.current.has(uid) && cur > 1 && next <= 0 && Math.random() < (pv('tenacity') ?? 0)) {
       tenacityUsed.current.add(uid);
       next = 1;
-      notePower(`🦴 ねばりごし！ ${active?.def.name} は HP1で たえた！`);
+      notePower(`🦴 ねばりごし！ ${nameOf(active)} は HP1で たえた！`);
     }
     hpRef.current = next;
     setHp(() => next);
@@ -214,8 +216,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     (window as any).__advForceDown = () => handleActiveDown();
     (window as any).__advBattleState = () => ({
       hps, activeIdx, aliveCount, phase, oppHp, oppMaxHp: oppStats.maxHp, hell,
-      activeName: active?.def.name ?? null,
-      partyNames: party.map(p => p.def.name),
+      activeName: active ? nameOf(active) : null,
+      partyNames: party.map(p => nameOf(p)),
       // 自動テストで正解を入れるため（開発ビルドだけ）
       answer: problems[qIndex]?.answer ?? null,
       problemType: problems[qIndex]?.type ?? null,
@@ -639,7 +641,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       setPhase('lose');
       return true;
     }
-    const downName = active?.def.name ?? 'なかま';
+    const downName = nameOf(active);
     const nextMon = party[nextIdx];
     setActiveIdx(nextIdx);
     // まちがえて たおれたときは、その問題の「答えを見せている」状態が残っている。
@@ -661,7 +663,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     usedAbility.current = { hint: false, guard: false, first: true };
     setMessage([
       `${downName} は たおれてしまった！`,
-      `いけっ、${nextMon.def.name}！`,
+      `いけっ、${nameOf(nextMon)}！`,
     ]);
     setPhase('faint');
     return true;
@@ -823,12 +825,12 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
     if (id === 'potion') {
       // いま出ている1体だけを回復する(全員まとめて回復するのは町のかいふく所)
       setHp(v => v + 30);
-      setMessage([`げんきドリンクを つかった！ ${active?.def.name ?? 'なかま'} の HPが かいふくした。`]);
+      setMessage([`げんきドリンクを つかった！ ${nameOf(active)} の HPが かいふくした。`]);
     } else if (id === 'revive' && target !== undefined) {
       const mon = party[target];
       const half = Math.max(1, Math.round(monsterMaxHp(mon.owned) / 2));
       setHps(prev => prev.map((h, i) => (i === target ? half : h)));
-      setMessage([`げんきのかけらを つかった！ ${mon.def.name} が ふっかつした！`]);
+      setMessage([`げんきのかけらを つかった！ ${nameOf(mon)} が ふっかつした！`]);
     } else {
       expMult.current = 1.5;
       setScrollUsed(true);
@@ -949,6 +951,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   // 伝説(祠・野生のおためし遭遇どちらも)は、ふだんの相手の絵より
   // ひとまわり大きく見せる。せっかくの一枚絵が小さすぎるという声があったため。
   const isLegendBattle = setup.kind === 'legend' || setup.kind === 'legend-wild';
+  /** こちらの先頭が 伝説・幻なら、相手の伝説と同じように 大きく見せる */
+  const leadIsLegend = !!lead?.def.rarity;
 
 
   // ============================================================
@@ -972,7 +976,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
   /** こちらのHPバー(いま出ている1体ぶん) */
   const MyHpBar = (
     <div className="flex flex-col items-end gap-1">
-      <HpBar hp={hp} max={activeMaxHp} label={active?.def.name ?? 'じぶん'} level={active?.owned.level} small />
+      <HpBar hp={hp} max={activeMaxHp} label={active ? nameOf(active) : 'じぶん'} level={active?.owned.level} small />
       {hps.length > 1 && PartyDots}
     </div>
   );
@@ -1040,7 +1044,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
       {/* こちらの先頭モンスター */}
       {lead && (
         <div
-          className="absolute left-[8%] bottom-[6%] w-[30%] max-w-[240px]"
+          className={`absolute left-[8%] bottom-[6%] ${leadIsLegend ? 'w-[46%] max-w-[400px]' : 'w-[30%] max-w-[240px]'}`}
           style={{
             filter: flash === 'hurt'
               ? 'brightness(0.55) saturate(0.4)'
@@ -1049,8 +1053,8 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
         >
           <div className="relative">
             <img
-              src={getMonsterSprite(lead.def.id)}
-              alt={lead.def.name}
+              src={getMonsterSprite(spriteIdFor(save, lead.owned))}
+              alt={nameOf(lead)}
               className="w-full drop-shadow-2xl"
               onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0.25'; }}
             />
@@ -1058,7 +1062,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
           </div>
           <div className="mt-1 text-center">
             <span className="inline-block px-3 py-0.5 rounded-full bg-white/90 text-xs font-black text-slate-700 shadow">
-              {lead.def.name} Lv.{lead.owned.level}
+              {nameOf(lead)} Lv.{lead.owned.level}
             </span>
             {lead.owned.shiny && (
               <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-yellow-200/95 text-[10px] font-black text-yellow-800 shadow">✦ ひかりのこ</span>
@@ -1132,7 +1136,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
               <span className="text-3xl">{ITEMS.potion.icon}</span>
               <span className="flex-1 min-w-0">
                 <span className="block font-black text-slate-800">{ITEMS.potion.name}（{save.items.potion ?? 0}こ）</span>
-                <span className="block text-xs font-bold text-slate-500">{hp >= activeMaxHp ? 'HPは まんたんだよ' : `${active?.def.name ?? 'なかま'} の HPを 30 かいふく`}</span>
+                <span className="block text-xs font-bold text-slate-500">{hp >= activeMaxHp ? 'HPは まんたんだよ' : `${nameOf(active)} の HPを 30 かいふく`}</span>
               </span>
             </button>
             {downIdx.length === 0 ? (
@@ -1150,7 +1154,7 @@ const BattleScreen: React.FC<Props> = ({ setup, onFinish }) => {
                 <span className="text-3xl">{ITEMS.revive.icon}</span>
                 <span className="flex-1 min-w-0">
                   <span className="block font-black text-slate-800">{ITEMS.revive.name}（{save.items.revive ?? 0}こ）</span>
-                  <span className="block text-xs font-bold text-slate-500">{party[i]?.def.name} を HP はんぶんで ふっかつ</span>
+                  <span className="block text-xs font-bold text-slate-500">{nameOf(party[i])} を HP はんぶんで ふっかつ</span>
                 </span>
               </button>
             ))}
