@@ -107,8 +107,9 @@ alter table public.sanmon_status_cache add column if not exists src_ver bigint;
 
 create or replace function public.refresh_sanmon_status_cache()
 returns integer language plpgsql security definer set search_path = '' as $$
-declare r record; n int := 0; today date := (now() at time zone 'Asia/Tokyo')::date;
+declare r record; n int := 0; today date := (now() at time zone 'Asia/Tokyo')::date; t0 timestamptz := clock_timestamp();
 begin
+  -- 1回の実行は 45秒まで（cron の打ち切り 120秒で 全部が取り消されないように。のこりは 次の10分で つづける）
   for r in
     select s.id, coalesce(pc.ver, 0) v
     from public.students s
@@ -117,7 +118,9 @@ begin
     where sc.student_id is null
        or sc.src_ver is distinct from coalesce(pc.ver, 0)
        or (sc.computed_at at time zone 'Asia/Tokyo')::date <> today
+    order by sc.computed_at nulls first
   loop
+    exit when clock_timestamp() - t0 > interval '45 seconds';
     begin
       insert into public.sanmon_status_cache (student_id, status, computed_at, src_ver)
       values (r.id, public.sanmon_status(r.id), now(), r.v)
