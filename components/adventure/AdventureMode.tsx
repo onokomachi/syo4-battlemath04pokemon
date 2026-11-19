@@ -411,6 +411,9 @@ const AdventureMode: React.FC<Props> = ({
       });
     };
     (window as any).__advAddLegend = (defId: string) => store.addLegend(defId);
+    // 手持ちの先頭に 入れる・進化ずみにする（進化後の絵・伝説の大きさの確かめ用。開発ビルドだけ）
+    (window as any).__advLead = (uid: string) => store.setParty([uid]);
+    (window as any).__advEvolveMark = (uid: string) => store.markEvolved(uid);
     // バッジをまとめて もらう（制限時間・ボスの野生出現の確かめ用。開発ビルドだけ）
     (window as any).__advBadges = (n: number) => TOWNS.slice(0, n).forEach(t => store.awardBadge(t.id));
     // いまの町で 野生と出会う（開発ビルドだけ）
