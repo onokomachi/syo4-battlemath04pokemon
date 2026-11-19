@@ -311,7 +311,7 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
               へやを つくる（{size}匹）
             </button>
             <ul className="mt-5 space-y-1 text-[11px] text-gray-400">
-              <li>• へやに 入った ときに、2人とも スタミナを 5 つかうよ</li>
+              <li>• スタミナは つかわないよ（いつでも あそべる）</li>
               <li>• 2人に 同じ もんだい。場に 出ている 2匹の 分野から こうたいで 出るよ</li>
               <li>• せいかいすると こうげき。HPが 0に なったら つぎの モンスター。ぜんぶ たおしたら かち</li>
               <li>• かっても まけても、せいかいした ぶんの MP が もらえるよ</li>

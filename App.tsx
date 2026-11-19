@@ -1476,7 +1476,7 @@ const App: React.FC = () => {
           <MonsterDuelSetup
             onStart={(uids, size, mode) => {
               if (mode === 'pvp') {
-                // クラス対戦: スタミナは へやに入ったときにサーバが2人ぶん使う
+                // クラス対戦: いまはスタミナを使わない（サーバの _duel_cost() = 0。2026-11-19）
                 setClassDuel({ uids, size });
                 setGameState('class_duel');
                 return;
