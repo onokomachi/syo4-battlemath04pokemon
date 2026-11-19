@@ -29,4 +29,10 @@
   メニューの帯に「スタミナ 共通 n/100」と「共通だけで バトル あと n回」、ひらくと町ごと（`PortalStatusBar`）。
   かんたんな項目の周回では たまりにくく、いろいろな項目・苦手・テスト・階段で よく たまる。kit の `SANMON_RULES.dailyCap` は もう使っていない（子ども用ハブの説明が「30まで」なら 全体セッションで直す）。
 
+- **スタミナの計算は「変わったときだけ」**（2026-11-19。SQL は `supabase-sql/2026-11-19-sanmon-pools-cache.sql`）：授業中に `sanmon_status`・`sanmon_spend`・クラス対戦の へや作りが
+  3秒（子どもの端末＝anon の打ち切り）を超えて 数百回 失敗していた（ジムリーダーに挑むと「読み込みエラー」・スタミナが ふえないように見えた）。
+  `_sanmon_pools` は 結果を表 `sanmon_pools_cache` に のこし、記録（learning_event・test_result・trial_result・sanmon_spend・skill_state）が 変わったときだけ（トリガーで `ver` +1）・日が かわったときだけ 数えなおす。
+  **数え方の本体は `_sanmon_pools_compute`（もとの `_sanmon_pools`）。きまりを変えるときは こちらを直す**（直したら `update public.sanmon_pools_cache set done_ver = -1;` で全員 数えなおす）。
+  数え方に使う表を 新しく足したら、その表にも トリガー `sanmon_bump_*`（`_sanmon_bump_ver`）を付ける（付けないと、のこした古い数が出る）。
+  クラス対戦は `_duel_cost()` が 0 のあいだ スタミナを数えない。
 - 子どもむけのスタミナの説明はメニューの帯をひらいたところ（`PortalStatusBar`）。見出し＋短い1行で書く（2026-11-11）。きまりを変えたら ここも直す。
