@@ -17,12 +17,24 @@ import { pushSave } from '../../services/portal';
 import { BackIcon } from '../Icons';
 import PartyDuelBoard, { type PartyPhase } from './PartyDuelBoard';
 import { isDuelAnswerCorrect, problemFor } from './duelProblems';
-import { duelApi, joinSignal, clockOffset, type DuelLobby, type DuelView } from '../../services/duel';
+import { duelApi, joinSignal, clockOffset, withRetry, NetworkError, type DuelLobby, type DuelView } from '../../services/duel';
 
 /** ターンの結果を見せる時間（サーバは結果のあと4秒で次のターンを始める。残りの1.5秒はカウントダウン） */
 const RESULT_MS = 2500;
+/**
+ * 読みなおしの間かく（2026-11-19）。合図（Realtime）が つながっていれば、変わったときは合図で すぐ分かるので 少なくする
+ * （教室の 30台が 同時に 読みなおすと Wi‑Fi が こむため）。つながらないときだけ 前と同じ 早さで読む。
+ */
 const POLL_MS = 2000;
+const POLL_LIVE_MS = 5000;
 const LOBBY_POLL_MS = 3000;
+const LOBBY_POLL_LIVE_MS = 10000;
+/** へやを作る・入る前に セーブを送るのを 待つ 上限（遅い回線で ずっと止まらないように。送れなければ前のセーブで続ける） */
+const SAVE_WAIT_MS = 6000;
+/** これより長く 返事を待っていたら「つうしんちゅう」と出す */
+const SLOW_MS = 1200;
+
+const pushSaveQuick = () => Promise.race([pushSave().catch(() => {}), new Promise<void>((r) => setTimeout(r, SAVE_WAIT_MS))]);
 
 export interface ClassDuelProps {
   studentId: string;
@@ -50,8 +62,26 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
   const [offset, setOffset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [pendingRound, setPendingRound] = useState(0);
-  const signalRef = useRef<{ ping: () => void; leave: () => void } | null>(null);
-  const lobbySignalRef = useRef<{ ping: () => void; leave: () => void } | null>(null);
+  const signalRef = useRef<{ ping: () => void; leave: () => void; live: () => boolean } | null>(null);
+  const lobbySignalRef = useRef<{ ping: () => void; leave: () => void; live: () => boolean } | null>(null);
+  /** 返事を待っている 問い合わせの数（「つうしんちゅう」の表示） */
+  const [inflight, setInflight] = useState(0);
+  const [slow, setSlow] = useState(false);
+  /** 読みなおしが つづけて 失敗した回数（2回から「つうしんが よわいよ」） */
+  const [pollFails, setPollFails] = useState(0);
+  const track = useCallback(async <T,>(p: Promise<T>): Promise<T> => {
+    setInflight((n) => n + 1);
+    try { return await p; } finally { setInflight((n) => n - 1); }
+  }, []);
+  useEffect(() => {
+    if (inflight <= 0) { setSlow(false); return; }
+    const t = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(t);
+  }, [inflight]);
+  /** 読みなおしが 重ならないように（遅い回線で 返事が来る前に 次を送らない） */
+  const pollingRef = useRef(false);
+  const againRef = useRef(false);
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
   const finishedRef = useRef<string | null>(null);
   const answeringStartRef = useRef<number>(0);
 
@@ -67,16 +97,29 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
     try {
       const l = await duelApi.list(studentId);
       setLobby(l);
+      setPollFails(0);
       // 続きの部屋があれば戻る（まちがえて閉じた・リロードした）。古い形の部屋は続けない
       if (l.mine?.party_size) setView((cur) => cur ?? l.mine);
-    } catch (e) { setError((e as Error).message); }
+      return l;
+    } catch (e) {
+      if (e instanceof NetworkError) setPollFails((n) => n + 1); else setError((e as Error).message);
+      return null;
+    }
   }, [studentId]);
 
   useEffect(() => {
     if (view) return;
-    void loadLobby();
-    const t = setInterval(() => { void loadLobby(); }, LOBBY_POLL_MS);
-    return () => clearInterval(t);
+    let stop = false;
+    let t: ReturnType<typeof setTimeout>;
+    const loop = async () => {
+      if (!pollingRef.current) {
+        pollingRef.current = true;
+        try { await loadLobby(); } finally { pollingRef.current = false; }
+      }
+      if (!stop) t = setTimeout(loop, lobbySignalRef.current?.live() ? LOBBY_POLL_LIVE_MS : LOBBY_POLL_MS);
+    };
+    void loop();
+    return () => { stop = true; clearTimeout(t); };
   }, [view, loadLobby]);
 
   useEffect(() => {
@@ -89,9 +132,25 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
   // ---- 対戦の部屋 ----
   const refresh = useCallback(async () => {
     if (!view) return;
+    // 読みなおしの最中に 合図が来たら、終わってから もう一度 読む（合図より前に送った 問い合わせかも しれないため）
+    if (pollingRef.current) { againRef.current = true; return; }
+    pollingRef.current = true;
+    againRef.current = false;
     const sentAt = Date.now();
-    try { accept(await duelApi.state(studentId, view.id), sentAt); } catch (e) { setError((e as Error).message); }
+    try {
+      accept(await duelApi.state(studentId, view.id), sentAt);
+      setPollFails(0);
+      setError(null);
+    } catch (e) {
+      // 通信の失敗は 次の読みなおしで とりもどせるので、エラーの文は出さず「つうしんが よわい」だけ出す
+      if (e instanceof NetworkError) setPollFails((n) => n + 1); else setError((e as Error).message);
+    } finally {
+      pollingRef.current = false;
+      if (againRef.current) { againRef.current = false; setTimeout(() => { void refreshRef.current(); }, 0); }
+    }
   }, [view?.id, studentId, accept]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  refreshRef.current = refresh;
 
   useEffect(() => {
     if (!view?.topic) return;
@@ -100,11 +159,18 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
     return () => { s.leave(); signalRef.current = null; };
   }, [view?.topic, refresh]);
 
-  // 合図が届かない回線でも進むように、数秒ごとにも読む（「まだいるよ」の知らせも兼ねる）
+  // 合図が届かない回線でも進むように、数秒ごとにも読む（「まだいるよ」の知らせも兼ねる。サーバは30秒で いなくなった あつかい）
+  // 合図が つながっていれば 5秒ごと、つながらなければ 2秒ごと
   useEffect(() => {
     if (!view || view.status === 'finished') return;
-    const t = setInterval(() => { void refresh(); }, POLL_MS);
-    return () => clearInterval(t);
+    let stop = false;
+    let t: ReturnType<typeof setTimeout>;
+    const loop = async () => {
+      await refresh();
+      if (!stop) t = setTimeout(loop, signalRef.current?.live() ? POLL_LIVE_MS : POLL_MS);
+    };
+    t = setTimeout(loop, POLL_MS);
+    return () => { stop = true; clearTimeout(t); };
   }, [view?.id, view?.status, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -126,12 +192,34 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
     onFinish(result, view.my_correct);
   }, [view, onFinish]);
 
+  /**
+   * 通信が とちゅうで 切れたとき、サーバでは もう へやが できている（入れている）ことがある。
+   * 自分の へやが あれば それを使う。なければ null（もう一度 送ってよい）。
+   */
+  const recoverMine = async (duelId?: string): Promise<DuelView | null> => {
+    try {
+      const l = await withRetry(() => duelApi.list(studentId));
+      const m = l.mine;
+      if (m?.party_size && (!duelId || m.id === duelId)) return m;
+    } catch { /* わからない */ }
+    return null;
+  };
+
   const create = async () => {
     setBusy(true); setError(null);
     try {
-      await pushSave(); // レベルはサーバのセーブから読む
-      const sentAt = Date.now();
-      accept(await duelApi.createParty(studentId, uids, size), sentAt);
+      await track(pushSaveQuick()); // レベルはサーバのセーブから読む（先に送ってあれば すぐ終わる）
+      for (let i = 0; ; i++) {
+        const sentAt = Date.now();
+        try {
+          accept(await track(duelApi.createParty(studentId, uids, size)), sentAt);
+          break;
+        } catch (e) {
+          if (!(e instanceof NetworkError) || i >= 2) throw e;
+          const m = await track(recoverMine());
+          if (m) { accept(m, Date.now()); break; }
+        }
+      }
       lobbySignalRef.current?.ping();
     } catch (e) { setError((e as Error).message); }
     setBusy(false);
@@ -140,13 +228,23 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
   const join = async (duelId: string) => {
     setBusy(true); setError(null);
     try {
-      await pushSave();
-      const sentAt = Date.now();
-      const v = await duelApi.joinParty(studentId, duelId, uids);
-      accept(v, sentAt);
-      // 部屋を作った子へ知らせる（合図の部屋に入る前なので、いったん入って送る）
-      const s = joinSignal(v.topic, () => {});
-      setTimeout(() => { s.ping(); setTimeout(() => s.leave(), 500); }, 400);
+      await track(pushSaveQuick());
+      let v: DuelView | null = null;
+      for (let i = 0; !v; i++) {
+        const sentAt = Date.now();
+        try {
+          v = await track(duelApi.joinParty(studentId, duelId, uids));
+          accept(v, sentAt);
+        } catch (e) {
+          if (!(e instanceof NetworkError) || i >= 2) throw e;
+          // とちゅうで 切れても、もう 入れていることがある（入れていれば その へやで続ける）
+          v = await track(recoverMine(duelId));
+          if (v) accept(v, Date.now());
+        }
+      }
+      // 部屋を作った子へ知らせる（合図の部屋に入る前なので、いったん入って、つながったら送る）
+      const s = joinSignal(v.topic, () => {}, () => { s.ping(); setTimeout(() => s.leave(), 500); });
+      setTimeout(() => s.leave(), 10000);
       lobbySignalRef.current?.ping();
       onStaminaChanged();
     } catch (e) { setError((e as Error).message); void loadLobby(); }
@@ -178,6 +276,25 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
 
   const timeLeft = Math.max(0, Math.ceil((deadlineMs - serverNow) / 1000));
 
+  // しめきりを すぎたら すぐ 読みなおす（読みなおしを 5秒ごとに へらしたので、時間切れの 進みが おくれないように）
+  useEffect(() => {
+    if (!view || view.status !== 'playing' || !deadlineMs) return;
+    const wait = deadlineMs - (Date.now() + offset) + 400;
+    if (wait < 0 || wait > 10 * 60 * 1000) return;
+    const t = setTimeout(() => { void refresh(); }, wait);
+    return () => clearTimeout(t);
+  }, [deadlineMs, view?.status, offset, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** 通信の ようすの 表示（遅い・弱いときだけ） */
+  const netNote = pollFails >= 2
+    ? '📶 つうしんが よわいよ。つながるのを まっています…'
+    : slow ? '📶 つうしんちゅう…' : null;
+  const NetBadge = netNote ? (
+    <div className="pointer-events-none fixed left-1/2 top-3 z-[200] -translate-x-1/2 rounded-full border border-sky-400/40 bg-slate-900/90 px-4 py-1.5 text-xs font-black text-sky-200 shadow-lg">
+      {netNote}
+    </div>
+  ) : null;
+
   const onAnswer = async (answer: string) => {
     if (!view || !problem || phase !== 'answering' || view.my_answered || pendingRound === view.round) return;
     const round = view.round;
@@ -186,7 +303,9 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
     onRecord(problem, answer, isCorrect);
     const sentAt = Date.now();
     try {
-      accept(await duelApi.answerParty(studentId, view.id, round, isCorrect, Date.now() - answeringStartRef.current), sentAt);
+      // 答えは 同じものを2回送っても サーバが1回だけ数えるので、通信の失敗なら もう一度 送る
+      const ms = Date.now() - answeringStartRef.current;
+      accept(await track(withRetry(() => duelApi.answerParty(studentId, view.id, round, isCorrect, ms))), sentAt);
       signalRef.current?.ping();
     } catch (e) { setError((e as Error).message); }
   };
@@ -198,6 +317,7 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
     const fieldOwner = (view.round % 2 === 1) === (view.role === 'host') ? 'mine' : 'theirs';
     return (
       <div className="w-full h-full flex flex-col">
+        {NetBadge}
         {error && <div className="mx-3 mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-xs text-amber-200 font-bold">{error}</div>}
         <div className="flex-1 min-h-0">
           <PartyDuelBoard
@@ -232,6 +352,7 @@ const ClassDuel: React.FC<ClassDuelProps> = ({
   const partyRooms = (lobby?.rooms ?? []).filter((r) => r.party_size);
   return (
     <div className="w-full h-full flex flex-col items-center p-4 text-white overflow-y-auto">
+      {NetBadge}
       <div className="w-full max-w-2xl">
         <div className="flex items-center gap-4 mb-6">
           <button onClick={() => { void leave(); }} className="text-gray-400 hover:text-white transition-colors p-2" aria-label="もどる">

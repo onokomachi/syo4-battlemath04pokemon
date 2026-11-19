@@ -85,8 +85,10 @@ import {
 // (練習モードしか使わない児童の初期読み込みを遅くしないため)
 const AdventureMode = lazy(() => import('./components/adventure/AdventureMode'));
 // クラス対戦（Supabase のリアルタイム合図を使う）。開いたときだけ読み込む
-const ClassDuel = lazy(() => import('./components/duel/ClassDuel'));
-const CpuPartyDuel = lazy(() => import('./components/duel/CpuPartyDuel'));
+const loadClassDuel = () => import('./components/duel/ClassDuel');
+const loadCpuPartyDuel = () => import('./components/duel/CpuPartyDuel');
+const ClassDuel = lazy(loadClassDuel);
+const CpuPartyDuel = lazy(loadCpuPartyDuel);
 
 // 採点は utils/answerChecker.ts に一本化（3Dバトル・スピード対戦・練習モード共通）
 
@@ -168,6 +170,14 @@ const App: React.FC = () => {
   const [monsterDuelMyMonsterId, setMonsterDuelMyMonsterId] = useState<string | null>(null);
   /** クラス対戦に つれていくモンスターと形式 */
   const [classDuel, setClassDuel] = useState<{ uids: string[]; size: number } | null>(null);
+  // 対戦の準備画面を開いたら、対戦画面のプログラムを 先に 読みこみ、セーブも 先に 送っておく
+  // （遅い Wi‑Fi で「たいせん」を押してから 始まるまでの 待ちを へらす。2026-11-19）
+  useEffect(() => {
+    if (gameState !== 'monster_duel_setup') return;
+    void loadClassDuel().catch(() => {});
+    void loadCpuPartyDuel().catch(() => {});
+    void pushSave();
+  }, [gameState]);
   /** モンスター対戦（コンピュータ）のパーティ */
   const [cpuParty, setCpuParty] = useState<DuelMon[] | null>(null);
   const [monsterDuelOpponentId, setMonsterDuelOpponentId] = useState<string | null>(null);

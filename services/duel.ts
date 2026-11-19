@@ -92,26 +92,58 @@ export interface DuelLobby {
   rooms: DuelRoom[];
 }
 
-async function rpc<T>(fn: string, body: Record<string, unknown>): Promise<T> {
+/** 通信の失敗（つながらない・時間切れ）。サーバが「だめ」と返したもの（スタミナ・へやが しまった など）とは分ける */
+export class NetworkError extends Error {}
+
+/** 1回の問い合わせの 時間の上限（遅い Wi‑Fi でも 返事を待ちつづけて 止まって見えないように。2026-11-19） */
+const RPC_TIMEOUT_MS = 8000;
+
+async function rpc<T>(fn: string, body: Record<string, unknown>, timeoutMs = RPC_TIMEOUT_MS): Promise<T> {
   const { supabaseUrl, supabaseKey } = PORTAL;
   if (!supabaseUrl || !supabaseKey) throw new Error('学級ポータルに つながっていません');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
+  let text: string;
   try {
     res = await fetch(`${supabaseUrl}/rest/v1/rpc/${fn}`, {
       method: 'POST',
       headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: ctrl.signal,
     });
+    text = await res.text();
   } catch {
-    throw new Error('サーバに つながらないよ。インターネットに つながっているか たしかめてね');
+    throw new NetworkError(ctrl.signal.aborted
+      ? 'つうしんに じかんが かかっているよ。もういちど ためしてね'
+      : 'サーバに つながらないよ。インターネットに つながっているか たしかめてね');
+  } finally {
+    clearTimeout(timer);
   }
-  const text = await res.text();
   if (!res.ok) {
     let message = text;
     try { message = (JSON.parse(text) as { message?: string }).message ?? text; } catch { /* そのまま */ }
+    // サーバが いそがしい（5xx）ときも 通信の失敗と同じく もう一度 ためせる
+    if (res.status >= 500) throw new NetworkError(message || `HTTP ${res.status}`);
     throw new Error(message || `HTTP ${res.status}`);
   }
   return JSON.parse(text) as T;
+}
+
+/**
+ * 通信の失敗のときだけ、少し待って もう一度 送る（サーバが「だめ」と返したときは すぐ やめる）。
+ * 同じものを2回送っても よいもの（読みなおし・答え）にだけ使う。
+ */
+export async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); } catch (e) {
+      last = e;
+      if (!(e instanceof NetworkError) || i === tries - 1) break;
+      await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+    }
+  }
+  throw last;
 }
 
 export const duelApi = {
@@ -148,16 +180,24 @@ function realtime(): RealtimeClient | null {
 /**
  * 合図の部屋に入る。onChange は「だれかが状態を変えた」ときに呼ばれる（中身は信用しない。読みなおすきっかけだけ）。
  * 戻り値の ping() で、自分が状態を変えたことを相手に知らせる。leave() で出る。
+ * live() は 合図が つながっているか（つながっていれば 読みなおしを 少なくする。2026-11-19）。
+ * onReady は つながった ときに 1回 よばれる（つながる前に送った合図は とどかないため）。
  */
-export function joinSignal(topic: string, onChange: () => void): { ping: () => void; leave: () => void } {
+export function joinSignal(topic: string, onChange: () => void, onReady?: () => void): { ping: () => void; leave: () => void; live: () => boolean } {
   const rt = realtime();
-  if (!rt) return { ping: () => {}, leave: () => {} };
+  if (!rt) return { ping: () => {}, leave: () => {}, live: () => false };
+  let ok = false;
+  let readyCalled = false;
   const ch: RealtimeChannel = rt.channel(topic, { config: { broadcast: { self: false } } });
   ch.on('broadcast', { event: 'changed' }, () => onChange());
-  ch.subscribe();
+  ch.subscribe((status) => {
+    ok = status === 'SUBSCRIBED';
+    if (ok && onReady && !readyCalled) { readyCalled = true; onReady(); }
+  });
   return {
     ping: () => { void ch.send({ type: 'broadcast', event: 'changed', payload: {} }); },
-    leave: () => { void rt.removeChannel(ch); },
+    leave: () => { ok = false; void rt.removeChannel(ch); },
+    live: () => ok,
   };
 }
 
