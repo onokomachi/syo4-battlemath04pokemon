@@ -35,4 +35,7 @@
   **数え方の本体は `_sanmon_pools_compute`（もとの `_sanmon_pools`）。きまりを変えるときは こちらを直す**（直したら `update public.sanmon_pools_cache set done_ver = -1;` で全員 数えなおす）。
   数え方に使う表を 新しく足したら、その表にも トリガー `sanmon_bump_*`（`_sanmon_bump_ver`）を付ける（付けないと、のこした古い数が出る）。
   クラス対戦は `_duel_cost()` が 0 のあいだ スタミナを数えない。
+  **子どもの問い合わせの中では 数えなおさない**（同じ日の2つめ。SQL は `supabase-sql/2026-11-19-sanmon-pools-fastpath.sql`）：授業中は 答えるたびに記録がふえ、毎回の数えなおしが 3秒を こえて 9割が失敗したため。
+  `_sanmon_pools` は「最後に数えた数 − そのあと使った分（`_sanmon_pools_minus_spends`）」をすぐ返す（使いすぎには ならない）。**そのあと たまった分は 2分ごとの裏の仕事（`refresh_sanmon_status_cache`・cron `sanmon-status-cache` `*/2`）で 入る**（最大2分ほど おくれて出る）。
+  `sanmon_status` は のこした状態（町の判定の材料）に スタミナだけ 入れかえて返す。本体は `_sanmon_status_compute`（もとの `sanmon_status`）。裏の仕事は さいきん記録が ふえた子から、1回40秒まで。
 - 子どもむけのスタミナの説明はメニューの帯をひらいたところ（`PortalStatusBar`）。見出し＋短い1行で書く（2026-11-11）。きまりを変えたら ここも直す。
