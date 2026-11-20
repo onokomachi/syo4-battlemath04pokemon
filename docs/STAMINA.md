@@ -32,10 +32,16 @@
 - **スタミナの計算は「変わったときだけ」**（2026-11-19。SQL は `supabase-sql/2026-11-19-sanmon-pools-cache.sql`）：授業中に `sanmon_status`・`sanmon_spend`・クラス対戦の へや作りが
   3秒（子どもの端末＝anon の打ち切り）を超えて 数百回 失敗していた（ジムリーダーに挑むと「読み込みエラー」・スタミナが ふえないように見えた）。
   `_sanmon_pools` は 結果を表 `sanmon_pools_cache` に のこし、記録（learning_event・test_result・trial_result・sanmon_spend・skill_state）が 変わったときだけ（トリガーで `ver` +1）・日が かわったときだけ 数えなおす。
-  **数え方の本体は `_sanmon_pools_compute`（もとの `_sanmon_pools`）。きまりを変えるときは こちらを直す**（直したら `update public.sanmon_pools_cache set done_ver = -1;` で全員 数えなおす）。
+  **数え方の本体は `_sanmon_pools_fold`（2026-11-20〜。前は `_sanmon_pools_compute` に直接 書いてあった）。きまりを変えるときは こちらを直す**（直したら `update public.sanmon_pools_cache set done_ver = -1; update public.sanmon_pools_snap set ver = ver + 1;` で全員 数えなおす）。
   数え方に使う表を 新しく足したら、その表にも トリガー `sanmon_bump_*`（`_sanmon_bump_ver`）を付ける（付けないと、のこした古い数が出る）。
   クラス対戦は `_duel_cost()` が 0 のあいだ スタミナを数えない。
   **子どもの問い合わせの中では 数えなおさない**（同じ日の2つめ。SQL は `supabase-sql/2026-11-19-sanmon-pools-fastpath.sql`）：授業中は 答えるたびに記録がふえ、毎回の数えなおしが 3秒を こえて 9割が失敗したため。
   `_sanmon_pools` は「最後に数えた数 − そのあと使った分（`_sanmon_pools_minus_spends`）」をすぐ返す（使いすぎには ならない）。**そのあと たまった分は 2分ごとの裏の仕事（`refresh_sanmon_status_cache`・cron `sanmon-status-cache` `*/2`）で 入る**（最大2分ほど おくれて出る）。
   `sanmon_status` は のこした状態（町の判定の材料）に スタミナだけ 入れかえて返す。本体は `_sanmon_status_compute`（もとの `sanmon_status`）。裏の仕事は さいきん記録が ふえた子から、1回40秒まで。
+- **スタミナの台帳化**（2026-11-20。SQL は `supabase-sql/2026-11-20-sanmon-pools-ledger.sql`）：1年ぶんを毎回 数えなおすと 記録がふえるほど重くなる（11月で 1人 最大0.35秒。スタミナ道場で さらに ふえる）。
+  `_sanmon_pools_fold(子, はじめ, おわり, はじめの状態)` は、ある時刻から ある時刻までの記録を「はじめの状態」から数える（数え方は前と同じ）。
+  `_sanmon_pools_compute` は、きょうの0時までの状態（スタミナ・町ごとの数・項目ごとの熟達した時刻／つづけて正解の数・実力の階段の最高の段）を 表 `sanmon_pools_snap` に1日1回のこし、きょうの記録だけを足す（1人 平均2ミリ秒）。
+  きょうより前の記録が あとから届いた・消された・直された（トリガー `_sanmon_bump_ver`）／`apps`・`sanmon_skill_town` が変わった（`_sanmon_bump_all`）ときは、のこした状態を古くして（`ver` +1）次に 0時までを数えなおす。
+  たしかめ用に、1年ぶんを一度に数える `_sanmon_pools_full` がある（きまりを変えたら、全員 `_sanmon_pools_full` と `_sanmon_pools_compute` が同じになることを確かめる。SQL の いちばん下）。
+  **同じ時刻の記録は `event_id` の順にならべる**（SANMON は 1回の答えで 同じ時刻の記録を2つ送ることがあり、前は 熟達の判定が 数えるたびに変わることがあった）。
 - 子どもむけのスタミナの説明はメニューの帯をひらいたところ（`PortalStatusBar`）。見出し＋短い1行で書く（2026-11-11）。きまりを変えたら ここも直す。

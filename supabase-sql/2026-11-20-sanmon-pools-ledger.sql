@@ -255,3 +255,90 @@ begin
   return res || jsonb_build_object('common_raw', common, 'm', out_m, 't', out_t, 'tm', out_tm);
 end $$;
 revoke all on function public._sanmon_pools_fold(uuid, bigint, bigint, jsonb) from public, anon, authenticated;
+
+-- ============ B) 前日までの状態を のこして、きょうの分だけ数える ============
+
+create table if not exists public.sanmon_pools_snap (
+  student_id uuid primary key,
+  cut_ms bigint not null,               -- この時刻（きょうの0時）より前を数えた状態
+  state jsonb not null,                 -- _sanmon_pools_fold の返り（common_raw・pools・m・t・tm）
+  ver bigint not null default 0,        -- cut_ms より前の記録が 足された・消された・直されたら +1
+  built_ver bigint not null default -1, -- state が どの ver までを 数えたか
+  computed_at timestamptz not null default now()
+);
+alter table public.sanmon_pools_snap enable row level security;
+revoke all on table public.sanmon_pools_snap from anon, authenticated;
+
+-- 1年ぶんを一度に数える形（たしかめ用。もとの _sanmon_pools_compute と同じ答え。並べ方は ek で決まる）
+create or replace function public._sanmon_pools_full(p_student_id uuid)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select public._sanmon_pools_fold(p_student_id, 0, null, '{}'::jsonb)
+$$;
+revoke all on function public._sanmon_pools_full(uuid) from public, anon, authenticated;
+
+create or replace function public._sanmon_pools_compute(p_student_id uuid)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  cut bigint := (extract(epoch from (((now() at time zone 'Asia/Tokyo')::date)::timestamp at time zone 'Asia/Tokyo')) * 1000)::bigint;
+  s public.sanmon_pools_snap;
+  st jsonb; v0 bigint;
+begin
+  select * into s from public.sanmon_pools_snap where student_id = p_student_id;
+  if found and s.cut_ms = cut and s.built_ver = s.ver then
+    st := s.state;
+  else
+    v0 := coalesce(s.ver, 0);
+    st := public._sanmon_pools_fold(p_student_id, 0, cut, '{}');
+    -- 読むだけの取引（PRISM など）からも呼ばれるので、のこせないときは のこさない
+    begin
+      insert into public.sanmon_pools_snap as ps (student_id, cut_ms, state, ver, built_ver, computed_at)
+      values (p_student_id, cut, st, v0, v0, now())
+      on conflict (student_id) do update
+        set cut_ms = excluded.cut_ms, state = excluded.state, built_ver = v0, computed_at = now();
+    exception when others then
+      null;
+    end;
+  end if;
+  return public._sanmon_pools_fold(p_student_id, cut, null, st);
+end $$;
+revoke all on function public._sanmon_pools_compute(uuid) from public, anon, authenticated;
+
+-- 記録が ふえた・変わったときの しるし：きょうの0時より前の記録なら、のこした状態も 古くする
+create or replace function public._sanmon_bump_ver() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op in ('INSERT', 'UPDATE') then
+    insert into public.sanmon_pools_cache as pc (student_id, ver, bumped_at)
+    select distinct n.student_id, 1, now() from new_rows n where n.student_id is not null
+    on conflict (student_id) do update set ver = pc.ver + 1, bumped_at = now();
+    if tg_table_name <> 'skill_state' then
+      update public.sanmon_pools_snap ps set ver = ps.ver + 1
+      from (select n.student_id, min(n.ts) mts from new_rows n where n.student_id is not null group by n.student_id) x
+      where ps.student_id = x.student_id and x.mts < ps.cut_ms;
+    end if;
+  end if;
+  if tg_op in ('UPDATE', 'DELETE') then
+    insert into public.sanmon_pools_cache as pc (student_id, ver, bumped_at)
+    select distinct o.student_id, 1, now() from old_rows o where o.student_id is not null
+    on conflict (student_id) do update set ver = pc.ver + 1, bumped_at = now();
+    if tg_table_name <> 'skill_state' then
+      update public.sanmon_pools_snap ps set ver = ps.ver + 1
+      from (select o.student_id, min(o.ts) mts from old_rows o where o.student_id is not null group by o.student_id) x
+      where ps.student_id = x.student_id and x.mts < ps.cut_ms;
+    end if;
+  end if;
+  return null;
+end $$;
+
+-- 数え方に使う表（apps・sanmon_skill_town）が変わったら、全員 数えなおす
+create or replace function public._sanmon_bump_all() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.sanmon_pools_cache set done_ver = -1;
+  update public.sanmon_pools_snap set ver = ver + 1;
+  return null;
+end $$;
+
+-- ============ C) たしかめ（切りかえの前に流した。全員 一致すること） ============
+-- select count(*) n, count(*) filter (where public._sanmon_pools_full(s.id) - 'pools' = public._sanmon_pools_compute(s.id) - 'pools') same
+-- from public.students s;
