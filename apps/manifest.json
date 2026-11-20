@@ -18,7 +18,9 @@
         "components/modules/TimesModule.tsx",
         "components/modules/DotModule.tsx",
         "components/modules/ReadModule.tsx",
-        "components/modules/InverseModule.tsx"
+        "components/modules/InverseModule.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -39,7 +41,9 @@
         "components/shared/QuestionRound.tsx",
         "components/shared/Keypad.tsx",
         "components/shared/Figure.tsx",
-        "components/shared/StepViews.tsx"
+        "components/shared/StepViews.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -57,10 +61,15 @@
         "components/shared/KawariRound.tsx",
         "components/shared/FigureView.tsx",
         "components/shared/AnswerViews.tsx",
-        "components/shared/Keypad.tsx"
+        "components/shared/Keypad.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
-        "lib/sound.ts"
+        "lib/sound.ts",
+        "store/progressStore.ts",
+        "components/shared/AppShell.tsx",
+        "constants.ts"
       ]
     },
     "rippoutai": {
@@ -74,7 +83,9 @@
         "components/shared/QuestionRound.tsx",
         "components/shared/Keypad.tsx",
         "components/shared/Figure.tsx",
-        "components/shared/SolidInputs.tsx"
+        "components/shared/SolidInputs.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -101,7 +112,11 @@
         "components/modules/DecimalAddSubModule.tsx",
         "components/modules/NumberLineModule.tsx",
         "components/modules/PlaceValueLab.tsx",
-        "components/modules/ErrorHunterModule.tsx"
+        "components/modules/ErrorHunterModule.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx",
+        "components/shared/ConfidenceCheck.tsx",
+        "lib/moduleOfSkill.ts"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -109,7 +124,8 @@
         "components/shared/AdaptiveBar.tsx",
         "lib/useAdaptive.ts",
         "lib/sound.ts",
-        "store/progressStore.ts"
+        "store/progressStore.ts",
+        "store/reflectionStore.ts"
       ]
     },
     "bunsuu4": {
@@ -125,7 +141,9 @@
         "components/shared/FracEntry.tsx",
         "components/shared/ExprBuilder.tsx",
         "components/shared/Frac.tsx",
-        "components/shared/Keypad.tsx"
+        "components/shared/Keypad.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -157,12 +175,15 @@
         "components/shared/PairPicker.tsx",
         "components/shared/OrderCards.tsx",
         "components/shared/AnswerEntry.tsx",
-        "components/shared/Keypad.tsx"
+        "components/shared/Keypad.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
         "lib/sound.ts",
-        "store/progressStore.ts"
+        "store/progressStore.ts",
+        "constants.ts"
       ]
     },
     "gaisu": {
@@ -179,7 +200,9 @@
         "components/modules/RoundJudgeModule.tsx",
         "components/modules/RoundModule.tsx",
         "components/modules/SumDiffModule.tsx",
-        "components/modules/ErrorHunterModule.tsx"
+        "components/modules/ErrorHunterModule.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -209,7 +232,9 @@
         "lib/hissanSteps.ts",
         "components/ProblemGenerator.ts",
         "components/DivisionSimulator.tsx",
-        "components/MasterDivisionBoard.tsx"
+        "components/MasterDivisionBoard.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",
@@ -236,7 +261,9 @@
         "components/modules/BaseModule.tsx",
         "components/modules/RatioCompareModule.tsx",
         "components/modules/WordProblemModule.tsx",
-        "components/modules/ErrorHunterModule.tsx"
+        "components/modules/ErrorHunterModule.tsx",
+        "lib/testConfig.ts",
+        "components/modules/MockTestModule.tsx"
       ],
       "shims": [
         "components/ui/primitives.tsx",

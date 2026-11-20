@@ -7,7 +7,7 @@
  *
  * キーは registry.ts と同じ（小数の たし算・ひき算は 'decimal'）。scripts/verify-app-rounds.mjs が registry.ts と同じ一覧か確かめる。
  */
-import type { AppRoundDef } from './types';
+import type { AppRoundDef, AppTestDef } from './types';
 
 export type AppRounds = Record<string, AppRoundDef>;
 
@@ -23,4 +23,18 @@ export const APP_ROUND_LOADERS: Record<string, () => Promise<AppRounds>> = {
   gaisu: () => import('./gaisu/sanmon').then((m) => m.GAISU_ROUNDS),
   hissan: () => import('./hissan/sanmon').then((m) => m.HISSAN_ROUNDS),
   bai: () => import('./bai/sanmon').then((m) => m.BAI_ROUNDS),
+};
+
+/** 本番テスト（スタミナ道場）。アプリごと別のかたまり（れんしゅう・バトルの解答画面を重くしないため） */
+export const APP_TEST_LOADERS: Record<string, () => Promise<AppTestDef[]>> = {
+  gaisu: () => import('./gaisu/sanmonTest').then((m) => m.GAISU_TESTS),
+  bai: () => import('./bai/sanmonTest').then((m) => m.BAI_TESTS),
+  hissan: () => import('./hissan/sanmonTest').then((m) => m.HISSAN_TESTS),
+  karakuri: () => import('./karakuri/sanmonTest').then((m) => m.KARAKURI_TESTS),
+  kawari: () => import('./kawari/sanmonTest').then((m) => m.KAWARI_TESTS),
+  menseki4: () => import('./menseki4/sanmonTest').then((m) => m.MENSEKI4_TESTS),
+  rippoutai: () => import('./rippoutai/sanmonTest').then((m) => m.RIPPOUTAI_TESTS),
+  suihei: () => import('./suihei/sanmonTest').then((m) => m.SUIHEI_TESTS),
+  bunsuu4: () => import('./bunsuu4/sanmonTest').then((m) => m.BUNSUU4_TESTS),
+  syousu: () => import('./syousu/sanmonTest').then((m) => m.SYOUSU_TESTS),
 };
