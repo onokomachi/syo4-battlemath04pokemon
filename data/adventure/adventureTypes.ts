@@ -166,6 +166,8 @@ export interface BiomeStyle {
 export interface FieldNpcDef {
   id: string;
   kind: 'villager' | 'trainer' | 'master' | 'rival' | 'nurse' | 'shop' | 'elite' | 'champion'
+    // スタミナ道場（2026-11-20。単元アプリと同じ問題で スタミナをためる。DojoScreen）
+    | 'training'
     // 祠(伝説のモンスター)と、テキトウ団のイベント。どちらも
     // 「近づいて しらべる」という同じ操作で扱えるよう、NPCとして表す。
     | 'shrine' | 'team'

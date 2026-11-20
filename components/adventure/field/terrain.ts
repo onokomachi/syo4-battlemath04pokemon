@@ -125,7 +125,8 @@ export const buildProps = (
     const z = (rng() * 2 - 1) * (half - 1.5);
     // 道(x≒0)と町の広場(南側)には置かない
     if (Math.abs(x) < 3.2) continue;
-    if (z > half - 18 && Math.abs(x) < 11) continue;
+    // 東はスタミナ道場（2026-11-20）まで 広げる
+    if (z > half - 18 && x > -11 && x < 20) continue;
     // 道場の前は空ける
     if (z < -half + 14 && Math.abs(x) < 8) continue;
 
