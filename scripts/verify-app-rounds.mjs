@@ -41,6 +41,18 @@ for (const [app, rounds] of Object.entries(APP_ROUNDS)) {
 }
 console.log(`  問題を ${made} 問 作れた（${Object.keys(APP_ROUNDS).length} アプリ）`);
 
+// 本番テスト（スタミナ道場。apps/<app>/sanmonTest.tsx）：読みこみ口があり、定義が1つ以上あって、記録の app_id がその単元アプリになっている
+{
+  const { APP_TEST_LOADERS } = bundle('apps/registryLoaders.ts', 'testloaders');
+  const MANIFEST_APPS = Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'apps/manifest.json'), 'utf8')).apps);
+  for (const app of MANIFEST_APPS) {
+    const defs = await APP_TEST_LOADERS[app]?.();
+    if (!defs?.length) { console.log(`✗ ${app}: 本番テストの読みこみ口（APP_TEST_LOADERS）が無い／空`); fails++; continue; }
+    for (const d of defs) if (d.app !== app || typeof d.Module !== 'function') { console.log(`✗ ${app}/${d.key}: 本番テストの定義がおかしい（app=${d.app}）`); fails++; }
+  }
+  console.log(`  本番テスト ${MANIFEST_APPS.length} アプリぶんの読みこみ口を確認`);
+}
+
 // アプリごとの読みこみ口（apps/registryLoaders.ts）が registry.ts と同じ一覧で、同じラウンドを返す
 const { APP_ROUND_LOADERS } = bundle('apps/registryLoaders.ts', 'loaders');
 const regKeys = Object.keys(APP_ROUNDS).sort().join(',');

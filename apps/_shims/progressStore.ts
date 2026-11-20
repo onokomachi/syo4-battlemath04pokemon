@@ -32,3 +32,13 @@ useProgressStore.getState = () => state;
 /** アプリによっては skill_id → モジュールの対応も progressStore から読む（記録の見出し用。SANMON では使わない） */
 export function skillToModuleId(_skillId: string): string | null { return null; }
 export type ModuleId = string;
+
+/** 本番テストの記録の形（単元アプリの progressStore と同じ。SANMON では型だけ使う） */
+export interface TestStepResult {
+  daimon: number; sub?: string; title: string; section: '表' | '裏' | '参考'; q: string; a: string;
+  points: number; earned: number; correct: boolean; skillId?: string; misses?: number; gaveUp?: boolean;
+}
+export interface TestDetail {
+  mode: '表' | '裏' | 'ぜんぶ'; omoteScore: number; omoteMax: number; uraScore: number; uraMax: number;
+  total: number; totalMax: number; steps: TestStepResult[];
+}

@@ -17,9 +17,9 @@ import { createSyncedStorage, getStudent, isTrial, fetchMyProgress, type MySkill
 import { SANMON_UNITS } from 'learning-app-kit/sanmon';
 import { CATALOGS } from 'learning-app-kit/catalog';
 import { scheduleAfterResult, type ReviewState } from 'learning-app-kit/review';
-import type { AppRoundDef } from '../apps/types';
+import type { AppRoundDef, AppTestDef } from '../apps/types';
 import { PORTAL, isPortalConfigured } from './portal';
-import { loadAppRounds, prefetchAppRounds } from './appRounds';
+import { loadAppRounds, loadAppTests, prefetchAppRounds } from './appRounds';
 import { isDemo } from './saveProfile';
 
 /** 熟達＝5問れんぞくノーミス（単元アプリの progressStore と同じ） */
@@ -94,6 +94,17 @@ export async function loadTownRounds(townKey: string): Promise<Record<string, Re
   await Promise.all(regAppsOf(app).map(async (k) => { const r = await loadAppRounds(k); if (r) out[k] = r; }));
   return out;
 }
+
+/** その町の本番テスト（アプリの本番テストの写し。町ごとに分かれるものは towns で選ぶ） */
+export async function loadTownTests(townKey: string): Promise<AppTestDef[]> {
+  const app = appOfTown(townKey);
+  if (!app) return [];
+  const all = await loadAppTests(app);
+  return all.filter((t) => !t.towns || t.towns.includes(townKey));
+}
+
+/** 本番テストの記録に付ける項目の名前（道場の「項目」とは別。練習の「きょう あと いくつ」に混ぜない） */
+export const TEST_ITEM_SUFFIX = '/__test';
 
 /** 町に入ったとき、道場を開く前に 解答画面を読みこんでおく（開いたときに待たない） */
 export function prefetchDojo(townKey: string): void {
@@ -253,7 +264,7 @@ export function setSeeds(rows: readonly MySkillRow[]) {
  */
 export function recordDojo(app: string, itemKey: string, rec: Omit<Log, 'id' | 'ts'>): void {
   if (!dojoAvailable()) return;
-  learn(itemKey, rec.skillId);
+  if (!itemKey.endsWith(TEST_ITEM_SUFFIX)) learn(itemKey, rec.skillId);
   const st = readState(app);
   const entry: Log = { ...rec, id: crypto.randomUUID(), ts: Date.now() };
   st.logs = [entry, ...st.logs].slice(0, 200);

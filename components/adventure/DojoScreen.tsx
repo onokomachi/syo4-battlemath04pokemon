@@ -10,10 +10,10 @@
  * - まちがえても、アプリと同じように ヒントを見ながら さいごまで解ける（記録は「まちがいあり」）。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AppRoundDef } from '../../apps/types';
+import type { AppRoundDef, AppTestDef } from '../../apps/types';
 import { setDojoSink, clearDojoSink, type DojoSink } from '../../apps/_shims/progressStore';
 import {
-  dojoItems, fetchDojoToday, fetchMyRows, loadTownRounds, recordDojo, remainingToday, isMasteredItem, setSeeds,
+  dojoItems, fetchDojoToday, fetchMyRows, loadTownRounds, loadTownTests, recordDojo, TEST_ITEM_SUFFIX, remainingToday, isMasteredItem, setSeeds,
   dojoMasteryStreak, dojoTodaySkillCount, dueItems, TOWN_CAP, DAILY_SKILL_CAP,
   type DojoItem, type DojoToday,
 } from '../../services/dojo';
@@ -28,7 +28,9 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = 'practice' | 'review';
+type Tab = 'practice' | 'review' | 'test';
+/** 本番テストを解いているところ */
+interface TestRun { app: string; def: AppTestDef }
 interface Playing { item: DojoItem; omakase: boolean; review: boolean }
 
 const ACCENT = '#b45309';
@@ -49,6 +51,13 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
   const [round, setRound] = useState(0);
   const [result, setResult] = useState<null | { perfect: boolean; gained: number }>(null);
   const [reviewDone, setReviewDone] = useState<Set<string>>(new Set());
+  const [tests, setTests] = useState<AppTestDef[] | null>(null);
+  const [testRun, setTestRun] = useState<TestRun | null>(null);
+  const testRunRef = useRef<TestRun | null>(null);
+  /** 本番テストの記録（解答画面の1問ごと・テストの点数）の受け取り先。テストを閉じたあとに来る「とちゅうでやめた」記録も その項目に付ける */
+  const lastTestRef = useRef<TestRun | null>(null);
+  testRunRef.current = testRun;
+  if (testRun) lastTestRef.current = testRun;
 
   const playingRef = useRef<Playing | null>(null);
   /** さいごに解いていた項目。「もどる」で画面を とじたあとに 解答画面から来る「とちゅうでやめた」記録も その項目に付ける */
@@ -70,6 +79,7 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
     void Promise.all([loadTownRounds(townKey), dojoItems(townKey)])
       .then(([rg, its]) => { setReg(rg); setItems(its); })
       .catch(() => { setError('よみこめませんでした'); setItems((v) => v ?? []); });
+    void loadTownTests(townKey).then(setTests).catch(() => setTests([]));
     void fetchDojoToday().then((td) => {
       if (td) { setToday(td); setPending({}); setTodayState('ok'); } else setTodayState('failed');
     });
@@ -84,9 +94,13 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
   useEffect(() => {
     const mine: DojoSink = {
       recordResult: (r) => {
-        const p = playingRef.current ?? lastPlayingRef.current;
-        if (!p) return;
+        // 本番テストを解いているあいだ（閉じた直後をふくむ）は、テストの記録。れんしゅうを解いているときは れんしゅうの記録
+        const tr = testRunRef.current ?? (playingRef.current ? null : lastTestRef.current);
+        const p = tr ? null : (playingRef.current ?? lastPlayingRef.current);
+        if (!tr && !p) return;
         const rec = r as { moduleId: string; skillId: string; label: string; correct: boolean; mistakes?: number; abandoned?: boolean; missType?: string; missAnswer?: string };
+        if (tr) { recordDojo(tr.app, tr.app + TEST_ITEM_SUFFIX, rec as Parameters<typeof recordDojo>[2]); return; }
+        if (!p) return;
         recordDojo(p.item.app, p.item.key, rec);
         if (rec.correct && !rec.abandoned) {
           const k = `${p.item.app}|${rec.skillId}`;
@@ -99,8 +113,8 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
           }
         }
       },
-      getMasteryStreak: (sk) => (playingRef.current ? dojoMasteryStreak(playingRef.current.item.app, sk) : 0),
-      getTodaySkillCount: (sk) => (playingRef.current ? dojoTodaySkillCount(playingRef.current.item.app, sk) : 0),
+      getMasteryStreak: (sk) => { const a = testRunRef.current?.app ?? playingRef.current?.item.app; return a ? dojoMasteryStreak(a, sk) : 0; },
+      getTodaySkillCount: (sk) => { const a = testRunRef.current?.app ?? playingRef.current?.item.app; return a ? dojoTodaySkillCount(a, sk) : 0; },
     };
     setDojoSink(mine);
     return () => { setTimeout(() => clearDojoSink(mine), 50); };
@@ -168,6 +182,39 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
   }, [items]);
 
   const openCount = items?.filter((it) => remaining(it) > 0).length ?? 0;
+
+  /* ---------------- 本番テストを解いているところ ---------------- */
+  if (testRun) {
+    const exitTest = () => {
+      setTestRun(null);
+      // きょうの分を読みなおす（サーバが数えなおしていれば、さっきの分が入る）
+      void fetchDojoToday().then((td) => { if (td) { setToday(td); setPending({}); } });
+    };
+    const { Module } = testRun.def;
+    return (
+      <div className="fixed inset-0 z-40 bg-slate-900/90 backdrop-blur-sm flex flex-col">
+        <header className="shrink-0 flex items-center gap-3 px-3 py-2 shadow-lg" style={{ backgroundColor: ACCENT }}>
+          <button onClick={exitTest} className="px-4 py-2 rounded-2xl bg-white/95 text-slate-800 font-black active:scale-95">← やめる</button>
+          <div className="min-w-0 flex-1 text-white">
+            <p className="text-xs font-bold opacity-90 truncate">ほんばんテスト</p>
+            <p className="text-lg font-black truncate">{testRun.def.title}</p>
+          </div>
+          <div className="shrink-0 text-right text-white">
+            <p className="text-[11px] font-bold opacity-90">町のスタミナ</p>
+            <p className="text-xl font-black">⚡{townNow}<span className="text-xs opacity-80">/{TOWN_CAP}</span></p>
+          </div>
+        </header>
+        <div className="shrink-0 px-3 py-1.5 text-center text-sm font-black" style={{ background: '#fef3c7', color: '#78350f' }}>
+          テストが おわると、てんすうに おうじて スタミナが たまるよ（2分ほどで 入るよ）
+        </div>
+        <div className="flex-1 min-h-0 p-2 sm:p-4">
+          <div className="app-paper rounded-2xl text-left max-w-3xl mx-auto h-full overflow-hidden">
+            <Module onExit={exitTest} onPractice={() => { exitTest(); setTab('practice'); }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ---------------- 解いているところ ---------------- */
   if (playing && reg) {
@@ -283,11 +330,11 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
 
           {/* タブ */}
           <div className="mt-3 flex gap-2">
-            {([['practice', 'れんしゅう'], ['review', `ふくしゅう${due.length ? `（${due.length}）` : ''}`]] as const).map(([k, label]) => (
+            {([['practice', 'れんしゅう'], ['review', `ふくしゅう${due.length ? `（${due.length}）` : ''}`], ['test', 'ほんばんテスト']] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => setTab(k)}
-                className={`flex-1 py-3 rounded-2xl font-black text-lg ${tab === k ? 'bg-white text-amber-800 shadow-lg' : 'bg-white/20 text-white'}`}
+                className={`flex-1 py-3 rounded-2xl font-black text-base sm:text-lg ${tab === k ? 'bg-white text-amber-800 shadow-lg' : 'bg-white/20 text-white'}`}
               >{label}</button>
             ))}
           </div>
@@ -347,6 +394,35 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
               ))}
               {items.length === 0 && <p className="text-center text-white font-bold p-6">この町には まだ 道場の もんだいが ないよ</p>}
             </>
+          )}
+
+          {tab === 'test' && (
+            <div className="mt-3">
+              <p className="text-white/90 text-sm font-bold mb-2 leading-relaxed">
+                アプリの 本番テストと 同じ もんだいで ちょうせん。てんすうが 高いほど スタミナが たくさん たまるよ
+                （ぜんぶ 満点で 20。その日 1回目は ぜんぶ、2・3回目は 半分）。8わり いじょうの 日が 3日で、町が ひらく じょうけんにも なるよ。
+              </p>
+              {!tests && <p className="text-center text-white font-bold p-6">よみこみちゅう…</p>}
+              {tests && tests.length === 0 && (
+                <p className="rounded-3xl bg-white/90 p-6 text-center font-black text-slate-700">この町の 本番テストは、まだ ここには ないよ（アプリで うけられるよ）</p>
+              )}
+              <div className="grid gap-2">
+                {tests?.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTestRun({ app: t.app, def: t })}
+                    className="rounded-3xl p-4 text-left shadow-lg flex items-center gap-4 active:scale-[0.99] bg-white border-4 border-rose-300"
+                  >
+                    <span className="text-5xl shrink-0">📝</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xl font-black text-slate-800">{t.title}</span>
+                      <span className="block text-xs font-bold text-slate-500 leading-snug">{t.desc}</span>
+                    </span>
+                    <span className="shrink-0 rounded-2xl px-4 py-2 bg-rose-500 text-white font-black">ちょうせん</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {items && tab === 'review' && (

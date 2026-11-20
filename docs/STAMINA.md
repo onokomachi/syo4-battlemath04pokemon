@@ -58,5 +58,10 @@
   - **読みこみを軽くしてある**（2026-11-20）：解答画面は `apps/registryLoaders.ts` で **アプリごと**に読みこむ（前は10アプリぶん＝圧縮して約280KBを一度に読んでいた）。`services/appRounds.ts` が使いまわし、町に入って少しあとに その町のぶんを先読みする（`prefetchDojo`）。
     道場の一覧は サーバの返事（きょうの分・じぶんの記録）を待たずに出し、数は「…」→ 届いたら入れる。メニュー・道場を開いているあいだは 後ろの3Dの描画を止める（`FieldScene` の `paused`。弱い端末で問題の表示をじゃましていた）。
     弱い回線＋4倍おそいCPUで 測って、台詞のあと一覧が出るまで 約5秒→約2秒、問題が出るまで 約3秒→約0.3秒、開くときの通信 約1MB→約16KB。アプリを足したら `registryLoaders.ts` にも足す（`npm run check` の `verify-app-rounds` が registry.ts との一覧のずれを止める）。
+  - **本番テスト**（2026-11-20）：道場の「ほんばんテスト」タブで、その町の単元アプリの本番テスト（`MockTestModule`＋`testConfig` の写し）をそのまま解ける。10アプリ・12町。
+    記録は 単元アプリと同じ（`app_id`＝その単元アプリ・`skill_id`＝`mock-test`（小数のかけ算とわり算は `mock-test-muldiv`）・点数の詳細つき）で、スタミナ・町の解放（8割の日が3日）・PRISM の本番テストの数に そのまま入る。
+    定義は `apps/<app>/sanmonTest.tsx`（`AppTestDef`）、読みこみ口は `apps/registryLoaders.ts` の `APP_TEST_LOADERS`（れんしゅうの解答画面と別のかたまり）。
+    アプリの外枠・設定・ふりかえりの保存は代わりの部品（`apps/kawari/constants.ts`・`apps/suihei/constants.ts`・`apps/syousu/store/reflectionStore.ts` など。`apps/manifest.json` の shims）。小数は 1つの画面の中で2つのテストから選ぶ作りなので、どちらの町からも同じ入口になる。
+    新しい単元アプリの本番テストを足すときは、manifest に `lib/testConfig.ts`・`components/modules/MockTestModule.tsx` を足して写し、`sanmonTest.tsx` と `APP_TEST_LOADERS` に足す（`npm run check` の `verify-app-rounds` が、読みこみ口が無いと止める）。
   - 開発サーバ（StrictMode）では kit の `useRoundRecorder` が記録を残さない。記録の確かめは StrictMode を外すか 本番と同じビルドで。
 - 子どもむけのスタミナの説明はメニューの帯をひらいたところ（`PortalStatusBar`）。見出し＋短い1行で書く（2026-11-11）。きまりを変えたら ここも直す。
