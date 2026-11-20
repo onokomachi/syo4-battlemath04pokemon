@@ -42,7 +42,7 @@ import { GachaScreen } from './GachaScreen';
 import { LEARNING_REWARDS } from '../../data/adventure/gacha';
 import SaveSlotsModal from './SaveSlotsModal';
 import DojoScreen from './DojoScreen';
-import { dojoAvailable } from '../../services/dojo';
+import { dojoAvailable, prefetchDojo } from '../../services/dojo';
 
 interface Props {
   onExit: () => void;
@@ -204,6 +204,17 @@ const AdventureMode: React.FC<Props> = ({
     [save.townId],
   );
   const inLeague = town.id === LEAGUE_TOWN.id;
+  // 町に入って少しあとに、その町の道場で使う解答画面を読みこんでおく（道場を開いたときに待たない。2026-11-20）
+  useEffect(() => {
+    if (!stamina) return;
+    const key = sanmonTownKeyOf(town.unit);
+    if (!key) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    const run = () => prefetchDojo(key);
+    if (w.requestIdleCallback) { const id = w.requestIdleCallback(run, { timeout: 4000 }); return () => w.cancelIdleCallback?.(id); }
+    const t = setTimeout(run, 2000);
+    return () => clearTimeout(t);
+  }, [stamina ? town.unit : null]);
 
   // 町のBGM。バトル中は鳴らしっぱなしのまま無音にするだけにして、バトルが
   // 終わったとき(battle が null に戻ったとき)に音量をもとに戻す。
@@ -1242,6 +1253,7 @@ const AdventureMode: React.FC<Props> = ({
       {/* 3Dフィールド */}
       <FieldScene
         key={town.id}
+        paused={overlay !== 'none'}
         town={town}
         appearance={save.appearance}
         control={control}

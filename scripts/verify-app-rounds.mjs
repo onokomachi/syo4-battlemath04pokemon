@@ -41,6 +41,16 @@ for (const [app, rounds] of Object.entries(APP_ROUNDS)) {
 }
 console.log(`  問題を ${made} 問 作れた（${Object.keys(APP_ROUNDS).length} アプリ）`);
 
+// アプリごとの読みこみ口（apps/registryLoaders.ts）が registry.ts と同じ一覧で、同じラウンドを返す
+const { APP_ROUND_LOADERS } = bundle('apps/registryLoaders.ts', 'loaders');
+const regKeys = Object.keys(APP_ROUNDS).sort().join(',');
+const loadKeys = Object.keys(APP_ROUND_LOADERS).sort().join(',');
+if (regKeys !== loadKeys) { console.log(`✗ registryLoaders.ts の一覧が registry.ts とちがう\n    registry: ${regKeys}\n    loaders : ${loadKeys}`); fails++; }
+for (const k of Object.keys(APP_ROUNDS)) {
+  const got = await APP_ROUND_LOADERS[k]?.();
+  if (!got || Object.keys(got).sort().join(',') !== Object.keys(APP_ROUNDS[k]).sort().join(',')) { console.log(`✗ registryLoaders.ts の ${k} が registry.ts と同じラウンドを返さない`); fails++; }
+}
+
 const { ALL_PROBLEM_SETS } = bundle('data/index.ts', 'data');
 let used = 0;
 for (const [sub, ps] of Object.entries(ALL_PROBLEM_SETS)) {

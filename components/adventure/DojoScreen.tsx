@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AppRoundDef } from '../../apps/types';
 import { setDojoSink, clearDojoSink, type DojoSink } from '../../apps/_shims/progressStore';
 import {
-  dojoItems, fetchDojoToday, fetchMyRows, loadRegistry, recordDojo, remainingToday, isMasteredItem, setSeeds,
+  dojoItems, fetchDojoToday, fetchMyRows, loadTownRounds, recordDojo, remainingToday, isMasteredItem, setSeeds,
   dojoMasteryStreak, dojoTodaySkillCount, dueItems, TOWN_CAP, DAILY_SKILL_CAP,
   type DojoItem, type DojoToday,
 } from '../../services/dojo';
@@ -40,6 +40,9 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
   const [rows, setRows] = useState<MySkillRow[]>([]);
   const [reg, setReg] = useState<Record<string, Record<string, AppRoundDef>> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** きょうの分・じぶんの記録は、あとから届く（一覧は待たずに出す）。loading＝まだ／ok／failed */
+  const [todayState, setTodayState] = useState<'loading' | 'ok' | 'failed'>('loading');
+  const [rowsState, setRowsState] = useState<'loading' | 'ok' | 'failed'>('loading');
   /** サーバに まだ入っていない「さっき ためた分」（"app|skill" → 数） */
   const [pending, setPending] = useState<Record<string, number>>({});
   const [playing, setPlaying] = useState<Playing | null>(null);
@@ -63,18 +66,16 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
   const townFull = townNow >= TOWN_CAP;
 
   const load = useCallback(async () => {
-    try {
-      const [its, td, my, rg] = await Promise.all([dojoItems(townKey), fetchDojoToday(), fetchMyRows(), loadRegistry()]);
-      setItems(its);
-      setReg(rg);
-      if (td) { setToday(td); setPending({}); }
-      if (my) { setRows(my); setSeeds(my); }
-      if (!td || !my) setError('つうしんが よわいみたい。きょうの のこりは あとで でるよ');
-      else setError(null);
-    } catch {
-      setError('よみこめませんでした');
-      setItems((v) => v ?? []);
-    }
+    // 一覧は「その町のアプリの解答画面」だけで出せるので、サーバの返事は待たない（弱い回線で、まず一覧を見せる）
+    void Promise.all([loadTownRounds(townKey), dojoItems(townKey)])
+      .then(([rg, its]) => { setReg(rg); setItems(its); })
+      .catch(() => { setError('よみこめませんでした'); setItems((v) => v ?? []); });
+    void fetchDojoToday().then((td) => {
+      if (td) { setToday(td); setPending({}); setTodayState('ok'); } else setTodayState('failed');
+    });
+    void fetchMyRows().then((my) => {
+      if (my) { setRows(my); setSeeds(my); setRowsState('ok'); } else setRowsState('failed');
+    });
   }, [townKey]);
   useEffect(() => { void load(); }, [load]);
 
@@ -269,7 +270,11 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
             ここで といた きろくは、アプリで といたのと 同じように せんせいに とどくよ。
           </p>
 
-          {error && <p className="mt-2 rounded-2xl bg-amber-100 text-amber-900 text-sm font-black px-3 py-2">{error}</p>}
+          {(error || todayState === 'failed' || rowsState === 'failed') && (
+            <p className="mt-2 rounded-2xl bg-amber-100 text-amber-900 text-sm font-black px-3 py-2">
+              {error ?? 'つうしんが よわいみたい。きょうの のこりは あとで でるよ'}
+            </p>
+          )}
           {townFull && (
             <p className="mt-2 rounded-2xl bg-emerald-100 text-emerald-900 text-sm font-black px-3 py-2">
               町の スタミナは まんタン！ バトルで つかうと、また ためられるよ。
@@ -301,7 +306,9 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
                 <span className="min-w-0 flex-1">
                   <span className="block text-xl font-black">おまかせ</span>
                   <span className="block text-xs font-bold opacity-95">
-                    {openCount > 0
+                    {todayState === 'loading'
+                      ? 'きょうの のこりを しらべています…'
+                      : openCount > 0
                       ? `まだ スタミナが たまる もんだい（${openCount}こ）から、にがてそうな じゅんに 出すよ`
                       : 'きょうは どの もんだいも まんタン。れんしゅうは できるよ'}
                   </span>
@@ -319,16 +326,18 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
                         <button
                           key={it.key}
                           onClick={() => start(it, false)}
-                          className={`rounded-2xl p-3 text-left shadow flex items-center gap-3 active:scale-[0.99] border-4 ${left > 0 && !townFull ? 'bg-white border-amber-300' : 'bg-slate-100 border-slate-200'}`}
+                          className={`rounded-2xl p-3 text-left shadow flex items-center gap-3 active:scale-[0.99] border-4 ${(left > 0 || todayState === 'loading') && !townFull ? 'bg-white border-amber-300' : 'bg-slate-100 border-slate-200'}`}
                         >
                           <span className="min-w-0 flex-1">
                             <span className="block font-black text-slate-800 leading-snug">{it.label}</span>
                             {mastered && <span className="inline-block mt-1 text-[11px] font-black text-violet-700 bg-violet-100 rounded-full px-2">★ 熟達（1問 0.5）</span>}
                           </span>
-                          <span className={`shrink-0 text-center rounded-xl px-2 py-1 font-black ${left > 0 && !townFull ? 'bg-amber-500 text-white' : 'bg-slate-300 text-slate-600'}`}>
-                            {left > 0
-                              ? <><span className="block text-[10px] leading-none">きょう あと</span><span className="text-lg leading-tight">⚡{left}</span></>
-                              : <span className="text-xs">✓ まんタン</span>}
+                          <span className={`shrink-0 text-center rounded-xl px-2 py-1 font-black ${(left > 0 || todayState === 'loading') && !townFull ? 'bg-amber-500 text-white' : 'bg-slate-300 text-slate-600'}`}>
+                            {todayState === 'loading'
+                              ? <span className="text-xs">…</span>
+                              : left > 0
+                                ? <><span className="block text-[10px] leading-none">きょう あと</span><span className="text-lg leading-tight">⚡{left}</span></>
+                                : <span className="text-xs">✓ まんタン</span>}
                           </span>
                         </button>
                       );
@@ -346,7 +355,9 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
                 まえに といた もんだいを、わすれかけた ころに もう一度。アプリで といた もんだいも ここに 出るよ。
               </p>
               {due.length === 0 && (
-                <p className="rounded-3xl bg-white/90 p-6 text-center font-black text-slate-700">いまは ふくしゅうする もんだいは ないよ 🎉</p>
+                <p className="rounded-3xl bg-white/90 p-6 text-center font-black text-slate-700">
+                  {rowsState === 'loading' ? 'しらべています…' : rowsState === 'failed' ? 'つうしんが よわくて しらべられなかったよ。あとで また ひらいてね' : 'いまは ふくしゅうする もんだいは ないよ 🎉'}
+                </p>
               )}
               <div className="grid sm:grid-cols-2 gap-2">
                 {due.map((it) => {
