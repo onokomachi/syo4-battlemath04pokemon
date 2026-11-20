@@ -41,6 +41,8 @@ import { DexScreen, MapScreen, PartyScreen, ShopScreen, TrainerCardScreen } from
 import { GachaScreen } from './GachaScreen';
 import { LEARNING_REWARDS } from '../../data/adventure/gacha';
 import SaveSlotsModal from './SaveSlotsModal';
+import DojoScreen from './DojoScreen';
+import { dojoAvailable } from '../../services/dojo';
 
 interface Props {
   onExit: () => void;
@@ -66,9 +68,11 @@ interface Props {
    * 町のバトルは 町 → 共通 の順に使う（2026-11-09）。おためしでは出さない。
    */
   stamina?: { common: number; towns: Record<string, number>; costOf?: (townKey: string | null) => number };
+  /** スタミナ道場を とじたとき（スタミナを読みなおす） */
+  onStaminaChanged?: () => void;
 }
 
-type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save' | 'gacha';
+type Overlay = 'none' | 'dex' | 'party' | 'map' | 'shop' | 'card' | 'save' | 'gacha' | 'dojo';
 
 interface Dialogue {
   speaker?: string;
@@ -82,7 +86,7 @@ interface Dialogue {
 const BOSS_WILD_RATE = 0.1;
 
 const AdventureMode: React.FC<Props> = ({
-  onExit, lockedUnits, unitProgress, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle, stamina,
+  onExit, lockedUnits, unitProgress, mathPoints, onAddMathPoints, onSpendMathPoints, defaultName, uid, onRequestBattle, stamina, onStaminaChanged,
 }) => {
   const save = useAdventureStore(s => s.save);
   const store = useAdventureStore();
@@ -420,6 +424,8 @@ const AdventureMode: React.FC<Props> = ({
     (window as any).__advEncounter = () => handleEncounter();
     // ショップの店員さんまで歩かなくても ショップ（ガチャの入り口）を開けるように
     (window as any).__advOverlay = (o: Overlay) => setOverlay(o);
+    // 町を うつる（スタミナ道場の確かめなど。ふつうは マップから）
+    (window as any).__advTown = (id: string) => store.setTown(id);
     (window as any).__advState = () => ({
       ambush, legendWander, kidnapped: save.kidnapped, badges: save.badges, items: save.items,
       party: save.party, owned: save.owned, townId: save.townId, legends: save.legends,
@@ -519,6 +525,22 @@ const AdventureMode: React.FC<Props> = ({
         speaker: npc.name, portrait, accent: '#7c3aed',
         lines: npc.lines,
         onDone: () => { setDialogue(null); setOverlay('shop'); },
+      });
+      return;
+    }
+    // --- スタミナ道場（2026-11-20）---
+    if (npc.kind === 'training') {
+      const key = sanmonTownKeyOf(town.unit);
+      const hasApp = !!SANMON_UNITS.find(u => u.key === key)?.appId;
+      const lines = !stamina || !dojoAvailable()
+        ? [...npc.lines.slice(0, 2), '……おや、まだ 名前（ばんごう）を 入れていないようだ。', 'SOL から 名乗って 来れば、ここで しゅぎょうが できるぞ。']
+        : !hasApp
+          ? ['この町の もんだいは、SANMON の「れんしゅう」「ふくしゅう」で ノーミスで とくと スタミナが たまるぞ。', 'メニューの れんしゅうモードで しゅぎょうしておいで。']
+          : npc.lines;
+      setDialogue({
+        speaker: npc.name, portrait, accent: '#d97706',
+        lines,
+        onDone: () => { setDialogue(null); if (stamina && dojoAvailable() && hasApp) setOverlay('dojo'); },
       });
       return;
     }
@@ -760,7 +782,7 @@ const AdventureMode: React.FC<Props> = ({
         });
       },
     });
-  }, [inputEnabled, town, save, store, isSlowGuidedSubtopic]);
+  }, [inputEnabled, town, save, store, isSlowGuidedSubtopic, stamina]);
 
   /** 伝説の出題プール。担当単元(legend.units)ぜんぶのサブトピックを集める。 */
   const legendSubtopics = useCallback(
@@ -1469,6 +1491,18 @@ const AdventureMode: React.FC<Props> = ({
       {overlay === 'shop' && (
         <ShopScreen onClose={() => setOverlay('none')} mathPoints={mathPoints} onBuy={handleBuy} onOpenGacha={() => setOverlay('gacha')} />
       )}
+      {overlay === 'dojo' && stamina && (() => {
+        const key = sanmonTownKeyOf(town.unit) ?? '';
+        return (
+          <DojoScreen
+            townKey={key}
+            townName={town.name}
+            townStamina={stamina.towns[key] ?? 0}
+            commonStamina={stamina.common}
+            onClose={() => { setOverlay('none'); onStaminaChanged?.(); }}
+          />
+        );
+      })()}
       {overlay === 'gacha' && (
         // ガチャは ショップの中からだけ。とじたら ショップに もどる
         <GachaScreen onClose={() => setOverlay('shop')} mathPoints={mathPoints} onSpendMathPoints={onSpendMathPoints} />

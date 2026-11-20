@@ -30,7 +30,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 | 触るところ | 先に読む |
 |---|---|
 | 名乗り・記録の送信・おためし・デモ・体験版・モードの開け閉め・平日モード・番号ごとの停止（`services/portal.ts`・`saveProfile.ts`・`useSanmonPortal`・`App.tsx` のモード） | `docs/PORTAL.md` |
-| スタミナ・町の解放・バトル1回の数（kit の `sanmonBattleCost`・`PortalStatusBar`・`MapScreen`・サーバの `_sanmon_*`） | `docs/STAMINA.md` |
+| スタミナ・町の解放・バトル1回の数・スタミナ道場（kit の `sanmonBattleCost`・`PortalStatusBar`・`MapScreen`・`DojoScreen`・`services/dojo.ts`・サーバの `_sanmon_*`） | `docs/STAMINA.md` |
 | ぼうけんのバトル・敵のレベル・伝説・アビリティ・制限時間・育ち方・ごほうび・アイテム・ガチャ（`AdventureMode`・`BattleScreen`・`data/adventure/`・`store/adventureStore.ts`） | `docs/BATTLE.md` |
 | モンスター対戦・クラス対戦（`data/partyDuel.ts`・`components/duel/`・サーバの `_pduel_*`・`sanmon_pduel_*`） | `docs/DUEL.md` |
 | 単元アプリの問題の写し・図鑑番号・けいさんらん（`apps/`・`data/appRounds.ts`・`legacyDex.ts`・`ProblemScratch.tsx`） | `docs/APP_ROUNDS.md` |
@@ -50,6 +50,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - **平日モード・番号ごとの停止の判定はサーバ。** ここでは `portal.modeOpen` を見るだけ。
 - 名乗っていない（おためし・デモ・体験版）ときは記録をサーバに送らない。セーブは学級と別。
 - **`apps/<app_id>/` は単元アプリの写し。手で直さない**（`npm run sync-apps`）。
+- **スタミナ道場の記録は、単元アプリの記録（その app_id）として送る。** `apps/_shims/progressStore` の `recordResult`（道場の受け取り口）を消さない。
 - **サブトピックを足したら**、図鑑の名簿（`legacyDex.ts` の `ADDED_DEX_ORDER`）の**いちばん後ろ**に足し、learning-app-kit のカタログ `sanmon` も作り直す。
 - **絵・曲は同じ名前で上書きしない**（端末に1年古いまま残ることがある。上の「スタック」）。PNG を足したら `node scripts/make-webp.mjs`。
 - **`public/sw.js` は `/assets/adventure/` の絵と曲だけを扱う。** プログラム本体（HTML・JS・CSS）を入れない（月曜の自動更新が届かなくなる）。

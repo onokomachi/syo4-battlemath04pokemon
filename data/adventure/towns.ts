@@ -20,6 +20,8 @@ const layout = (size: number) => ({
   spawn: { x: 0, z: size / 2 - 5 },
   nurse: { x: -7, z: size / 2 - 10 },
   shop: { x: 7, z: size / 2 - 10 },
+  // スタミナ道場（2026-11-20）。広場の東、ショップのとなり。小さい町（40）でも フィールドの ふち（half-1.2）に かからない
+  training: { x: Math.min(15, size / 2 - 5.2), z: size / 2 - 10 },
   villager: { x: 0, z: size / 2 - 15 },
   trainerA: { x: -size * 0.26, z: size * 0.05 },
   trainerB: { x: size * 0.28, z: -size * 0.16 },
@@ -816,6 +818,11 @@ const buildTown = (seed: TownSeed, index: number): TownDef => {
       id: `${seed.id}-shop`, kind: 'shop', name: 'ショップの おじさん',
       sprite: 'shop', x: pos.shop.x, z: pos.shop.z,
       lines: ['いらっしゃい！ ボールは 足りてるかい？'],
+    },
+    {
+      id: `${seed.id}-training`, kind: 'training', name: 'スタミナ道場の 師範',
+      sprite: 'prof', x: pos.training.x, z: pos.training.z,
+      lines: ['ようこそ、スタミナ道場へ。', 'ここでは アプリと 同じ もんだいで しゅぎょうが できる。', 'ノーミスで とけば、この町の スタミナが たまるぞ。'],
     },
     {
       id: `${seed.id}-villager`, kind: 'villager', name: '村の ひと',

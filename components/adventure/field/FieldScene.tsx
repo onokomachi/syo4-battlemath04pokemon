@@ -154,17 +154,19 @@ const World: React.FC<SceneProps> = ({
   // NPC本人に近づけなくなって話しかけられない。
   const nurse = npcs.find(n => n.kind === 'nurse');
   const shop = npcs.find(n => n.kind === 'shop');
+  const training = npcs.find(n => n.kind === 'training');
   const master = npcs.find(n => n.kind === 'master');
 
   const buildings = useMemo(() => {
-    const out: Array<{ x: number; z: number; hw: number; hd: number; kind: 'nurse' | 'shop' | 'dojo' }> = [];
+    const out: Array<{ x: number; z: number; hw: number; hd: number; kind: 'nurse' | 'shop' | 'dojo' | 'training' }> = [];
     if (corridor) return out;
     // Building.tsx の寸法(小屋 6×5 / 道場 9×7)に少し余裕を足したもの
     if (nurse) out.push({ x: nurse.x, z: nurse.z - 3.2, hw: 3.4, hd: 2.9, kind: 'nurse' });
     if (shop) out.push({ x: shop.x, z: shop.z - 3.2, hw: 3.4, hd: 2.9, kind: 'shop' });
+    if (training) out.push({ x: training.x, z: training.z - 3.2, hw: 3.4, hd: 2.9, kind: 'training' });
     if (master) out.push({ x: master.x, z: master.z - 4.6, hw: 4.9, hd: 3.9, kind: 'dojo' });
     return out;
-  }, [nurse, shop, master, corridor]);
+  }, [nurse, shop, training, master, corridor]);
 
   /** その場所へ行けるか(飾り・建物・フィールドのふち) */
   const canStand = useCallback(

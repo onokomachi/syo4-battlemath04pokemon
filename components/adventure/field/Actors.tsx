@@ -145,7 +145,7 @@ const useMarkerTexture = (kind: 'talk' | 'battle' | 'legend'): THREE.Texture =>
 
 /** かいふく所・ショップ・道場。絵本のような単純な形で建てる。 */
 export const Building: React.FC<{
-  kind: 'nurse' | 'shop' | 'dojo';
+  kind: 'nurse' | 'shop' | 'dojo' | 'training';
   x: number;
   y: number;
   z: number;
@@ -155,6 +155,7 @@ export const Building: React.FC<{
   const palette = {
     nurse: { wall: '#fff2f4', roof: '#f2657f', sign: '#ffffff' },
     shop: { wall: '#f3f7ff', roof: '#4a8fd8', sign: '#ffffff' },
+    training: { wall: '#fff7e6', roof: '#d97706', sign: '#ffffff' },
     dojo: { wall: '#f6efe0', roof: accent, sign: '#ffffff' },
   }[kind];
 
@@ -207,12 +208,12 @@ export const Building: React.FC<{
 };
 
 const signCache = new Map<string, THREE.Texture>();
-const useSignTexture = (kind: 'nurse' | 'shop' | 'dojo'): THREE.Texture =>
+const useSignTexture = (kind: 'nurse' | 'shop' | 'dojo' | 'training'): THREE.Texture =>
   useMemo(() => {
     const hit = signCache.get(kind);
     if (hit) return hit;
-    const label = { nurse: 'かいふく所', shop: 'ショップ', dojo: 'どうじょう' }[kind];
-    const bg = { nurse: '#f2657f', shop: '#4a8fd8', dojo: '#8a6a4a' }[kind];
+    const label = { nurse: 'かいふく所', shop: 'ショップ', dojo: 'どうじょう', training: 'スタミナ道場' }[kind];
+    const bg = { nurse: '#f2657f', shop: '#4a8fd8', dojo: '#8a6a4a', training: '#d97706' }[kind];
     const c = document.createElement('canvas');
     c.width = 512; c.height = 128;
     const ctx = c.getContext('2d')!;
@@ -225,7 +226,7 @@ const useSignTexture = (kind: 'nurse' | 'shop' | 'dojo'): THREE.Texture =>
     ctx.lineWidth = 8;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 64px "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif';
+    ctx.font = `bold ${kind === 'training' ? 58 : 64}px "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, 256, 68);
