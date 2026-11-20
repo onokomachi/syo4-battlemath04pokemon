@@ -19,6 +19,7 @@ import { CATALOGS } from 'learning-app-kit/catalog';
 import { scheduleAfterResult, type ReviewState } from 'learning-app-kit/review';
 import type { AppRoundDef } from '../apps/types';
 import { PORTAL, isPortalConfigured } from './portal';
+import { loadAppRounds, prefetchAppRounds } from './appRounds';
 import { isDemo } from './saveProfile';
 
 /** 熟達＝5問れんぞくノーミス（単元アプリの progressStore と同じ） */
@@ -81,10 +82,23 @@ function townsOfSkill(app: string, skill: string, moduleId: string): string[] {
   return SANMON_UNITS.filter((u) => u.appId === app).map((u) => u.key);
 }
 
-let registry: Record<string, Record<string, AppRoundDef>> | null = null;
-export async function loadRegistry() {
-  registry ??= (await import('../apps/registry')).APP_ROUNDS;
-  return registry;
+/** 解答画面の置き場のキー（小数の たし算・ひき算は 'decimal'）。その町の単元アプリが使うもの */
+const regAppsOf = (app: string): string[] => (app === 'syousu' ? ['syousu', 'decimal'] : [app]);
+const appOfTown = (townKey: string) => SANMON_UNITS.find((u) => u.key === townKey)?.appId;
+
+/** その町の解答画面（アプリの分だけ読みこむ。前は 10アプリぶんを一度に読みこんでいた） */
+export async function loadTownRounds(townKey: string): Promise<Record<string, Record<string, AppRoundDef>>> {
+  const app = appOfTown(townKey);
+  const out: Record<string, Record<string, AppRoundDef>> = {};
+  if (!app) return out;
+  await Promise.all(regAppsOf(app).map(async (k) => { const r = await loadAppRounds(k); if (r) out[k] = r; }));
+  return out;
+}
+
+/** 町に入ったとき、道場を開く前に 解答画面を読みこんでおく（開いたときに待たない） */
+export function prefetchDojo(townKey: string): void {
+  const app = appOfTown(townKey);
+  if (app && dojoAvailable()) prefetchAppRounds(regAppsOf(app));
 }
 
 const LEARNED_KEY = 'bm_dojo_learned_skills';
@@ -102,15 +116,15 @@ function learn(itemKey: string, skill: string) {
 
 /** その町の道場で解ける項目（単元アプリの解答画面の写しがあるもの）。カタログの並び順 */
 export async function dojoItems(townKey: string): Promise<DojoItem[]> {
-  const reg = await loadRegistry();
   const unit = SANMON_UNITS.find((u) => u.key === townKey);
   if (!unit?.appId) return [];
   const app = unit.appId;
+  const reg = await loadTownRounds(townKey);
   const cat = CATALOGS[app];
   const skillInfo = new Map<string, { label: string; moduleId: string; moduleTitle: string; order: number }>();
   let order = 0;
   for (const m of cat?.modules ?? []) for (const s of m.skills) skillInfo.set(s.skill_id, { label: s.label, moduleId: m.module_id, moduleTitle: m.title, order: order++ });
-  const regApps = app === 'syousu' ? ['syousu', 'decimal'] : [app];
+  const regApps = regAppsOf(app);
   const learnedAll = learned();
   const items: Array<DojoItem & { order: number }> = [];
   const seen = new Set<string>();

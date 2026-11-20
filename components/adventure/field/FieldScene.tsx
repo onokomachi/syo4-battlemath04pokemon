@@ -45,6 +45,8 @@ const PLAYER_SPEED = 7.2;
 const NPC_TALK_RANGE = 4.0;
 
 interface SceneProps {
+  /** メニュー・道場などの画面を開いているあいだ、3Dの描画を止める（弱い端末で、後ろの3Dが問題の表示をじゃまするため。2026-11-20） */
+  paused?: boolean;
   town: TownDef;
   appearance: 'boy' | 'girl';
   control: React.MutableRefObject<FieldControl>;
@@ -545,6 +547,7 @@ const FieldScene: React.FC<SceneProps> = props => {
     <Canvas
       shadows={false}
       dpr={dpr}
+      frameloop={props.paused ? 'never' : 'always'}
       // Canvas自体のサイズ追従もまとめて行う(ズーム中の作りなおしを減らすため)
       resize={{ debounce: 200 }}
       camera={{ fov: 46, near: 0.5, far: 500, position: [0, 10, 14] }}
