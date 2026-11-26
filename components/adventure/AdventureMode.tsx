@@ -65,9 +65,10 @@ interface Props {
   onRequestBattle?: (reason: string) => Promise<{ ok: boolean; message?: string }>;
   /**
    * スタミナ（学級ポータルで名乗っているときだけ）。共通と、町ごと（kit の SANMON_UNITS の key → その町で使える分）。
-   * 町のバトルは 町 → 共通 の順に使う（2026-11-09）。おためしでは出さない。
+   * 町のバトルは 町 → 共通 の順に使う（2026-11-09）。
+   * noCommon：おためし・体験（端末の台帳。2026-11-26）。共通スタミナは無く、町のスタミナだけ。
    */
-  stamina?: { common: number; towns: Record<string, number>; costOf?: (townKey: string | null) => number };
+  stamina?: { common: number; towns: Record<string, number>; costOf?: (townKey: string | null) => number; noCommon?: boolean };
   /** スタミナ道場を とじたとき（スタミナを読みなおす） */
   onStaminaChanged?: () => void;
 }
@@ -1306,7 +1307,7 @@ const AdventureMode: React.FC<Props> = ({
               <div className="mt-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 leading-tight">
                 <p className="text-[10px] font-black text-amber-700">スタミナ</p>
                 <p className="text-[11px] font-bold text-slate-700 tabular-nums">
-                  {hasTown && <>この町 {here}/{SANMON_RULES.townCap} ・ </>}共通 {stamina.common}/{SANMON_RULES.maxStamina}
+                  {hasTown && <>この町 {here}/{SANMON_RULES.townCap}{!stamina.noCommon && ' ・ '}</>}{!stamina.noCommon && <>共通 {stamina.common}/{SANMON_RULES.maxStamina}</>}
                 </p>
                 <p className={`text-[11px] font-black tabular-nums ${battles > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                   ▶ バトル あと {battles}回<span className="font-bold text-slate-500">（1回 {cost}）</span>
@@ -1527,6 +1528,7 @@ const AdventureMode: React.FC<Props> = ({
           lockedUnits={lockedUnits}
           unitProgress={unitProgress}
           townStamina={stamina?.towns}
+          trialLedger={stamina?.noCommon}
         />
       )}
       {overlay === 'save' && <SaveSlotsModal onClose={() => setOverlay('none')} />}

@@ -11,7 +11,10 @@
  *   PRISM・SOL・町の解放・スタミナの数え方は、単元アプリで解いたときと まったく同じになる。
  * - スタミナの数え方は変えない（1日1項目5まで・熟達後は半分・町のスタミナは50まで）。サーバ（_sanmon_pools_fold）が数える。
  *   道場の画面は「きょう その項目で あと いくつ たまるか」をサーバ（sanmon_dojo_today）から読んで見せる。
- * - 名乗っていないとき（おためし・デモ・体験）は使えない（記録を送らない約束）。
+ * - デモは使えない。名乗っていない（おためし・体験）ときは「端末だけモード」で使える（2026-11-26）：
+ *   熟達・きょうの数・ふくしゅうの予定は 端末の台帳（services/trialLedger.ts）と端末の記録に持ち、
+ *   **kit の createSyncedStorage・my_skill_state・sanmon_dojo_today など サーバとの やりとりは 一切 しない**。
+ *   スタミナは 本番と同じ たまり方（1日1項目5まで・熟達後は半分・50まで）で その町の台帳に入る。本番テストは スタミナに ならない。
  */
 import { createSyncedStorage, getStudent, isTrial, fetchMyProgress, type MySkillRow } from 'learning-app-kit/sync';
 import { SANMON_UNITS } from 'learning-app-kit/sanmon';
@@ -21,6 +24,7 @@ import type { AppRoundDef, AppTestDef } from '../apps/types';
 import { PORTAL, isPortalConfigured } from './portal';
 import { loadAppRounds, loadAppTests, prefetchAppRounds } from './appRounds';
 import { isDemo } from './saveProfile';
+import { trialLedgerActive, recordTrialDojo, trialDojoToday } from './trialLedger';
 
 /** 熟達＝5問れんぞくノーミス（単元アプリの progressStore と同じ） */
 export const MASTERY_STREAK = 5;
@@ -32,6 +36,8 @@ export const TOWN_CAP = 50;
 /* ---------------- 道場が使えるか ---------------- */
 
 export function dojoAvailable(): boolean {
+  // 名乗っていない（おためし・体験。デモでない）：端末だけモードで使える
+  if (trialLedgerActive()) return true;
   return isPortalConfigured && !!getStudent() && !isTrial() && !isDemo();
 }
 
@@ -176,6 +182,7 @@ export interface DojoToday {
 }
 
 export async function fetchDojoToday(): Promise<DojoToday | null> {
+  if (trialLedgerActive()) return trialDojoToday();   // 端末の台帳から（サーバは呼ばない）
   const s = getStudent();
   if (!s || !PORTAL.supabaseUrl || !PORTAL.supabaseKey) return null;
   try {
@@ -194,6 +201,7 @@ export async function fetchDojoToday(): Promise<DojoToday | null> {
 
 /** じぶんの記録（端末をまとめたもの）。ふくしゅうの時期と、道場で つづきから数えるために読む */
 export async function fetchMyRows(): Promise<MySkillRow[] | null> {
+  if (trialLedgerActive()) return [];   // サーバの記録は読まない（端末の記録だけ）
   const s = getStudent();
   if (!s) return null;
   const r = await fetchMyProgress(PORTAL, s.studentId);
@@ -235,8 +243,12 @@ function storageOf(app: string) {
   return s;
 }
 
+/** 端末だけモード（おためし・体験）の道場の記録。kit の createSyncedStorage を通さず localStorage に直接（bm_ ではじまる＝'trial' のセーブに入る） */
+const trialStateKey = (app: string) => `bm_trial_dojo_${app}`;
+const TRIAL_LOGS_CAP = 100;
+
 function readState(app: string): DojoState {
-  const raw = storageOf(app).getItem(stateKey(app));
+  const raw = trialLedgerActive() ? readLocal(trialStateKey(app)) : storageOf(app).getItem(stateKey(app));
   try {
     const st = (JSON.parse(typeof raw === 'string' ? raw : '') as { state?: DojoState }).state;
     if (st) return { logs: st.logs ?? [], mastery: st.mastery ?? {}, review: st.review ?? {} };
@@ -244,7 +256,15 @@ function readState(app: string): DojoState {
   return { logs: [], mastery: {}, review: {} };
 }
 
+function readLocal(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
 function writeState(app: string, st: DojoState) {
+  if (trialLedgerActive()) {
+    try { localStorage.setItem(trialStateKey(app), JSON.stringify({ state: { ...st, logs: st.logs.slice(0, TRIAL_LOGS_CAP) }, version: 0 })); } catch { /* noop */ }
+    return;
+  }
   // zustand の persist と同じ形（kit の parseSyncable が state を読む）
   void storageOf(app).setItem(stateKey(app), JSON.stringify({ state: st, version: 0 }));
 }
@@ -262,8 +282,8 @@ export function setSeeds(rows: readonly MySkillRow[]) {
  *  - ノーミスで +1（5まで）、まちがいがあれば 0
  *  - ふくしゅうの予定は 本番テスト・ボス戦では動かさない
  */
-export function recordDojo(app: string, itemKey: string, rec: Omit<Log, 'id' | 'ts'>): void {
-  if (!dojoAvailable()) return;
+export function recordDojo(app: string, itemKey: string, rec: Omit<Log, 'id' | 'ts'>, townKey?: string): number {
+  if (!dojoAvailable()) return 0;
   if (!itemKey.endsWith(TEST_ITEM_SUFFIX)) learn(itemKey, rec.skillId);
   const st = readState(app);
   const entry: Log = { ...rec, id: crypto.randomUUID(), ts: Date.now() };
@@ -285,6 +305,11 @@ export function recordDojo(app: string, itemKey: string, rec: Omit<Log, 'id' | '
     }
   }
   writeState(app, st);
+  // 端末だけモード：ノーミスの正解を その町の台帳に数える（本番テストは スタミナに ならない）。増えた数を返す
+  if (trialLedgerActive() && townKey && !itemKey.endsWith(TEST_ITEM_SUFFIX) && rec.correct && !rec.abandoned) {
+    return recordTrialDojo(app, rec.skillId, townKey, (st.mastery[rec.skillId]?.perfectStreak ?? 0) >= MASTERY_STREAK);
+  }
+  return 0;
 }
 
 /** つづけてノーミスの数（0〜1。アプリの足場の出し分けに使う） */

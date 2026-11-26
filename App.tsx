@@ -49,6 +49,7 @@ import { APP_ROUND_SUBTOPICS, isAppRoundProblem } from './data';
 import { recordProblemLog, setLearningLogListener, setProblemLogHook, type TestBests } from './services/learningLogService';
 import { WEAK_BONUS, expPerCorrect } from './data/adventure/growth';
 import { isDemo } from './services/saveProfile';
+import { recordTrialAnswer } from './services/trialLedger';
 import { toDuelMon, type DuelMon } from './data/partyDuel';
 import { rentalMonsters } from './data/adventure/starters';
 import { fetchLockedUnits } from './services/unitLockService';
@@ -309,6 +310,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const cappedShown = new Set<string>();
     setProblemLogHook((e) => {
+      // おためし・体験：れんしゅう・ふくしゅうの答えを端末の台帳に数える（町の解放・スタミナ。サーバには送らない。学級の子は すぐ返る。services/trialLedger.ts）
+      const t = recordTrialAnswer(e.mode, e.subTopic, e.correct);
+      if (t?.opened.length) setPortalNotice(`${t.opened.join('・')} の 町が ひらいたよ！ その町の スタミナを 20 もらったよ（ぼうけんで つかえるよ）`);
       // ガチャコイン（きょう はじめての正解・はじめての熟達）。ふくしゅう・ミックスれんしゅうは、それぞれの画面が数える
       if (e.correct && e.mode !== 'review') notifyRewards(useAdventureStore.getState().rewardForCorrect('other', e.subTopic));
       if (!e.correct || e.mode === 'battle') return;
@@ -1400,7 +1404,8 @@ const App: React.FC = () => {
             lockedUnits={portal.lockedUnitNames}
             unitProgress={portal.units}
             onRequestBattle={requestBattle}
-            stamina={portal.student ? { common: portal.stamina, towns: portal.towns, costOf: portal.townCost } : undefined}
+            stamina={portal.student ? { common: portal.stamina, towns: portal.towns, costOf: portal.townCost }
+              : portal.ledgerMode ? { common: 0, towns: portal.towns, costOf: portal.townCost, noCommon: true } : undefined}
             onStaminaChanged={() => { void portal.refresh(); }}
             mathPoints={mathPoints}
             onAddMathPoints={n => addBoostedMp(n)}

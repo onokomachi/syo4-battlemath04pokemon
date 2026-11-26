@@ -15,8 +15,7 @@
 - 記録は `services/portal.ts` が学級ポータルへ送る（1問ごと→learning_event、本番テスト→test_result、セーブデータ→sanmon_save）。
   skill_id はサブトピック名そのもの（kit のカタログ `sanmon` と同じ）。サブトピックを足したら kit のカタログを作り直す。
 - 環境変数: `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`（publishable キーだけ）。
-- **おためし（学級コードなし）でもバトルできる**（2026-10-24 先生と決めた）。スタミナは使わない（`useSanmonPortal` の `spendForBattle`）。
-  町は 学級と同じ（単元アプリの いらない3町だけ）。**記録はサーバに送らない**（`syncLearningToPortal` は名乗っていないと何もしない。
+- **おためし（学級コードなし）でもバトルできる**（2026-10-24 先生と決めた）。**2026-11-26 から スタミナと町は端末の台帳で数える（下の「体験・おためしの台帳」）**。それまでは スタミナを使わず、町は 学級と同じ（単元アプリの いらない3町だけ）だった。**記録はサーバに送らない**（`syncLearningToPortal` は名乗っていないと何もしない。
   kit は名乗っていない端末の記録も送って、あとで名乗ったとき その子に まとめるため）。
   **セーブは学級と別**（`services/saveProfile.ts`：bm_・battleMath・fb_ の中身を、学級コードを入れた・消したときに入れかえて読みなおす。
   index.tsx で いちばん先に読みこむ）。おためしの進み具合は 学級に引きつがない（上限・スタミナの すりぬけ を防ぐ）。
@@ -26,6 +25,15 @@
 - **体験版**（2026-11-07。SOL の体験の入口 `#trial` から開いたタブ）：おためしと同じく名乗らない・記録は送らない。モードは PRISM の管理タブの設定（kit の `trialAllows`。`useSanmonPortal` の `modeOpen`）、クラス対戦はいつも閉じる。
   **学級コードが入っている端末で体験のリンクを開くと、遊ばせない**（`saveProfile.ts` の `trialOnClassDevice`：ふつうのタブと localStorage のセーブを取りあって学級のセーブをこわさないため）。
   PRISM の「ログイン必須」を入れると、おためしは使えない（kit の JoinGate が名乗るまで閉じない。デモモードは `allowWithout={isDemo}` で通す）。
+- **体験・おためしの台帳**（2026-11-26 先生と決めた。デモは今のまま全町開放・スタミナなし）：学級コードで名乗っていない子（おためし＝コードなし／体験版＝SOL の `#trial`。どちらも kit の `getStudent()` が null）も、町が開き、スタミナで遊べる。
+  **サーバには一切送らない。端末の中（localStorage）だけで数える。** 学級コードの子の動き・データには影響しない（`getStudent()` があれば台帳は使わない）。
+  - 数と判定は kit（`SANMON_TRIAL_RULES`・`sanmonTrialUnits`・`sanmonTrialEarn`・`sanmonTownOfSubtopic`）。ここに数を書かない。数え方は `services/trialLedgerCore.ts`（純粋な関数。`node scripts/check-trial-ledger.mjs` が検査。`npm run check` に入っている）、保存・場面の判定・画面への知らせは `services/trialLedger.ts`。
+  - **町の解放**：SANMON の「れんしゅう」「ふくしゅう」（`recordProblemLog` の mode が `practice`・`review`）で答えたサブトピックを、5れんぞくノーミス（まちがえたら0）で熟達として数え、3つ熟達した町が開く（アプリの無い3町ははじめから）。**バトル・デュエル・本番テストの中の答えは数えない。** 数える入口は `App.tsx` の `setProblemLogHook`（`recordTrialAnswer`。学級の子は最初の判定ですぐ返る）。
+  - **スタミナ（町ごと。共通スタミナは無い）**：町が開いたとき（アプリの無い町は台帳を作ったとき）に20（1回だけ。開いた答え自身ではたまらない）。ぼうけんの町のバトル1回3（`useSanmonPortal` の `spendForBattle`）。足りなければ始めない（体験用の文）。
+    たまる所は SANMON の れんしゅう・ふくしゅう と、その町の スタミナ道場 の正解（1項目1日5まで・熟達後は半分・50まで。日付は端末の日付）。リーグ・アジト・スピードデュエル・モンスター対戦はスタミナを使わない（今までどおり）。クラス対戦は閉じたまま。
+  - **スタミナ道場は「端末だけモード」で使える**（`services/dojo.ts` の `dojoAvailable`）：熟達・きょうの数は台帳、ふくしゅうの予定は端末の記録（`bm_trial_dojo_<app>`）。**kit の `createSyncedStorage` を作らない・`my_skill_state`・`sanmon_dojo_today` などサーバの関数を呼ばない**（kit は名乗っていない端末の記録も送るため）。道場の本番テストは解けるがスタミナにならない。
+  - **保存**：台帳は `bm_trial_ledger_v1`（`bm_` ではじまるので `saveProfile.ts` の入れかえで 'trial' のセーブにだけ入り、学級・デモとは混ざらない。体験とおためしは同じ1つ。やり直しボタンは無い）。`services/portal.ts` の `collectSave`（学級のセーブの送信）は `bm_trial_` ではじまるキーを入れない。
+  - **画面**：`useSanmonPortal` の `ledgerMode`（台帳で数えているとき）。メニューの帯（`PortalStatusBar`）・ぼうけんの左上・マップの閉じた町の1行・道場に台帳の値を出す。帯をひらくと「たいけん・おためしの きろくは この たんまつ だけに のこるよ」。
 - 練習・本番テスト・ふくしゅう・ミックス演習の画面は 緑と金（前は赤と黒だった）。まちがいの ×・赤い枠だけは赤のまま。
 
 ## モードの開け閉め・平日モード・番号ごとの停止

@@ -22,7 +22,7 @@ import { levelCapOf, useLevelCaps } from '../../data/adventure/growth';
 import { getPlayerSprite } from '../../data/adventure/people';
 import { GACHA_RULES } from '../../data/adventure/gacha';
 import { ABILITIES as POWERS, releaseMp, powerLabel, powerEffect } from '../../data/adventure/abilities';
-import { SANMON_RULES, sanmonTownKeyOf, type SanmonUnitProgress } from 'learning-app-kit/sanmon';
+import { SANMON_RULES, SANMON_TRIAL_RULES, sanmonTownKeyOf, type SanmonUnitProgress } from 'learning-app-kit/sanmon';
 
 export const Panel: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; accent?: string }> = ({
   title, onClose, children, accent = '#0ea5e9',
@@ -550,7 +550,9 @@ export const MapScreen: React.FC<{
   unitProgress?: SanmonUnitProgress[];
   /** 町のスタミナ（kit の SANMON_UNITS の key → その町で使える分）。名乗っているときだけ */
   townStamina?: Record<string, number>;
-}> = ({ onClose, onTravel, onLeague, lockedUnits, unitProgress, townStamina }) => {
+  /** おためし・体験（端末の台帳）。とじた町の1行を 体験のきまり（れんしゅう・ふくしゅうで 3項目 熟達）で出す（2026-11-26） */
+  trialLedger?: boolean;
+}> = ({ onClose, onTravel, onLeague, lockedUnits, unitProgress, townStamina, trialLedger }) => {
   const save = useAdventureStore(s => s.save);
   const allBadges = TOWNS.every(t => save.badges.includes(t.id));
   const inLeague = save.townId === LEAGUE_TOWN.id;
@@ -607,6 +609,16 @@ export const MapScreen: React.FC<{
               </div>
               {locked && (() => {
                 const u = unitProgress?.find(x => x.name === t.unit);
+                if (trialLedger) {
+                  // おためし・体験：SANMON の れんしゅう・ふくしゅうで、その町の項目を 3つ 熟達（5れんぞくノーミス）にすると ひらく。ひらくと その町の スタミナ 20
+                  return (
+                    <div className="mt-2">
+                      <p className="text-xs font-black text-amber-300">
+                        🔒 れんしゅう・ふくしゅうで {u?.practice?.need ?? SANMON_TRIAL_RULES.unlockMastered}項目 熟達（{SANMON_TRIAL_RULES.masteryStreak}れんぞくノーミス）：{Math.min(u?.practice?.have ?? 0, u?.practice?.need ?? SANMON_TRIAL_RULES.unlockMastered)}/{u?.practice?.need ?? SANMON_TRIAL_RULES.unlockMastered}
+                      </p>
+                    </div>
+                  );
+                }
                 // 4つの条件を1行で（✓ はできた、数は いま/ひつよう）。条件が読めないときは 前と同じ1行
                 const items = u?.practice ? [
                   ['練習', u.practice], ['テスト', u.test], ['階段', u.trial], ['ひとりで', u.days],
