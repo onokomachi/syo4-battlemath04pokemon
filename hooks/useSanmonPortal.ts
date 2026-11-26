@@ -16,6 +16,9 @@ import { MATH_CATEGORIES } from '../constants';
 import { PORTAL, isPortalConfigured } from '../services/portal';
 import { useLevelCaps } from '../data/adventure/growth';
 import { isDemo } from '../services/saveProfile';
+import {
+  trialLedgerActive, getTrialLedger, subscribeTrialLedger, spendTrialBattle, ledgerUnits, earnedTodayTotal, SANMON_TRIAL_RULES,
+} from '../services/trialLedger';
 
 export interface SanmonPortal {
   student: StudentIdentity | null;
@@ -42,6 +45,11 @@ export interface SanmonPortal {
   modeLockShort: (key: SanmonModeKey) => string | null;
   /** 平日モードで閉じているモードを押したことをサーバに残す（先生の PRISM に「押した回数」として出る） */
   reportLock: (key: SanmonModeKey) => void;
+  /**
+   * 名乗っていない（おためし・体験）で、端末の台帳（services/trialLedger.ts）で 町とスタミナを数えているか（2026-11-26）。
+   * このとき stamina（共通）は 0・towns・units は台帳の値。学級・デモでは いつも false。
+   */
+  ledgerMode: boolean;
   /** バトル1回ぶんのスタミナを使う。足りなければ false（使わない） */
   spendForBattle: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 }
@@ -67,6 +75,9 @@ export function useSanmonPortal(): SanmonPortal {
   const [student, setStudent] = useState<StudentIdentity | null>(() => getStudent());
   const [status, setStatus] = useState<SanmonStatus | null>(null);
   const [modes, setModes] = useState<SanmonModes>({});
+  // おためし・体験の台帳が変わったら 読みなおす（れんしゅうの正解・バトル・道場。services/trialLedger.ts）
+  const [ledgerVer, setLedgerVer] = useState(0);
+  useEffect(() => subscribeTrialLedger(() => setLedgerVer((v) => v + 1)), []);
 
   useEffect(() => subscribeStudent((s) => setStudent(s)), []);
   // 体験版（SOL の体験の入口から開いたとき）：モードは PRISM の管理タブの設定で決まる。クラス対戦は学級が要るので いつも閉じる
@@ -103,17 +114,27 @@ export function useSanmonPortal(): SanmonPortal {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [refresh]);
 
+  // 名乗っていない（デモでない）ときは、サーバではなく 端末の台帳で 町とスタミナを数える（2026-11-26。サーバには送らない）
+  const trialMode = !student && trialLedgerActive();
+  const ledger = useMemo(() => (trialMode ? getTrialLedger() : null), [trialMode, ledgerVer]);
+
   // デモモード（アプリ紹介用）は すべての町を開く（記録は送らない・セーブは端末だけ。services/saveProfile.ts）
   const units = useMemo(() => {
+    if (ledger) return ledgerUnits(ledger);
     const u = sanmonUnits(status);
     return isDemo() ? u.map((x) => ({ ...x, open: true })) : u;
-  }, [status]);
+  }, [status, ledger]);
   const lockedUnitNames = useMemo(() => {
     const open = new Set(units.filter((u) => u.open).map((u) => u.name));
     return new Set(MATH_CATEGORIES.map((c) => c.name).filter((n) => !open.has(n)));
   }, [units]);
 
   const spendForBattle = useCallback(async (reason: string) => {
+    // おためし・体験：町のバトルは 台帳の 町のスタミナから使う。町の無いバトル（リーグ・デュエル）は これまでどおり スタミナなし
+    if (trialLedgerActive()) {
+      const key = reason.includes('@') ? reason.split('@')[1] : null;
+      return key ? spendTrialBattle(key) : { ok: true };
+    }
     const s = getStudent();
     // おためし（学級コードなし）: スタミナを使わずに バトルできる。記録は サーバに送らず、セーブも学級とは別（services/saveProfile.ts）
     if (!isPortalConfigured || !s) return { ok: true };
@@ -146,10 +167,10 @@ export function useSanmonPortal(): SanmonPortal {
     return { ok: false, message: `スタミナが たりないよ（共通 ${r.stamina}・バトルには ${SANMON_RULES.battleCost}）。実力の階段の はじめての段・はじめての熟達で 共通スタミナが たまるよ` };
   }, [refresh, status]);
 
-  return {
+  const view: SanmonPortal = {
     student, loaded: !!status, stamina: status?.stamina ?? 0, earnedToday: status?.earnedToday ?? 0,
     towns: status?.towns ?? {}, staminaIn: (townKey: string | null) => staminaForTown(status, townKey),
-    units, lockedUnitNames, refresh, spendForBattle,
+    units, lockedUnitNames, refresh, spendForBattle, ledgerMode: false,
     townCost: (townKey: string | null) => sanmonBattleCost(status, townKey),
     modeOpen: (key: SanmonModeKey) => (trial ? trialOpen(key) : isModeOpen(modes, key)),
     modeLock: (key: SanmonModeKey) => (trial ? (trialOpen(key) ? null : 'たいけんばんでは つかえないよ')
@@ -161,5 +182,22 @@ export function useSanmonPortal(): SanmonPortal {
       const s = getStudent();
       if (s && schoolHoursOnly(modes, key)) void reportLockHit(PORTAL, s.studentId, key);
     },
+  };
+  // おためし・体験：町・スタミナは 端末の台帳の値（共通スタミナは無い）。モードの開け閉めなど ほかは そのまま
+  if (!ledger) return view;
+  // 町のスタミナは 0.5 きざみでたまる（熟達ずみの項目）ので、画面には 整数で（切りすてても バトルあと何回は同じ）
+  const towns = Object.fromEntries(Object.entries(ledger.towns).map(([k, v]) => [k, Math.floor(v)]));
+  return {
+    ...view,
+    ledgerMode: true,
+    loaded: true,
+    stamina: 0,
+    earnedToday: earnedTodayTotal(ledger),
+    towns,
+    staminaIn: (townKey: string | null) => {
+      const town = townKey ? towns[townKey] ?? 0 : 0;
+      return { town, common: 0, total: town };
+    },
+    townCost: () => SANMON_TRIAL_RULES.battleCost,
   };
 }

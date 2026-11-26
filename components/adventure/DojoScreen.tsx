@@ -8,6 +8,8 @@
  * - 解いた答えは 単元アプリで解いたのと同じ記録として送る。スタミナに入るのは サーバが数えなおしたとき（2分ほど）。
  *   それまでは「さっき ためた分」として 画面の中だけで 足して見せる。
  * - まちがえても、アプリと同じように ヒントを見ながら さいごまで解ける（記録は「まちがいあり」）。
+ * - 名乗っていない（おためし・体験）ときは「端末だけモード」（2026-11-26）：きょうの分・熟達・スタミナは端末の台帳（services/trialLedger.ts）。
+ *   サーバには何も送らない・読まない。スタミナは すぐ入る。本番テストは 解けるが スタミナには ならない。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppRoundDef, AppTestDef } from '../../apps/types';
@@ -18,6 +20,7 @@ import {
   type DojoItem, type DojoToday,
 } from '../../services/dojo';
 import type { MySkillRow } from 'learning-app-kit/sync';
+import { trialLedgerActive, trialDojoToday } from '../../services/trialLedger';
 
 interface Props {
   townKey: string;
@@ -36,6 +39,8 @@ interface Playing { item: DojoItem; omakase: boolean; review: boolean }
 const ACCENT = '#b45309';
 
 const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonStamina, onClose }) => {
+  /** おためし・体験の「端末だけモード」（共通スタミナは無い・スタミナはすぐ入る・本番テストはスタミナにならない） */
+  const [trial] = useState(() => trialLedgerActive());
   const [tab, setTab] = useState<Tab>('practice');
   const [items, setItems] = useState<DojoItem[] | null>(null);
   const [today, setToday] = useState<DojoToday | null>(null);
@@ -99,9 +104,15 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
         const p = tr ? null : (playingRef.current ?? lastPlayingRef.current);
         if (!tr && !p) return;
         const rec = r as { moduleId: string; skillId: string; label: string; correct: boolean; mistakes?: number; abandoned?: boolean; missType?: string; missAnswer?: string };
-        if (tr) { recordDojo(tr.app, tr.app + TEST_ITEM_SUFFIX, rec as Parameters<typeof recordDojo>[2]); return; }
+        if (tr) { recordDojo(tr.app, tr.app + TEST_ITEM_SUFFIX, rec as Parameters<typeof recordDojo>[2], townKey); return; }
         if (!p) return;
-        recordDojo(p.item.app, p.item.key, rec);
+        const gained = recordDojo(p.item.app, p.item.key, rec, townKey);
+        if (trial) {
+          // 端末だけモード：台帳に もう入っている（町のスタミナは すぐ増える）。「さっき ためた分」は使わず、きょうの分を台帳から読みなおす
+          gainedRef.current += gained;
+          setToday(trialDojoToday());
+          return;
+        }
         if (rec.correct && !rec.abandoned) {
           const k = `${p.item.app}|${rec.skillId}`;
           const already = (todayRef.current?.earned[k] ?? 0) + (pendingRef.current[k] ?? 0);
@@ -205,7 +216,9 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
           </div>
         </header>
         <div className="shrink-0 px-3 py-1.5 text-center text-sm font-black" style={{ background: '#fef3c7', color: '#78350f' }}>
-          テストが おわると、てんすうに おうじて スタミナが たまるよ（2分ほどで 入るよ）
+          {trial
+            ? 'たいけん・おためしでは、テストで スタミナは たまらないよ（れんしゅうで たまるよ）'
+            : 'テストが おわると、てんすうに おうじて スタミナが たまるよ（2分ほどで 入るよ）'}
         </div>
         <div className="flex-1 min-h-0 p-2 sm:p-4">
           <div className="app-paper rounded-2xl text-left max-w-3xl mx-auto h-full overflow-hidden">
@@ -261,7 +274,7 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
               </p>
               <p className="text-sm font-bold text-slate-600 mt-1">
                 {result.gained > 0
-                  ? `⚡ スタミナ +${result.gained}（町の スタミナに 2分ほどで 入るよ）`
+                  ? `⚡ スタミナ +${result.gained}${trial ? '（町の スタミナに はいったよ）' : '（町の スタミナに 2分ほどで 入るよ）'}`
                   : result.perfect
                     ? (townFull ? '町の スタミナは まんタン' : 'この もんだいは きょうは もう たまらないよ')
                     : 'まちがえた もんだいは スタミナに ならないけど、きろくは のこるよ'}
@@ -307,14 +320,18 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
                 <div className="h-full bg-amber-500" style={{ width: `${(townNow / TOWN_CAP) * 100}%` }} />
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-black text-sky-700">共通スタミナ</p>
-              <p className="text-2xl font-black text-slate-800">⚡{commonStamina}</p>
-            </div>
+            {!trial && (
+              <div className="text-right">
+                <p className="text-xs font-black text-sky-700">共通スタミナ</p>
+                <p className="text-2xl font-black text-slate-800">⚡{commonStamina}</p>
+              </div>
+            )}
           </div>
           <p className="mt-2 text-white/90 text-xs font-bold leading-relaxed">
             1つの もんだいで ためられるのは 1日 {DAILY_SKILL_CAP}まで（ノーミスで 1問 1。熟達した もんだいは 0.5）。町の スタミナは {TOWN_CAP}まで。
-            ここで といた きろくは、アプリで といたのと 同じように せんせいに とどくよ。
+            {trial
+              ? 'たいけん・おためしの きろくは この たんまつ だけに のこるよ（せんせいには とどかないよ）。'
+              : 'ここで といた きろくは、アプリで といたのと 同じように せんせいに とどくよ。'}
           </p>
 
           {(error || todayState === 'failed' || rowsState === 'failed') && (
@@ -399,8 +416,9 @@ const DojoScreen: React.FC<Props> = ({ townKey, townName, townStamina, commonSta
           {tab === 'test' && (
             <div className="mt-3">
               <p className="text-white/90 text-sm font-bold mb-2 leading-relaxed">
-                アプリの 本番テストと 同じ もんだいで ちょうせん。てんすうが 高いほど スタミナが たくさん たまるよ
-                （ぜんぶ 満点で 20。その日 1回目は ぜんぶ、2・3回目は 半分）。8わり いじょうの 日が 3日で、町が ひらく じょうけんにも なるよ。
+                {trial
+                  ? 'アプリの 本番テストと 同じ もんだいで ちょうせん。たいけん・おためしでは、テストで スタミナは たまらないよ。'
+                  : 'アプリの 本番テストと 同じ もんだいで ちょうせん。てんすうが 高いほど スタミナが たくさん たまるよ（ぜんぶ 満点で 20。その日 1回目は ぜんぶ、2・3回目は 半分）。8わり いじょうの 日が 3日で、町が ひらく じょうけんにも なるよ。'}
               </p>
               {!tests && <p className="text-center text-white font-bold p-6">よみこみちゅう…</p>}
               {tests && tests.length === 0 && (

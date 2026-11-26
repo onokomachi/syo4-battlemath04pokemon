@@ -84,7 +84,9 @@ function collectSave(): Record<string, string> {
   const out: Record<string, string> = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (!k || EXCLUDE.has(k) || k === SAVED_AT) continue;
+    // bm_trial_ ではじまるのは おためし・体験の台帳（services/trialLedger.ts）。'trial' のセーブの中だけに入り、学級のセーブには まざらない。
+    // 学級の子は持っていないはずだが、万一 残っていても サーバへ送るセーブには入れない
+    if (!k || EXCLUDE.has(k) || k === SAVED_AT || k.startsWith('bm_trial_')) continue;
     if (SAVE_KEY_PATTERNS.some((re) => re.test(k))) out[k] = localStorage.getItem(k) ?? '';
   }
   return out;

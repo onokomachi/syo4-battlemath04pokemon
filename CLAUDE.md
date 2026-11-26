@@ -49,6 +49,7 @@ npm run build    # 本番ビルド(コミット前に必ず)
 - **モンスターを足した・強さの式を変えたら `node scripts/export-duel-monsters.mjs` の SQL をサーバで流す。kit のカタログ（項目）を変えたら `node scripts/export-town-skills.mjs` で `sanmon_town_skill` を作り直す。**
 - **平日モード・番号ごとの停止の判定はサーバ。** ここでは `portal.modeOpen` を見るだけ。
 - 名乗っていない（おためし・デモ・体験版）ときは記録をサーバに送らない。セーブは学級と別。
+- **体験・おためしの台帳（`services/trialLedger.ts`）は送信経路に乗せない。** kit の `createSyncedStorage`・`flushEvents`・サーバの関数を呼ばない。学級コードの子（`getStudent()` あり）には使わない（`docs/PORTAL.md`）。
 - **`apps/<app_id>/` は単元アプリの写し。手で直さない**（`npm run sync-apps`）。
 - **スタミナ道場の記録は、単元アプリの記録（その app_id）として送る。** `apps/_shims/progressStore` の `recordResult`（道場の受け取り口）を消さない。
 - **サブトピックを足したら**、図鑑の名簿（`legacyDex.ts` の `ADDED_DEX_ORDER`）の**いちばん後ろ**に足し、learning-app-kit のカタログ `sanmon` も作り直す。

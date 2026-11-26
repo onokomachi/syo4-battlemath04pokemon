@@ -3,26 +3,41 @@
  * スタミナは文字で出す（共通の数・共通だけでバトルあと何回）。町のスタミナは単元アプリ（または ぼうけんの町の スタミナ道場）の正解と本番テストの点数でたまる。どの町が あと何で開くかは 子ども用ハブで くわしく見られる。
  */
 import React, { useState } from 'react';
-import { SANMON_RULES } from 'learning-app-kit/sanmon';
+import { SANMON_RULES, SANMON_TRIAL_RULES } from 'learning-app-kit/sanmon';
 import type { SanmonPortal } from '../hooks/useSanmonPortal';
 
 const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
   const [open, setOpen] = useState(false);
   const pct = Math.min(100, (portal.stamina / SANMON_RULES.maxStamina) * 100);
   const openCount = portal.units.filter((u) => u.open).length;
+  // おためし・体験：町のスタミナだけ（共通は無い）。端末の台帳で数える（2026-11-26）
+  const trial = portal.ledgerMode;
+  const trialTotal = Object.values(portal.towns).reduce((a, b) => a + b, 0);
   return (
     <div className="relative z-30 w-full max-w-3xl mx-auto px-3 pt-3">
       <button onClick={() => setOpen((v) => !v)} className="w-full hud-panel rounded-xl px-4 py-2 text-left">
         <span className="flex items-center gap-3">
           <span className="text-amber-300 font-black text-sm shrink-0">スタミナ</span>
-          <span className="text-amber-100 font-bold text-sm tabular-nums shrink-0">
-            共通 {portal.student ? portal.stamina : '—'}<span className="text-amber-200/60"> / {SANMON_RULES.maxStamina}</span>
-          </span>
-          <span className="flex-1 h-2 rounded-full bg-black/50 overflow-hidden border border-amber-400/30">
-            <span className="block h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${pct}%` }} />
-          </span>
+          {trial ? (
+            <span className="flex-1 min-w-0 text-amber-100 font-bold text-xs truncate">町ごとに たまる（ぼうけんの マップで 見られるよ）</span>
+          ) : (
+            <>
+              <span className="text-amber-100 font-bold text-sm tabular-nums shrink-0">
+                共通 {portal.student ? portal.stamina : '—'}<span className="text-amber-200/60"> / {SANMON_RULES.maxStamina}</span>
+              </span>
+              <span className="flex-1 h-2 rounded-full bg-black/50 overflow-hidden border border-amber-400/30">
+                <span className="block h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${pct}%` }} />
+              </span>
+            </>
+          )}
           <span className="text-emerald-300 font-black text-xs shrink-0">ひらいた町 {openCount}/{portal.units.length}</span>
         </span>
+        {trial && (
+          <span className="mt-0.5 block text-[11px] text-amber-100/80">
+            ぜんぶの 町の スタミナ ごうけい <b className="text-amber-300 tabular-nums">{trialTotal}</b>
+            <span className="text-amber-100/50">　タップで くわしく</span>
+          </span>
+        )}
         {portal.student && (
           <span className="mt-0.5 block text-[11px] text-amber-100/80">
             町のスタミナは 町ごと（ぼうけんの マップで 見られるよ）。<b className="text-emerald-300">▶ 共通だけで バトル あと {Math.floor(portal.stamina / SANMON_RULES.battleCost)}回</b>
@@ -32,7 +47,23 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
       </button>
       {open && (
         <div className="mt-2 hud-panel rounded-xl p-3 text-xs text-gray-200 space-y-2">
-          {portal.student ? (
+          {trial ? (
+            // おためし・体験（2026-11-26）：端末の台帳で 町とスタミナを 数える。サーバには おくらない
+            <div className="space-y-2 leading-relaxed">
+              <p className="text-amber-200 font-black text-[13px]">たいけん・おためしの スタミナ　<span className="text-gray-300 font-bold">（きょう たまった：<b className="text-amber-300">{portal.earnedToday}</b>）</span></p>
+              <div className="rounded-lg bg-black/30 px-2.5 py-2">
+                <p className="font-black text-white">● 町を ひらく</p>
+                <p>れんしゅう・ふくしゅうで、その町の もんだいを {SANMON_TRIAL_RULES.masteryStreak}れんぞくノーミスで 「できた」に する。{SANMON_TRIAL_RULES.unlockMastered}こ できると 町が ひらいて、その町の スタミナを <b className="text-amber-300">{SANMON_TRIAL_RULES.startStamina}</b> もらえるよ（ぼうけんに つかえる）。</p>
+              </div>
+              <div className="rounded-lg bg-black/30 px-2.5 py-2">
+                <p className="font-black text-white">● バトルと スタミナ</p>
+                <p>ぼうけんの バトル 1回で <b className="text-amber-300">{SANMON_TRIAL_RULES.battleCost}</b>。その町の スタミナだけ つかうよ（{SANMON_TRIAL_RULES.townCap}まで）。</p>
+                <p>れんしゅう・ふくしゅう・ぼうけんの 町の「スタミナ道場」で 正解すると たまるよ（おなじ もんだいは 1日 {SANMON_TRIAL_RULES.perSkillDaily}まで。できた もんだいは はんぶん）。</p>
+              </div>
+              <p className="text-gray-300">スピードデュエル・モンスター対戦は スタミナなしで できるよ。</p>
+              <p className="text-amber-200 font-bold">たいけん・おためしの きろくは この たんまつ だけに のこるよ（せんせいには とどかないよ）。がっきゅうコードを 入れると、ほんとうの スタミナと 町に なるよ。</p>
+            </div>
+          ) : portal.student ? (
             // 子どもむけの説明（2026-11-11 先生の依頼で、長い文を 見出し＋短い1行に 分けた）
             <div className="space-y-2 leading-relaxed">
               <p className="text-amber-200 font-black text-[13px]">スタミナの しくみ　<span className="text-gray-300 font-bold">（きょう たまった：<b className="text-amber-300">{portal.earnedToday}</b>）</span></p>
@@ -72,12 +103,16 @@ const PortalStatusBar: React.FC<{ portal: SanmonPortal }> = ({ portal }) => {
             {portal.units.map((u) => (
               <div key={u.key} className={`rounded-lg px-2 py-1.5 border ${u.open ? 'border-emerald-400/50 bg-emerald-900/30 text-emerald-100' : 'border-white/10 bg-black/30 text-gray-400'}`}>
                 <div className="font-bold truncate">{u.open ? '🔓' : '🔒'} {u.name}</div>
-                {portal.student && u.key in portal.towns && <div className="text-[10px] text-amber-200/80 tabular-nums">町のスタミナ {portal.towns[u.key] ?? 0}/{SANMON_RULES.townCap} ▶ バトル あと {Math.floor(((portal.towns[u.key] ?? 0) + portal.stamina) / portal.townCost(u.key))}回（1回 {portal.townCost(u.key)}）</div>}
-                {!u.open && u.practice && (
+                {(portal.student || trial) && u.key in portal.towns && <div className="text-[10px] text-amber-200/80 tabular-nums">町のスタミナ {portal.towns[u.key] ?? 0}/{SANMON_RULES.townCap} ▶ バトル あと {Math.floor(((portal.towns[u.key] ?? 0) + portal.stamina) / portal.townCost(u.key))}回（1回 {portal.townCost(u.key)}）</div>}
+                {!u.open && u.practice && (trial ? (
+                  <div className="text-[10px] mt-0.5 tabular-nums">
+                    れんしゅう・ふくしゅうで {u.practice.need}項目 熟達：{Math.min(u.practice.have, u.practice.need)}/{u.practice.need}
+                  </div>
+                ) : (
                   <div className="text-[10px] mt-0.5 tabular-nums">
                     練習{u.practice.have}/{u.practice.need}・テスト{u.test!.have}/{u.test!.need}・階段{u.trial!.have}/{u.trial!.need}・{u.days!.have}/{u.days!.need}日
                   </div>
-                )}
+                ))}
               </div>
             ))}
           </div>
